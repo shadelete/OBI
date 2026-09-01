@@ -1,9 +1,9 @@
 # AGENTS.md — Output Bazis Info (OBI)
 
-Электрон-приложение, которое читает `data/db.json` и показывает/экспортирует данные мебельного проекта (материалы, профили, фурнитуру). Данные генерирует **скрипт Базиса** (`OBI_adv.js`), запускаемый внутри САПР «Базис». Пользователь запускает скрипт в Базис, тот пишет db.json и запускает OBI.exe.
+Электрон-приложение, которое читает `data/db.json` и показывает/экспортирует данные мебельного проекта (материалы, профили, фурнитуру). Данные генерирует **скрипт Базиса** (`OBI.js`), запускаемый внутри САПР «Базис». Пользователь запускает скрипт в Базис, тот пишет db.json и запускает OBI.exe.
 
 ## Две независимые части
-- **Скрипт Базиса** (корень): `OBI.js` (эталон/запуск через `__dirname`), `OBI_adv.js` (рабочий: вынимает состав фурнитуры, пишет db.json в 2 места, запускает OBI.exe), `OBI_test_nested.js` (диагностический probe, пишет в `data/obi_test_nested.txt`). Это НЕ часть electron-приложения.
+- **Скрипт Базиса** (корень): `OBI.js` — единственный рабочий/эталонный скрипт: вынимает состав фурнитуры через `GetParams('AdvParamData')`, пишет db.json в 2 места (корень + рядом с exe), запускает OBI.exe. Это НЕ часть electron-приложения.
 - **Electron-приложение**: `main.js`, `preload.js`, `src/renderer.js`, `src/export.js`, `src/index.html`. Основной исходник UI — `src/renderer.js`. Корневые `renderer.js`/`export.js` — gitignored-артефакты, в приложении не используются.
 
 ## Критичные факты о Bazis-скриптах (иначе всё сломается)
@@ -21,11 +21,15 @@
 ## Где OBI.exe берёт данные (частый источник «база есть, в интерфейсе пусто»)
 - `main.js`: `dbPath() = <папка exe>\data\db.json` (для portable — `PORTABLE_EXECUTABLE_DIR`, иначе папка exe). Dev-запуск `npx electron .` читает `data/db.json` корня проекта.
 - Поэтому **скрипт-генератор обязан писать db.json и в `папка_скрипта\data\`, и в `data\` рядом с найденным OBI.exe** (сейчас: `dist\data\db.json`). Проверка: `dist\data\db.json` должен обновляться по времени вместе с корневым.
-- Поиск exe (в `OBI_adv.js`): рядом со скриптом → сохранённый путь `data\exe_path.txt` → `dist\OBI.exe` → `dist\release\OBI.exe` → вверх до 4 родительских + cwd.
+- Поиск exe (в `OBI.js`): рядом со скриптом → сохранённый путь `data\exe_path.txt` → `dist\OBI.exe` → `dist\release\OBI.exe` → вверх до 4 родительских + cwd.
 
 ## Команды
 - Запуск UI в dev: `npm start` (или `npx electron .`, обёртка `launch.bat`).
-- Сборка portable exe: `npm run dist` (в `dist\`, имя `OBI.exe`) или `npm run build` (installer). Билд-конфиг — `package.json` → `build` (electron-builder, portable).
+- Сборка: `npm run dist` = `electron-builder --win --dir` — **только `dist\win-unpacked`, без portable-файла**. Финальный `dist\OBI.exe` даёт `npm run build` = `electron-builder --win` (portable). После релиза обновить `release\OBI-<ver>.zip` (OBI.exe + OBI.js + icon.bmp) вручную из `dist\OBI.exe` и текущего `OBI.js`.
+
+## Релизный процесс (актуальный тег — v0.1.1)
+- 1) поднять `version` в `package.json`, 2) `npm run build` (OBI.exe), 3) собрать `release\OBI-<ver>.zip`, 4) коммит + тег `v<ver>` + `push origin main --tags` (или `git push origin v<ver>`), 5) `gh release create v<ver> release\OBI-<ver>.zip release\OBI.js -R shadelete/OBI --title "OBI <ver>"`.
+- Полезное: `git tag v0.1.1 f6839e1` создаёт тег на конкретном коммите, `gh release create` выводит URL релиза.
 
 ## Схема db.json
 `{ date, totalObjects, panelsCount, profilesCount, fastenersCount, materials[], profiles[], fittings[] }`
