@@ -70,7 +70,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .parts-list { margin-top: 10px; border-top: 1px solid #eef2f7; padding-top: 8px; max-height: 240px; overflow-y: auto; }
 .detail-row { font-size: 12px; color: #6b7686; padding: 2px 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
 .detail-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
-.detail-dim { color: #2b6de0; white-space: nowrap; text-align: right; justify-self: end; }
+.detail-dim { color: #2b6de0; white-space: nowrap; text-align: right; justify-self: end; grid-column: 3; }
 
 .edges-block { margin-top: 10px; border-top: 1px solid #eef2f7; padding-top: 8px; }
 .edges-title { font-size: 11px; font-weight: 600; color: #8a94a6; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
@@ -104,7 +104,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .fit-edit-code:focus, .fit-edit-count:focus { outline: none; border-color: #2b6de0; }
 
 .detail-count { color: #2b6de0; font-weight: 600; white-space: nowrap; }
-.detail-cuts { color: #8a5a00; background: #fff3e0; border-radius: 8px; padding: 1px 8px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; justify-self: center; }
+.detail-cuts { color: #8a5a00; background: #fff3e0; border-radius: 8px; padding: 1px 8px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; justify-self: center; grid-column: 2; }
 .detail-cuts-count { color: #c77700; font-weight: 700; margin-left: 3px; }
 .badge-cut { background: #fff3e0; color: #c77700; }
 
