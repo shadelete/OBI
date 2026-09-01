@@ -1,8 +1,17 @@
 // ============================================================
-// OBI - BUILD SCRIPTER COMBINED
+// OBI - ADV: как OBI.js, но состав фурнитуры вынимается через
+// GetParams('AdvParamData') -> FindNode('Elements')
 // 1. Scan model
 // 2. Save to data/db.json (UTF-8)
 // 3. Launch OBI.exe
+//
+// Правило для фурнитуры С составом:
+//   - родитель остаётся в db как позиция с полем elements (вложенность),
+//     чтобы в базе было видно, из чего состоит;
+//   - элементы состава (все уровни вложенности) добавляются в fittings
+//     отдельными позициями (isComposition: true);
+//   - элемент, совпадающий с самим родителем (имя+код), в список НЕ попадает.
+// Без состава - крепёж добавляется просто как позиция.
 // ============================================================
 
 var materials = {};   // TFurnPanel -> keyed by matName|thickness, with per-material edges
@@ -13,8 +22,10 @@ var panelsCount = 0;
 var profilesCount = 0;
 var fastenersCount = 0;
 var draftsCount = 0;
+var compositeCount = 0; // фурнитур, у которых найден состав (AdvParamData/Elements)
+var compositionItems = {}; // элементы состава по ключу name|code
 
-// Extract article from a name like "...РјРј\r26534"
+// Extract article from a name like "...мм\r26534"
 // Splits on carriage-return, returns { name, code }
 function splitName(str) {
     if (!str) return { name: str || "", code: "" };
@@ -25,6 +36,71 @@ function splitName(str) {
         return { name: name, code: code };
     }
     return { name: str, code: "" };
+}
+
+// --- извлекаем состав фурнитуры (как в присланном скрипте) ---
+// Имя/код узла: из node.Name, либо из node.Value ("Имя\rКод").
+function nodeNameCode(node) {
+    var name = "", value = "";
+    try { name = node.Name || ""; } catch (e) { name = ""; }
+    try { value = node.Value || ""; } catch (e) { value = ""; }
+    var sn = splitName(name);
+    var sv = splitName(value);
+    if (!sn.name && sv.name) sn.name = sv.name;
+    if (!sn.code && sv.code) sn.code = sv.code;
+    return sn;
+}
+
+function buildElementsTree(node) {
+    var result = [];
+    try {
+        var c = node.Count;
+        if (!c || c === 0) return result;
+        for (var i = 0; i < c; i++) {
+            var child = null;
+            try { child = node.Nodes[i]; } catch (e) {}
+            if (!child) continue;
+            var nc = nodeNameCode(child);
+            var childCount = 0;
+            try { if (child.Count) childCount = child.Count; } catch (e) {}
+            var nested = [];
+            if (childCount > 0) nested = buildElementsTree(child);
+            result.push({ name: nc.name, code: nc.code, count: childCount, nested: nested });
+        }
+    } catch (e) {}
+    return result;
+}
+
+function getFastenerElements(fastener) {
+    try {
+        var adv = fastener.GetParams('AdvParamData');
+        if (!adv) return null;
+        var elements = adv.FindNode('Elements');
+        if (!elements || !elements.Count || elements.Count === 0) return null;
+        return buildElementsTree(elements);
+    } catch (e) {
+        return null;
+    }
+}
+
+// Выпрямляет дерево состава в плоский список ВСЕХ узлов всех уровней.
+function flattenElements(elements, out) {
+    if (!out) out = [];
+    for (var i = 0; i < elements.length; i++) {
+        var e = elements[i];
+        if (!e.name) continue;
+        out.push(e);
+        if (e.nested && e.nested.length > 0) flattenElements(e.nested, out);
+    }
+    return out;
+}
+
+// Согласуется ли узел состава с самим родителем (имя+код)?
+function isSameAsParent(e, parentName, parentCode) {
+    if (!e || !e.name) return false;
+    if (e.name !== parentName) return false;
+    if (parentCode) return e.code === parentCode;
+    return true;
 }
 
 function scanObject(obj) {
@@ -163,10 +239,47 @@ function scanObject(obj) {
             fastenersCount++;
             var name = obj.Name || "Unknown fitting";
             var info = splitName(name);
-            if (!fittings[info.name]) {
-                fittings[info.name] = { name: info.name, code: info.code, count: 0 };
+
+            // состав фурнитуры (все уровни вложенности)
+            var elements = getFastenerElements(obj);
+            if (elements && elements.length > 0) {
+                compositeCount++;
+
+                // родитель: позиция с вложенным составом (elements)
+                if (!fittings[info.name]) {
+                    fittings[info.name] = {
+                        name: info.name,
+                        code: info.code,
+                        count: 0,
+                        isComposite: true,
+                        elements: elements
+                    };
+                } else {
+                    fittings[info.name].count = fittings[info.name].count || 0;
+                    fittings[info.name].isComposite = true;
+                    fittings[info.name].elements = elements;
+                }
+                fittings[info.name].count++;
+
+                // элементы состава - отдельные позиции в fittings
+                // (без узла, совпадающего с самим родителем)
+                var flat = flattenElements(elements);
+                for (var ei = 0; ei < flat.length; ei++) {
+                    var ev = flat[ei];
+                    if (isSameAsParent(ev, info.name, info.code)) continue;
+                    var eKey = "EL:" + ev.name + "|" + (ev.code || "");
+                    if (!compositionItems[eKey]) {
+                        compositionItems[eKey] = { name: ev.name, code: ev.code || "", count: 0, isComposition: true };
+                    }
+                    compositionItems[eKey].count++;
+                }
+            } else {
+                // одиночный крепёж без состава - добавляем сам объект
+                if (!fittings[info.name]) {
+                    fittings[info.name] = { name: info.name, code: info.code, count: 0 };
+                }
+                fittings[info.name].count++;
             }
-            fittings[info.name].count++;
         }
     } catch (e) {}
 
@@ -196,7 +309,19 @@ try {
     Action.Finish();
 }
 
-alert("\u041E\u0422\u0421\u041A\u0410\u041D\u0418\u0420\u041E\u0412\u0410\u041D\u041E\n\u0414\u0435\u0442\u0430\u043B\u0435\u0439: " + panelsCount + "\n\u041F\u0440\u043E\u0444\u0438\u043B\u0435\u0439: " + profilesCount + "\n\u0424\u0443\u0440\u043D\u0438\u0442\u0443\u0440\u044B: " + fastenersCount + "\n\u041F/\u0444 \u0437\u0430\u0433\u043E\u0442\u043E\u0432\u043E\u043A: " + draftsCount);
+// объединяем элементы состава в общий список фурнитуры
+var compKeys = Object.keys(compositionItems);
+for (var ci = 0; ci < compKeys.length; ci++) {
+    var compObj = compositionItems[compKeys[ci]];
+    if (!fittings[compObj.name]) {
+        fittings[compObj.name] = compObj;
+    } else {
+        fittings[compObj.name].count = (fittings[compObj.name].count || 0) + compObj.count;
+        if (compObj.code && !fittings[compObj.name].code) fittings[compObj.name].code = compObj.code;
+    }
+}
+
+alert("\u041E\u0422\u0421\u041A\u0410\u041D\u0418\u0420\u041E\u0412\u0410\u041D\u041E\n\u0414\u0435\u0442\u0430\u043B\u0435\u0439: " + panelsCount + "\n\u041F\u0440\u043E\u0444\u0438\u043B\u0435\u0439: " + profilesCount + "\n\u0424\u0443\u0440\u043D\u0438\u0442\u0443\u0440\u044B: " + fastenersCount + "\u00A0(\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432 \u0441\u043E\u0441\u0442\u0430\u0432\u0430: " + compKeys.length + ")\n\u0421 \u0441\u043E\u0441\u0442\u0430\u0432\u043E\u043C: " + compositeCount + "\n\u041F/\u0444 \u0437\u0430\u0433\u043E\u0442\u043E\u0432\u043E\u043A: " + draftsCount);
 
 function toEdgeArray(edgesObj) {
     return Object.values(edgesObj);
@@ -232,14 +357,8 @@ var jsonData = {
 var jsonString = JSON.stringify(jsonData, null, 2);
 
 // --- Paths ---
-// OBI.exe lookup order:
-//   1. next to the script  (release / dev if placed adjacent)
-//   2. saved manual choice (data\exe_path.txt next to the script)
-//   3. dev builds in subfolders: dist\OBI.exe, dist\release\OBI.exe
-//   4. walking up to 4 parent folders, then the current working directory
-//      (each checked for OBI.exe and dist\OBI.exe)
-// The JSON is always written into `data` next to the found exe,
-// because the app reads its database relative to its own folder.
+// DB всегда пишется в data\db.json РЯДОМ СО СКРИПТОМ (корень проекта).
+// OBI.exe ищется по-прежнему (рядом/ранее выбранный/пользователем), но используется только для запуска.
 var scriptDir = "";
 if (typeof __dirname !== "undefined" && __dirname) {
     scriptDir = __dirname;
@@ -329,18 +448,21 @@ if (!EXE_PATH) {
     alert("OBI.exe \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D.\n\u041F\u0440\u043E\u0432\u0435\u0440\u0435\u043D\u044B: \u043F\u0430\u043F\u043A\u0430 \u0441\u043A\u0440\u0438\u043F\u0442\u0430, dist\\, \u0432\u0435\u0440\u0445\u043D\u0438\u0435 \u043F\u0430\u043F\u043A\u0438, \u0440\u0430\u0431\u043E\u0447\u0438\u0439 \u043A\u0430\u0442\u0430\u043B\u043E\u0433.\n\u0421\u043A\u043E\u043F\u0438\u0440\u0443\u0439\u0442\u0435 OBI.exe \u0440\u044F\u0434\u043E\u043C \u0441 OBI.js \u0438\u043B\u0438 \u0432 \u043F\u0430\u043F\u043A\u0443 dist.");
     Action.Finish();
 } else {
-    var EXE_DIR = parentDir(EXE_PATH);
-    var DATA_DIR = (EXE_DIR || scriptDir || ".") + "\\data";
-    var DB_PATH = DATA_DIR + "\\db.json";
+    var DATA_DIR = (scriptDir || ".") + "\\data";
+    var EXE_DATA_DIR = (parentDir(EXE_PATH) || ".") + "\\data";
 
     try {
         var fs = require('fs');
         if (!fs.existsSync(DATA_DIR)) {
             fs.mkdirSync(DATA_DIR);
         }
-        fs.writeFileSync(DB_PATH, jsonString, 'utf-8');
+        fs.writeFileSync(DATA_DIR + "\\db.json", jsonString, 'utf-8');
+        if (EXE_DATA_DIR && EXE_DATA_DIR !== DATA_DIR) {
+            if (!fs.existsSync(EXE_DATA_DIR)) fs.mkdirSync(EXE_DATA_DIR);
+            fs.writeFileSync(EXE_DATA_DIR + "\\db.json", jsonString, 'utf-8');
+        }
     } catch (e) {
-        alert("\u041E\u0428\u0418\u0411\u041A\u0410 \u0421\u041E\u0425\u0420\u0410\u041D\u0415\u041D\u0418\u042F: " + e.message);
+        alert("\u041E\u0428\u0418\u0411\u041A\u0410 \u0421\u041E\u0425\u0420\u0410\u041D\u0415\u041D\u0418\u042f: " + e.message);
         Action.Finish();
     }
 
