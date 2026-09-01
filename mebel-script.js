@@ -56,10 +56,36 @@ function scanObject(obj) {
 
             var w = obj.ContourWidth || 0;
             var h = obj.ContourHeight || 0;
+
+            var cuts = [];
+            if (obj.Cuts) {
+                try {
+                    for (var ci = 0; ci < obj.Cuts.Count; ci++) {
+                        var cut = obj.Cuts.Cuts[ci];
+                        if (!cut) continue;
+                        var cName = cut.Name || "";
+                        var cSign = cut.Sign || "";
+                        if (!cSign && cut.Params && cut.Params.Sign) cSign = cut.Params.Sign;
+                        var cutType = "";
+                        try {
+                            cutType = (cut.CutType === panelOperations.cutType.extrusion) ? "extrusion" : "freeForm";
+                        } catch (e2) {}
+                        cuts.push({
+                            name: cName,
+                            sign: cSign,
+                            type: cutType,
+                            thickness: cut.Thickness || 0,
+                            frontSide: !!cut.FrontSide
+                        });
+                    }
+                } catch (eCut) {}
+            }
+
             m.details.push({
                 name: obj.Name || "Panel",
                 width: Math.round(w),
-                height: Math.round(h)
+                height: Math.round(h),
+                cuts: cuts
             });
 
             if (obj.Butts) {

@@ -20,6 +20,13 @@ function cellValue(item, h) {
   return (v ?? '').toString();
 }
 
+function cutsText(d) {
+  const c = d.cuts || [];
+  if (!c.length) return '';
+  const parts = c.map(cu => cu.sign || cu.name).filter(Boolean);
+  return parts.length ? parts.join('; ') : `${c.length} паз`;
+}
+
 // ---- CSV/JSON export (unchanged logic) ----
 function exportSection(rows, title, items) {
   if (!items || items.length === 0) return;
@@ -31,7 +38,10 @@ function exportSection(rows, title, items) {
       const edges = (item.edges || []).map(e =>
         `${e.name} (${e.width || 0}мм)${e.code ? ' арт.' + e.code : ''}`
       ).join(', ');
-      const details = (item.details || []).map(d => `${d.name} (${d.width}x${d.height})`).join('; ');
+      const details = (item.details || []).map(d => {
+        const c = cutsText(d);
+        return `${d.name} (${d.width}x${d.height})${c ? ` [${c}]` : ''}`;
+      }).join('; ');
       rows.push(`${item.name};${item.code || ''};${item.thickness};${item.count};${edges};${details}`);
     }
   } else if (title === 'Профили') {
@@ -100,17 +110,19 @@ function materialsHeader(ws, r) {
   ws.mergeCells(r, 2, r + 1, 2);
   ws.mergeCells(r, 3, r + 1, 3);
   ws.mergeCells(r, 4, r, 5);
+  ws.mergeCells(r, 6, r + 1, 6);
   ws.getCell(r + 1, 4).value = 'Довжина';
   ws.getCell(r + 1, 5).value = 'Ширина';
+  ws.getCell(r, 6).value = 'Паз';
   for (let row = r; row <= r + 1; row++) {
-    for (let c = 1; c <= 5; c++) {
+    for (let c = 1; c <= 6; c++) {
       const cell = ws.getCell(row, c);
       hdr(cell);
       solid(cell, FILL_PEACH);
       cell.border = {
         left: BORDER, right: BORDER,
         top: BORDER,
-        bottom: (row === r) ? undefined : ((c === 4 || c === 5) ? BORDER : undefined)
+        bottom: (row === r) ? undefined : ((c === 4 || c === 5 || c === 6) ? BORDER : undefined)
       };
     }
     ws.getRow(row).height = 15.75;
@@ -118,15 +130,16 @@ function materialsHeader(ws, r) {
 }
 
 // Row of material detail data
-function materialDataRow(ws, r, poz, name, qty, width, height) {
+function materialDataRow(ws, r, poz, name, qty, width, height, cuts) {
   ws.getCell(r, 1).value = poz;
   ws.getCell(r, 2).value = name;
   ws.getCell(r, 3).value = qty;
   ws.getCell(r, 4).value = width;
   ws.getCell(r, 5).value = height;
-  for (let c = 1; c <= 5; c++) {
+  ws.getCell(r, 6).value = cuts;
+  for (let c = 1; c <= 6; c++) {
     const cell = ws.getCell(r, c);
-    dataCell(cell, c === 2 ? 'left' : 'center');
+    dataCell(cell, (c === 2 || c === 6) ? 'left' : 'center');
   }
   ws.getRow(r).height = 15.75;
 }
@@ -159,17 +172,17 @@ function profileDataRow(ws, r, poz, name, qty, length) {
 function materialsSheet(wb, materials) {
   const ws = wb.addWorksheet('Матеріали');
   ws.columns = [
-    { width: 7.7 }, { width: 28.7 }, { width: 8.7 }, { width: 10.7 }, { width: 10.7 }
+    { width: 7.7 }, { width: 28.7 }, { width: 8.7 }, { width: 10.7 }, { width: 10.7 }, { width: 20.7 }
   ];
   let row = 1;
   const list = (materials || []).filter(exported);
   list.forEach((m, i) => {
-    titleRow(ws, row, m.name || 'Матеріал', 5);
+    titleRow(ws, row, m.name || 'Матеріал', 6);
     materialsHeader(ws, row + 1);
     const details = m.details || [];
     let poz = 1;
     details.forEach(d => {
-      materialDataRow(ws, row + 3 + (poz - 1), poz, d.name, 1, d.width, d.height);
+      materialDataRow(ws, row + 3 + (poz - 1), poz, d.name, 1, d.width, d.height, cutsText(d));
       poz++;
     });
     row = row + 3 + details.length + (i < list.length - 1 ? 1 : 0);

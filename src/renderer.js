@@ -95,6 +95,16 @@ function fmtCode(code) {
   return code ? code : '—';
 }
 
+function detailCuts(d) {
+  const c = d.cuts || [];
+  if (!c.length) return null;
+  const labels = c.map(cu => cu.sign || cu.name).filter(Boolean);
+  return {
+    count: c.length,
+    text: labels.length ? labels.join('; ') : 'Паз'
+  };
+}
+
 function renderMaterials() {
   const list = document.getElementById('materials-list');
   const mats = db.materials || [];
@@ -109,15 +119,21 @@ function renderMaterials() {
     const edgeBlock = (m.edges && m.edges.length)
       ? `<div class="edges-block"><div class="edges-title">Кромка:</div>${edges}</div>`
       : `<div class="edges-block"><div class="edges-title">Кромка:</div><div class="edge-item edge-none">Без кромки</div></div>`;
-    const details = (m.details || []).map(d =>
-      `<div class="detail-row">${escapeHtml(d.name)} <span class="detail-dim">${d.width}×${d.height} мм</span></div>`
-    ).join('');
+    const details = (m.details || []).map(d => {
+      const cuts = detailCuts(d);
+      const cutsHtml = cuts
+        ? `<span class="detail-cuts" title="${escapeAttr(cuts.text)}">${escapeHtml(cuts.text)} <span class="detail-cuts-count">${cuts.count}</span></span>`
+        : '';
+      return `<div class="detail-row">${escapeHtml(d.name)} <span class="detail-dim">${d.width}×${d.height} мм</span>${cutsHtml}</div>`;
+    }).join('');
+    const cutTotal = (m.details || []).reduce((s, d) => s + ((d.cuts || []).length), 0);
     return `
       <div class="card">
         <div class="card-header">
           <span class="card-title material-title">${escapeHtml(m.name)}</span>
           <div class="card-badges">
             <span class="card-badge badge-material">${thickness} мм</span>
+            ${cutTotal ? `<span class="card-badge badge-cut">${cutTotal} паз${cutTotal > 1 ? 'ів' : ''}</span>` : ''}
             <label class="exp-label" title="Включити в експорт">
               <input type="checkbox" class="exp-check" ${isExported(m) ? 'checked' : ''} onchange="saveMatExport(${idx}, this.checked)">
               <span>Експорт</span>

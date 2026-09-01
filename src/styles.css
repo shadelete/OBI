@@ -103,6 +103,9 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .fit-edit-code:focus, .fit-edit-count:focus { outline: none; border-color: #2b6de0; }
 
 .detail-count { color: #2b6de0; font-weight: 600; white-space: nowrap; }
+.detail-cuts { color: #8a5a00; background: #fff3e0; border-radius: 8px; padding: 1px 8px; font-size: 11px; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail-cuts-count { color: #c77700; font-weight: 700; margin-left: 3px; }
+.badge-cut { background: #fff3e0; color: #c77700; }
 
 .fit-columns { display: flex; gap: 14px; align-items: flex-start; overflow-x: auto; padding-bottom: 8px; user-select: none; position: relative; }
 .fit-columns input, .fit-columns select { user-select: text; }
