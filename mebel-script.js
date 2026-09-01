@@ -170,7 +170,7 @@ try {
     Action.Finish();
 }
 
-alert("ОТСКАНИРОВАНО\nДеталей: " + panelsCount + "\nПрофилей: " + profilesCount + "\nФурнитуры: " + fastenersCount + "\nП/ф заготовок: " + draftsCount);
+alert("\u041E\u0422\u0421\u041A\u0410\u041D\u0418\u0420\u041E\u0412\u0410\u041D\u041E\n\u0414\u0435\u0442\u0430\u043B\u0435\u0439: " + panelsCount + "\n\u041F\u0440\u043E\u0444\u0438\u043B\u0435\u0439: " + profilesCount + "\n\u0424\u0443\u0440\u043D\u0438\u0442\u0443\u0440\u044B: " + fastenersCount + "\n\u041F/\u0444 \u0437\u0430\u0433\u043E\u0442\u043E\u0432\u043E\u043A: " + draftsCount);
 
 function toEdgeArray(edgesObj) {
     return Object.values(edgesObj);
@@ -211,44 +211,47 @@ var jsonString = JSON.stringify(jsonData, null, 2);
 var scriptDir = "";
 if (typeof __dirname !== "undefined" && __dirname) {
     scriptDir = __dirname;
-}
-if (!scriptDir) {
-    if (typeof process !== "undefined" && process.cwd && process.cwd()) {
-        scriptDir = process.cwd();
-    }
-}
-if (!scriptDir) {
-    alert("Не удалось определить папку программы.\nПоместите mebel-script.js и OBI.exe в одну папку и запустите скрипт из неё.");
-    Action.Finish();
-}
-var DATA_DIR = scriptDir + "\\data";
-var DB_PATH = DATA_DIR + "\\db.json";
-var EXE_PATH = scriptDir + "\\OBI.exe";
-
-try {
-    var fs = require('fs');
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(DB_PATH, jsonString, 'utf-8');
-} catch (e) {
-    alert("ОШИБКА СОХРАНЕНИЯ: " + e.message);
-    Action.Finish();
+} else if (typeof __filename !== "undefined" && __filename) {
+    scriptDir = __filename.substring(0, __filename.lastIndexOf("\\"));
+} else if (typeof process !== "undefined" && process.cwd && process.cwd()) {
+    scriptDir = process.cwd();
 }
 
-try {
-    var fs = require('fs');
-    var exec = require('child_process').exec;
-    if (!fs.existsSync(EXE_PATH)) {
-        alert("EXE НЕ НАЙДЕН: " + EXE_PATH + "\nПоместите OBI.exe рядом с mebel-script.js");
-        Action.Finish();
-        return;
-    }
-    exec('start "" "' + EXE_PATH + '"', function(error) {
-        if (error) {
-            alert("ОШИБКА ЗАПУСКА: " + error.message);
+if (!scriptDir) {
+    alert("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0433\u0440\u0430\u043C\u043C\u044B.\n\u041F\u043E\u043C\u0435\u0441\u0442\u0438\u0442\u0435 mebel-script.js \u0438 OBI.exe \u0432 \u043E\u0434\u043D\u0443 \u043F\u0430\u043F\u043A\u0443 \u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437.");
+    Action.Finish();
+} else {
+    var DATA_DIR = scriptDir + "\\data";
+    var DB_PATH = DATA_DIR + "\\db.json";
+    var EXE_PATH = scriptDir + "\\OBI.exe";
+
+    try {
+        var fs = require('fs');
+        if (!fs.existsSync(DATA_DIR)) {
+            fs.mkdirSync(DATA_DIR);
         }
+        fs.writeFileSync(DB_PATH, jsonString, 'utf-8');
+    } catch (e) {
+        alert("\u041E\u0428\u0418\u0411\u041A\u0410 \u0421\u041E\u0425\u0420\u0410\u041D\u0415\u041D\u0418\u042F: " + e.message);
         Action.Finish();
-    });
-} catch (e) {
-    alert("ОШИБКА ЗАПУСКА: " + e.message);
-    Action.Finish();
+    }
+
+    try {
+        var fs = require('fs');
+        var exec = require('child_process').exec;
+        if (!fs.existsSync(EXE_PATH)) {
+            alert("EXE \u041D\u0415 \u041D\u0410\u0419\u0414\u0415\u041D: " + EXE_PATH + "\n\u041F\u043E\u043C\u0435\u0441\u0442\u0438\u0442\u0435 OBI.exe \u0440\u044F\u0434\u043E\u043C \u0441 mebel-script.js");
+            Action.Finish();
+        } else {
+            exec('start "" "' + EXE_PATH + '"', function(error) {
+                if (error) {
+                    alert("\u041E\u0428\u0418\u0411\u041A\u0410 \u0417\u0410\u041F\u0423\u0421\u041A\u0410: " + error.message);
+                }
+                Action.Finish();
+            });
+        }
+    } catch (e) {
+        alert("\u041E\u0428\u0418\u0411\u041A\u0410 \u0417\u0410\u041F\u0423\u0421\u041A\u0410: " + e.message);
+        Action.Finish();
+    }
 }
