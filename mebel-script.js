@@ -2,10 +2,8 @@
 // OBI - BUILD SCRIPTER COMBINED
 // 1. Scan model
 // 2. Save to data/db.json (UTF-8)
-// 3. Launch program
+// 3. Launch OBI.exe
 // ============================================================
-
-alert("STEP 1: SCANNING MODEL...");
 
 var materials = {};   // TFurnPanel -> keyed by matName|thickness, with per-material edges
 var profiles = {};    // TExtrusionBody
@@ -172,9 +170,7 @@ try {
     Action.Finish();
 }
 
-alert("STEP 2: FOUND\nObjects: " + totalObjects + "\nPanels: " + panelsCount + "\nProfiles: " + profilesCount + "\nFittings: " + fastenersCount + "\nSemi-finished: " + draftsCount);
-
-alert("STEP 3: SAVING JSON...");
+alert("ОТСКАНИРОВАНО\nДеталей: " + panelsCount + "\nПрофилей: " + profilesCount + "\nФурнитуры: " + fastenersCount + "\nП/ф заготовок: " + draftsCount);
 
 function toEdgeArray(edgesObj) {
     return Object.values(edgesObj);
@@ -209,41 +205,50 @@ var jsonData = {
 
 var jsonString = JSON.stringify(jsonData, null, 2);
 
-// D:\BazisMain\Скрипты\INFO DEV\data\db.json
-// path uses unicode escapes to avoid CP1251 corruption
-var PROJECT_DIR = "D:\\BazisMain\\\u0421\u043a\u0440\u0438\u043f\u0442\u044b\\INFO DEV";
-var DATA_DIR = PROJECT_DIR + "\\data";
+// --- Paths ---
+// The script auto-detects its own folder.
+// Put mebel-script.js and OBI.exe in one folder (folder name without Cyrillic recommended).
+var scriptDir = "";
+if (typeof __dirname !== "undefined" && __dirname) {
+    scriptDir = __dirname;
+}
+if (!scriptDir) {
+    if (typeof process !== "undefined" && process.cwd && process.cwd()) {
+        scriptDir = process.cwd();
+    }
+}
+if (!scriptDir) {
+    alert("Не удалось определить папку программы.\nПоместите mebel-script.js и OBI.exe в одну папку и запустите скрипт из неё.");
+    Action.Finish();
+}
+var DATA_DIR = scriptDir + "\\data";
 var DB_PATH = DATA_DIR + "\\db.json";
+var EXE_PATH = scriptDir + "\\OBI.exe";
 
 try {
     var fs = require('fs');
+    fs.mkdirSync(DATA_DIR, { recursive: true });
     fs.writeFileSync(DB_PATH, jsonString, 'utf-8');
-    alert("SAVED: " + DB_PATH);
 } catch (e) {
-    alert("SAVE ERROR: " + e.message);
+    alert("ОШИБКА СОХРАНЕНИЯ: " + e.message);
     Action.Finish();
 }
-
-alert("STEP 4: LAUNCHING...");
 
 try {
     var fs = require('fs');
     var exec = require('child_process').exec;
-    var batPath = PROJECT_DIR + "\\launch.bat";
-    if (fs.existsSync(batPath)) {
-        exec('start "" "' + batPath + '"', function(error) {
-            if (error) {
-                alert("LAUNCH ERROR: " + error.message);
-            } else {
-                alert("LAUNCHED!");
-            }
-            Action.Finish();
-        });
-    } else {
-        alert("BAT NOT FOUND: " + batPath);
+    if (!fs.existsSync(EXE_PATH)) {
+        alert("EXE НЕ НАЙДЕН: " + EXE_PATH + "\nПоместите OBI.exe рядом с mebel-script.js");
         Action.Finish();
+        return;
     }
+    exec('start "" "' + EXE_PATH + '"', function(error) {
+        if (error) {
+            alert("ОШИБКА ЗАПУСКА: " + error.message);
+        }
+        Action.Finish();
+    });
 } catch (e) {
-    alert("LAUNCH ERROR: " + e.message);
+    alert("ОШИБКА ЗАПУСКА: " + e.message);
     Action.Finish();
 }

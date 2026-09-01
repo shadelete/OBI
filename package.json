@@ -1,6 +1,6 @@
 {
   "name": "output-bazis-info",
-  "version": "0.2.0",
+  "version": "0.0.1",
   "description": "Output Bazis Info",
   "main": "main.js",
   "scripts": {
@@ -16,7 +16,8 @@
     },
     "win": {
       "target": "portable",
-      "icon": "icon.png"
+      "icon": "icon.png",
+      "artifactName": "OBI.exe"
     },
     "files": [
       "main.js",

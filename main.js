@@ -5,7 +5,26 @@ const { exportToXLSXBuffer } = require('./src/export');
 
 let mainWindow;
 
+function dataDir() {
+  if (process.env.PORTABLE_EXECUTABLE_DIR) return process.env.PORTABLE_EXECUTABLE_DIR;
+  if (app.isPackaged) return path.dirname(app.getPath('exe'));
+  return __dirname;
+}
+
+function dbPath() {
+  return path.join(dataDir(), 'data', 'db.json');
+}
+
+function ensureDB() {
+  const p = dbPath();
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  if (!fs.existsSync(p)) {
+    fs.writeFileSync(p, JSON.stringify({ date: new Date().toString(), materials: [], profiles: [], fittings: [] }, null, 2), 'utf-8');
+  }
+}
+
 function createWindow() {
+  ensureDB();
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -57,8 +76,7 @@ const windows1251 = (() => {
 })();
 
 function readDB() {
-  const dbPath = path.join(__dirname, 'data', 'db.json');
-  const buf = fs.readFileSync(dbPath);
+  const buf = fs.readFileSync(dbPath());
   let text = buf.toString('utf-8');
   if (text.includes('\uFFFD')) {
     text = buf.toString('latin1')
@@ -78,8 +96,7 @@ ipcMain.handle('window-close', () => {
 });
 
 ipcMain.handle('save-db', (event, data) => {
-  const dbPath = path.join(__dirname, 'data', 'db.json');
-  fs.writeFileSync(dbPath, JSON.stringify(data, null, 2), 'utf-8');
+  fs.writeFileSync(dbPath(), JSON.stringify(data, null, 2), 'utf-8');
   return { success: true };
 });
 
