@@ -1,208 +1,322 @@
 {
-  "date": "Tue Sep 01 2026 14:10:15 GMT+0300 (Финляндия (лето))",
-  "totalObjects": 811,
-  "panelsCount": 307,
-  "profilesCount": 19,
-  "fastenersCount": 112,
+  "date": "Tue Sep 01 2026 15:14:22 GMT+0300 (Финляндия (лето))",
+  "totalObjects": 846,
+  "panelsCount": 171,
+  "profilesCount": 41,
+  "fastenersCount": 131,
   "materials": [
     {
-      "name": "ДСП Kronospan 7045 SU Шампань/Сатин 2800x2070x18 мм",
-      "code": "31583",
+      "name": "ДСП Kronospan K 017 PW Вяз Либерти светлый 2800x2070x18 мм",
+      "code": "26534",
       "thickness": 18,
-      "count": 30,
+      "count": 37,
       "edges": [
         {
-          "name": "94564 Крайка ABS Шампань 23x0,8мм (150 м.п.) REHAU",
-          "code": "87208",
-          "width": 23,
-          "thickness": 0.8,
-          "count": 28
-        },
-        {
-          "name": "94564 Крайка ABS Шампань 22x0,4мм (300 м.п.) REHAU",
-          "code": "14447",
+          "name": "3029W Крайка ABS Вяз Ліберті Світлий 22x0,4мм (300 м.п.) REHAU",
+          "code": "28812",
           "width": 22,
           "thickness": 0.4,
-          "count": 57
+          "count": 106
+        },
+        {
+          "name": "3029W Крайка ABS Вяз Ліберті Світлий 23x0,8мм (150 м.п.) REHAU",
+          "code": "87145",
+          "width": 23,
+          "thickness": 0.8,
+          "count": 32
         }
       ],
       "details": [
         {
-          "name": "К2-Бік л",
+          "name": "К1-Криша",
+          "width": 684,
+          "height": 450,
+          "cuts": []
+        },
+        {
+          "name": "К1-Бік лівий",
+          "width": 450,
+          "height": 620,
+          "cuts": []
+        },
+        {
+          "name": "К1-Дно",
+          "width": 1511,
+          "height": 450,
+          "cuts": []
+        },
+        {
+          "name": "К1-Бік правий",
+          "width": 450,
+          "height": 620,
+          "cuts": []
+        },
+        {
+          "name": "К1-ЗС",
+          "width": 683,
+          "height": 583,
+          "cuts": []
+        },
+        {
+          "name": "К1-Перегородка",
+          "width": 450,
+          "height": 602,
+          "cuts": []
+        },
+        {
+          "name": "К1-Фасад Вр/Р 0022",
           "width": 400,
-          "height": 2549
+          "height": 596,
+          "cuts": [
+            {
+              "name": "Ferro Fiori M 8030",
+              "sign": "Ferro Fiori M 8030",
+              "type": "",
+              "thickness": 0,
+              "frontSide": true
+            }
+          ]
         },
         {
-          "name": "К2-Бік пр",
+          "name": "К1-Фасад Вр/Р 0022",
           "width": 400,
-          "height": 2485
+          "height": 596,
+          "cuts": [
+            {
+              "name": "Ferro Fiori M 8030",
+              "sign": "Ferro Fiori M 8030",
+              "type": "",
+              "thickness": 0,
+              "frontSide": true
+            }
+          ]
         },
         {
-          "name": "К2-Перегородка",
-          "width": 400,
-          "height": 2549
+          "name": "К1-Царга",
+          "width": 809,
+          "height": 70,
+          "cuts": []
         },
         {
-          "name": "К2-Перегородка",
-          "width": 399,
-          "height": 1953
+          "name": "К1-Полка",
+          "width": 684,
+          "height": 413,
+          "cuts": []
         },
         {
-          "name": "К2-Царга",
-          "width": 1382,
-          "height": 100
+          "name": "К1-Царга",
+          "width": 809,
+          "height": 70,
+          "cuts": []
         },
         {
-          "name": "К2-Царга",
-          "width": 1214,
-          "height": 100
+          "name": "К3-Криша",
+          "width": 1063,
+          "height": 173,
+          "cuts": []
         },
         {
-          "name": "К2-Царга",
-          "width": 1214,
-          "height": 100
+          "name": "К3-Бок.л.",
+          "width": 193,
+          "height": 1314,
+          "cuts": [
+            {
+              "name": "Паз 3.2х16.8х8",
+              "sign": "П3.2х8х16.8",
+              "type": "",
+              "thickness": 0,
+              "frontSide": false
+            }
+          ]
         },
         {
-          "name": "К2-Царга",
-          "width": 964,
-          "height": 100
+          "name": "К3-Бок.пр.",
+          "width": 193,
+          "height": 1314,
+          "cuts": [
+            {
+              "name": "Паз 3.2х16.8х8",
+              "sign": "П3.2х8х16.8",
+              "type": "",
+              "thickness": 0,
+              "frontSide": true
+            }
+          ]
         },
         {
-          "name": "К2-Царга",
-          "width": 964,
-          "height": 100
+          "name": "К3-Полка",
+          "width": 1063,
+          "height": 192,
+          "cuts": [
+            {
+              "name": "Паз 3.2х16.8х8",
+              "sign": "П3.2х8х16.8",
+              "type": "",
+              "thickness": 0,
+              "frontSide": true
+            }
+          ]
         },
         {
-          "name": "К2-Царга",
-          "width": 964,
-          "height": 100
+          "name": "К3-Полка",
+          "width": 523,
+          "height": 152,
+          "cuts": []
         },
         {
-          "name": "К2-Полка",
-          "width": 1382,
-          "height": 399
+          "name": "К3-Полка",
+          "width": 523,
+          "height": 152,
+          "cuts": []
         },
         {
-          "name": "К2-Полка",
-          "width": 1382,
-          "height": 399
+          "name": "К3-Дно",
+          "width": 1063,
+          "height": 193,
+          "cuts": []
         },
         {
-          "name": "К2-Полка",
-          "width": 1214,
-          "height": 399
+          "name": "К3-Полка",
+          "width": 522,
+          "height": 152,
+          "cuts": []
         },
         {
-          "name": "К2-Полка",
-          "width": 964,
-          "height": 399
+          "name": "К3-Полка",
+          "width": 522,
+          "height": 152,
+          "cuts": []
         },
         {
-          "name": "К2-Полка",
-          "width": 964,
-          "height": 399
+          "name": "К3-/ вст.",
+          "width": 78,
+          "height": 1314,
+          "cuts": []
         },
         {
-          "name": "К2-Полка",
-          "width": 964,
-          "height": 399
+          "name": "К3-Перегородка",
+          "width": 172,
+          "height": 810,
+          "cuts": []
         },
         {
-          "name": "К2-Царга",
-          "width": 1214,
-          "height": 100
+          "name": "К3-Фасад",
+          "width": 546,
+          "height": 1308,
+          "cuts": []
         },
         {
-          "name": "К2-Царга",
-          "width": 150,
-          "height": 100
+          "name": "К3-Фасад",
+          "width": 546,
+          "height": 1308,
+          "cuts": []
         },
         {
-          "name": "К2-Царга",
-          "width": 964,
-          "height": 100
+          "name": "К4-Стін.панель",
+          "width": 184,
+          "height": 1180,
+          "cuts": []
+        },
+        {
+          "name": "К4-Стін.панель",
+          "width": 1118,
+          "height": 1180,
+          "cuts": []
+        },
+        {
+          "name": "К2-криша",
+          "width": 406,
+          "height": 162,
+          "cuts": []
+        },
+        {
+          "name": "К2-дно",
+          "width": 442,
+          "height": 182,
+          "cuts": [
+            {
+              "name": "Паз 3.2х16.8х8",
+              "sign": "П3.2х10х16.8",
+              "type": "",
+              "thickness": 0,
+              "frontSide": true
+            }
+          ]
+        },
+        {
+          "name": "К2-бік л",
+          "width": 162,
+          "height": 1296,
+          "cuts": []
+        },
+        {
+          "name": "К2-бік пр.",
+          "width": 162,
+          "height": 1296,
+          "cuts": []
         },
         {
           "name": "К2-Фасад",
-          "width": 174,
-          "height": 574
+          "width": 439,
+          "height": 1308,
+          "cuts": []
         },
         {
-          "name": "К1-Бік л",
-          "width": 705,
-          "height": 2549
+          "name": "К2-Полка",
+          "width": 406,
+          "height": 161,
+          "cuts": []
         },
         {
-          "name": "К1-Бік пр",
-          "width": 705,
-          "height": 2549
+          "name": "К2-Полка",
+          "width": 406,
+          "height": 161,
+          "cuts": []
         },
         {
-          "name": "К1-Полка",
-          "width": 628,
-          "height": 704
+          "name": "К2-Полка",
+          "width": 406,
+          "height": 161,
+          "cuts": []
         },
         {
-          "name": "К1-Полка",
-          "width": 628,
-          "height": 704
+          "name": "К2-Полка",
+          "width": 406,
+          "height": 161,
+          "cuts": []
         },
         {
-          "name": "К1-Полка",
-          "width": 628,
-          "height": 704
+          "name": "К2-/ вст.",
+          "width": 202,
+          "height": 1314,
+          "cuts": []
         },
         {
-          "name": "К3-Бік л",
-          "width": 630,
-          "height": 2549
-        },
-        {
-          "name": "К3-Бік пр",
-          "width": 630,
-          "height": 2549
-        },
-        {
-          "name": "К3-Полка",
-          "width": 628,
-          "height": 629
-        },
-        {
-          "name": "К3-Полка",
-          "width": 628,
-          "height": 629
-        },
-        {
-          "name": "К3-Полка",
-          "width": 628,
-          "height": 629
+          "name": "К2-тін. пл.",
+          "width": 1577,
+          "height": 100,
+          "cuts": []
         }
       ]
     },
     {
-      "name": "Пральна машина",
-      "code": "",
-      "thickness": 1,
+      "name": "ЛХДФ Белое 0110 PE Kronospan 2800х2070х3мм",
+      "code": "44756",
+      "thickness": 3,
       "count": 2,
-      "edges": [
-        {
-          "name": "Крайка RAL 9011",
-          "code": "RAL 9011",
-          "width": 1000,
-          "thickness": 1,
-          "count": 8
-        }
-      ],
+      "edges": [],
       "details": [
         {
-          "name": "К1-фасадна панель",
-          "width": 600,
-          "height": 850
+          "name": "К3-ЗС",
+          "width": 1077,
+          "height": 832,
+          "cuts": []
         },
         {
-          "name": "К1-фасадна панель",
-          "width": 600,
-          "height": 850
+          "name": "К2-ЗС",
+          "width": 438,
+          "height": 1301,
+          "cuts": []
         }
       ]
     },
@@ -210,1646 +324,1107 @@
       "name": "Стіна",
       "code": "",
       "thickness": 0.01,
-      "count": 275,
+      "count": 132,
       "edges": [],
       "details": [
         {
           "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 479
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 479
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 239,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 239,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 239,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 239,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 239,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 239,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 491
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 247,
-          "height": 491
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 490
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 247,
-          "height": 490
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 246,
-          "height": 492
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 246,
-          "height": 492
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 247,
-          "height": 490
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 246,
-          "height": 490
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 247,
-          "height": 491
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 246,
-          "height": 491
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 246,
-          "height": 493
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 246,
-          "height": 493
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 244,
-          "height": 493
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 243,
-          "height": 493
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 247,
-          "height": 495
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 247,
-          "height": 495
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 247,
-          "height": 494
+          "width": 249,
+          "height": 495,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
           "width": 249,
-          "height": 494
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 495
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 495
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 495
+          "height": 495,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
           "width": 247,
-          "height": 495
+          "height": 495,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
           "width": 248,
-          "height": 494
+          "height": 495,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
           "width": 248,
-          "height": 494
+          "height": 495,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
           "width": 247,
-          "height": 494
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 494
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 247,
-          "height": 495
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 247,
-          "height": 495
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 491
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 247,
-          "height": 491
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 495
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 495
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 496
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 496
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 497
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 497
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 247,
-          "height": 491
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 247,
-          "height": 491
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 250,
-          "height": 495
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 246,
-          "height": 495
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 493
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 493
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 250,
-          "height": 495
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 248,
-          "height": 495
+          "height": 495,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
           "width": 251,
-          "height": 502
+          "height": 503,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 503,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 502,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 502,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 502,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 502,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 502,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 502,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
           "width": 250,
-          "height": 502
+          "height": 503,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 503,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 502,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 502,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 503,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 503,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 501,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
           "width": 252,
-          "height": 498
+          "height": 502,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 250,
+          "height": 502,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 250,
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 502,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 252,
+          "height": 502,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 250,
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 250,
+          "height": 502,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 250,
+          "height": 502,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 503,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 503,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 502,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 502,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 500,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 500,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
           "width": 249,
-          "height": 498
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 250,
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 354,
+          "height": 355,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 250,
+          "height": 500,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 355,
+          "height": 357,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 251,
+          "height": 503,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 355,
+          "height": 355,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 252,
+          "height": 500,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 438,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 220,
+          "height": 438,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 437,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 437,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 439,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 220,
+          "height": 439,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 437,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 437,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 438,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 438,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 439,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 439,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 438,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 438,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 437,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 437,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 438,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 438,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 438,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 438,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 220,
+          "height": 439,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 439,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 439,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 439,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 218,
+          "height": 439,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 439,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 438,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 438,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 439,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 439,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 220,
+          "height": 439,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 439,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 620,
+          "height": 621,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 439,
+          "height": 878,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 146,
+          "height": 306,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 202,
+          "height": 501,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 284,
+          "height": 392,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 199,
+          "height": 423,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 297,
+          "height": 325,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 266,
+          "height": 327,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 186,
+          "height": 402,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 71,
+          "height": 364,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 214,
+          "height": 184,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 80,
+          "height": 400,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 85,
+          "height": 461,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 83,
+          "height": 433,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 79,
+          "height": 436,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 77,
+          "height": 221,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 183,
+          "height": 206,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 207,
+          "height": 516,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 216,
+          "height": 549,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 219,
+          "height": 500,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 221,
+          "height": 571,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 218,
+          "height": 293,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 133,
+          "height": 171,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 50,
+          "height": 385,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 54,
+          "height": 366,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 104,
+          "height": 333,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 237,
+          "height": 307,
+          "cuts": []
+        },
+        {
+          "name": "Елемент стіни",
+          "width": 264,
+          "height": 342,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
           "width": 241,
-          "height": 480
+          "height": 382,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
+          "width": 141,
+          "height": 438,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
+          "width": 120,
+          "height": 230,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
+          "width": 1101,
+          "height": 14,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
+          "width": 1182,
+          "height": 1096,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
+          "width": 805,
+          "height": 1610,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 239,
-          "height": 481
+          "width": 14,
+          "height": 13,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 239,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 239,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 480
+          "width": 9,
+          "height": 19,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
           "width": 485,
-          "height": 715
+          "height": 13,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 273,
-          "height": 859
+          "width": 14,
+          "height": 485,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 471,
-          "height": 549
+          "width": 1181,
+          "height": 183,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 656,
-          "height": 516
+          "width": 178,
+          "height": 1195,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 319,
-          "height": 771
+          "width": 1098,
+          "height": 183,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 366,
-          "height": 538
+          "width": 196,
+          "height": 1113,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 399,
-          "height": 525
+          "width": 1194,
+          "height": 488,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
+          "width": 449,
+          "height": 1290,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
+          "width": 1490,
+          "height": 57,
+          "cuts": []
         },
         {
           "name": "Елемент стіни",
-          "width": 241,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 479
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 479
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 480
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 241,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 240,
-          "height": 481
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 679,
-          "height": 679
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 480,
-          "height": 960
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 149,
-          "height": 142
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 140,
-          "height": 333
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 144,
-          "height": 391
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 148,
-          "height": 366
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 145,
-          "height": 363
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 147,
-          "height": 357
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 143,
-          "height": 161
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 46,
-          "height": 151
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 46,
-          "height": 301
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 45,
-          "height": 317
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 43,
-          "height": 337
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 40,
-          "height": 414
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 34,
-          "height": 410
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 44,
-          "height": 176
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 507
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 507
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 507
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 507
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 253,
-          "height": 508
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 253,
-          "height": 508
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 506
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 506
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 253,
-          "height": 508
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 252,
-          "height": 508
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 506
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 506
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 253,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 251,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 508
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 508
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 253,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 506
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 506
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 253,
-          "height": 508
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 508
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 253,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 253,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 513
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 253,
-          "height": 513
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 511
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 511
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 511
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 511
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 511
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 511
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 256,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 256,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 508
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 508
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 256,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 256,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 257,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 252,
-          "height": 511
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 511
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 254,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 256,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 257,
-          "height": 510
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 256,
-          "height": 508
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 256,
-          "height": 508
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 257,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 256,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 256,
-          "height": 509
-        },
-        {
-          "name": "Елемент стіни",
-          "width": 255,
-          "height": 509
+          "width": 49,
+          "height": 1492,
+          "cuts": []
         }
       ]
     }
   ],
   "profiles": [
     {
-      "name": "Штанга",
+      "name": "Врезной проф ручка Ferro Fiori M 0022 никель браш 18 мм (Артикул 99110)",
       "code": "",
-      "material": "Труба овальна з пазом для LED-стрічки і лінзою 30х15, алюміній, срібло [VY 151961]",
+      "material": "Врезной проф ручка Ferro Fiori M 0022 никель браш 18 мм",
       "details": [
         {
-          "width": 15,
-          "thickness": 29,
-          "length": 1210,
+          "width": 18,
+          "thickness": 45,
+          "length": 400,
+          "count": 2
+        }
+      ]
+    },
+    {
+      "name": "Профіль",
+      "code": "",
+      "material": "Пластмасса черная",
+      "details": [
+        {
+          "width": 48,
+          "thickness": 48,
+          "length": 20,
           "count": 1
         },
         {
-          "width": 15,
-          "thickness": 29,
-          "length": 960,
-          "count": 2
+          "width": 5,
+          "thickness": 5,
+          "length": 55,
+          "count": 1
+        },
+        {
+          "width": 46,
+          "thickness": 46,
+          "length": 5,
+          "count": 1
+        },
+        {
+          "width": 47,
+          "thickness": 47,
+          "length": 1,
+          "count": 1
         }
       ]
     },
     {
       "name": "Профиль",
       "code": "",
-      "material": "Пластмасса белая",
+      "material": "Пластмасса черная",
       "details": [
         {
-          "width": 9,
-          "thickness": 8,
-          "length": 1210,
+          "width": 48,
+          "thickness": 48,
+          "length": 150,
           "count": 1
         },
         {
-          "width": 9,
-          "thickness": 8,
-          "length": 960,
+          "width": 530,
+          "thickness": 132,
+          "length": 12,
           "count": 2
-        }
-      ]
-    },
-    {
-      "name": "лінза",
-      "code": "",
-      "material": "Лінза світлорозсіююча для профілю L= 3м, полікарбонат, молочна",
-      "details": [
+        },
         {
-          "width": 15,
-          "thickness": 3,
-          "length": 1382,
+          "width": 460,
+          "thickness": 1549,
+          "length": 26,
           "count": 1
         },
         {
-          "width": 15,
-          "thickness": 3,
-          "length": 964,
+          "width": 530,
+          "thickness": 132,
+          "length": 290,
           "count": 1
         },
         {
-          "width": 15,
-          "thickness": 3,
-          "length": 1214,
+          "width": 50,
+          "thickness": 50,
+          "length": 19,
           "count": 1
         }
       ]
     },
     {
-      "name": "LED стрічка",
+      "name": "Профиль1",
       "code": "",
-      "material": "LED стрічка 120 д/метр нейтральна",
+      "material": "Сталь",
       "details": [
         {
-          "width": 8,
-          "thickness": 2,
-          "length": 1382,
-          "count": 1
-        },
-        {
-          "width": 8,
-          "thickness": 2,
-          "length": 964,
-          "count": 1
-        },
-        {
-          "width": 8,
-          "thickness": 2,
-          "length": 1214,
-          "count": 1
-        }
-      ]
-    },
-    {
-      "name": "профіль",
-      "code": "",
-      "material": "Профіль для LED-стрічки, врізний, L = 3м, алюміній, анодов. чорний",
-      "details": [
-        {
-          "width": 21,
-          "thickness": 9,
-          "length": 1382,
-          "count": 1
-        },
-        {
-          "width": 21,
-          "thickness": 9,
-          "length": 964,
-          "count": 1
-        },
-        {
-          "width": 21,
-          "thickness": 9,
-          "length": 1214,
-          "count": 1
-        }
-      ]
-    },
-    {
-      "name": "корпус",
-      "code": "",
-      "material": "Білий",
-      "details": [
-        {
-          "width": 630,
-          "thickness": 600,
+          "width": 6,
+          "thickness": 28,
           "length": 60,
           "count": 1
         },
         {
-          "width": 689,
-          "thickness": 850,
-          "length": 600,
+          "width": 120,
+          "thickness": 32,
+          "length": 16,
           "count": 1
         },
         {
-          "width": 620,
-          "thickness": 850,
-          "length": 600,
+          "width": 66,
+          "thickness": 41,
+          "length": 15,
+          "count": 8
+        }
+      ]
+    },
+    {
+      "name": "Профиль3",
+      "code": "",
+      "material": "Сталь",
+      "details": [
+        {
+          "width": 17,
+          "thickness": 6,
+          "length": 5,
+          "count": 2
+        },
+        {
+          "width": 8,
+          "thickness": 72,
+          "length": 12,
           "count": 1
         },
         {
-          "width": 469,
-          "thickness": 880,
-          "length": 454,
+          "width": 8,
+          "thickness": 8,
+          "length": 12,
           "count": 1
+        },
+        {
+          "width": 68,
+          "thickness": 43,
+          "length": 17,
+          "count": 4
+        }
+      ]
+    },
+    {
+      "name": "Профиль2",
+      "code": "",
+      "material": "Сталь",
+      "details": [
+        {
+          "width": 6,
+          "thickness": 6,
+          "length": 5,
+          "count": 1
+        },
+        {
+          "width": 16,
+          "thickness": 40,
+          "length": 24,
+          "count": 1
+        },
+        {
+          "width": 18,
+          "thickness": 10,
+          "length": 15,
+          "count": 4
+        }
+      ]
+    },
+    {
+      "name": "Профиль4",
+      "code": "",
+      "material": "Сталь",
+      "details": [
+        {
+          "width": 4,
+          "thickness": 4,
+          "length": 12,
+          "count": 1
+        },
+        {
+          "width": 43,
+          "thickness": 10,
+          "length": 1,
+          "count": 4
         }
       ]
     }
   ],
   "fittings": [
     {
-      "name": "10",
-      "code": "",
-      "count": 1,
-      "id": 0,
-      "tag": "Петлі"
+      "name": "Отверстие глухое_d10x12 мм.",
+      "code": "-Отв.",
+      "count": 8
     },
     {
-      "name": "Ножка мебельная регулируемая М6  18мм h26мм",
-      "code": "11354",
-      "count": 16,
-      "id": 1,
-      "tag": "Петлі"
+      "name": "Підвіс під запресування 807 для нижніх секцій, лівий [OWWA 13483]",
+      "code": "13483",
+      "count": 1
     },
     {
-      "name": "Корпус стяжки RAFIX SE без потовщення бежевий пластиковий D20х14.2 мм",
-      "code": "263.10.405",
-      "count": 65,
-      "id": 2,
-      "tag": "Петлі"
+      "name": "Заглушка для підвісу 807, біла, ліва [OWWA 13486]",
+      "code": "13486",
+      "count": 1
     },
     {
-      "name": "Штанготримач OVA для кріплення до бічної стінки, нікельований 15 x 30 мм",
-      "code": "40875",
-      "count": 6,
-      "id": 3,
-      "tag": "Петлі"
+      "name": "Навісна планка для підвісу CAMAR 60мм 807 [OWWA 13471]",
+      "code": "13471",
+      "count": 2
+    },
+    {
+      "name": "Заглушка для підвісу 807, біла, права [OWWA 13487]",
+      "code": "13487",
+      "count": 1
+    },
+    {
+      "name": "Підвіс під запресування 807 для нижніх секцій, правий [OWWA 13482]",
+      "code": "13482",
+      "count": 1
+    },
+    {
+      "name": "Ексцентрикова стяжка Rastex 15/18, цинк (9056599) Hettich",
+      "code": "61281",
+      "count": 12
+    },
+    {
+      "name": "Шкант деревяний Бук 8х30 мм Muller",
+      "code": "190212",
+      "count": 2
     },
     {
       "name": "Конфірмат (стяжка) оцинков. 6,4х50 мм під шестигранник (2,5 тис.)",
       "code": "190258",
-      "count": 12,
-      "id": 4
+      "count": 35
     },
     {
-      "name": "Рафікс подвійний бежевий",
+      "name": "Петля LS внутр. з дотяг. (компл.)",
       "code": "",
-      "count": 7,
-      "id": 5
+      "count": 4
     },
     {
-      "name": "БЖ для LED, 90W, 12V, компакт. метал. корпус",
-      "code": "",
-      "count": 1,
-      "id": 6
+      "name": "Полкодержатель D5 с пластиковым колпачком",
+      "code": "66883",
+      "count": 36
     },
     {
-      "name": "Петля LS рівнол. з пр. (компл.)",
-      "code": "",
-      "count": 2,
-      "id": 7
+      "name": "Корпус стяжки RAFIX SE без потовщення пластиковий колір сірий D20х14.2 мм",
+      "code": "263.10.205",
+      "count": 2
     },
     {
-      "name": "Ручка врезная GTV B-224 черный UZ-00B224-20 [OWWA 27308]",
-      "code": "OWWA 27308",
-      "count": 1,
-      "id": 8
-    },
-    {
-      "name": "З'єднувальна планка пральної та сушильної машин",
+      "name": "Grohe Essence Смеситель однорычажный для раковины S-Size (24172KF1)",
       "code": "",
       "count": 1,
-      "isDraft": true,
-      "id": 9
+      "isDraft": true
     },
     {
-      "name": "Пральна машина повногабаритна LG F4Y5RS0W",
+      "name": "Стільниця",
       "code": "",
-      "count": 2,
-      "isDraft": true,
-      "id": 10
+      "count": 1,
+      "isDraft": true
     },
     {
-      "name": "Бойлер Electrolux EWH100FMXEEC",
-      "code": "https://electrolux-kiev.com/ua/climate/water-heater/electrolux-ewh-100-fmx-eec",
-      "count": 1,
-      "isDraft": true,
-      "id": 11
+      "name": "Отверстие глухое_d8x12 мм.",
+      "code": "-Отв.",
+      "count": 4
     },
     {
-      "name": "Вимикач кнопковий з фіксацією 220V/12V/24V, 1,5А/3А, чорний",
-      "code": "[ВіЯр] 87507",
-      "count": 1,
-      "id": 12
+      "name": "Отверстие сквозное_d10 мм.",
+      "code": "-Отв.",
+      "count": 2
+    },
+    {
+      "name": "Петля LS накл. з пр. (компл.)",
+      "code": "",
+      "count": 9
+    },
+    {
+      "name": "K-PUSH TECH L=37мм з гумовим демпфером СІР Italy [OWWA 364]",
+      "code": "",
+      "count": 3
+    },
+    {
+      "name": "Навісна планка 60х28 мм для навісів CAMAR для серій 801, 804, 806, 818",
+      "code": "59692",
+      "count": 4
+    },
+    {
+      "name": "Демпфер врізний Ø5мм BI-MATERIALE, прозорий, Italiana Ferramenta (23203010ZZ)",
+      "code": "131775",
+      "count": 4
     },
     {
       "name": "Стіна",
       "code": "",
-      "count": 6,
-      "isDraft": true,
-      "id": 13
-    },
-    {
-      "name": "Стіни по 3 точках",
-      "code": "",
-      "count": 4,
-      "isDraft": true,
-      "id": 14
+      "count": 3,
+      "isDraft": true
     },
     {
       "name": "Стіни по 4 точках",
       "code": "",
-      "count": 1,
-      "isDraft": true,
-      "id": 15
+      "count": 8,
+      "isDraft": true
+    },
+    {
+      "name": "Стіни по 3 точках",
+      "code": "",
+      "count": 3,
+      "isDraft": true
     }
-  ],
-  "tagOrder": [
-    "Загальна фурнітура",
-    "Петлі",
-    "Напрямні",
-    "Метизна фурнітура"
-  ],
-  "fitIdCounter": 16
+  ]
 }
