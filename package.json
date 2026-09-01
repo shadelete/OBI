@@ -1,0 +1,42 @@
+{
+  "name": "output-bazis-info",
+  "version": "0.2.0",
+  "description": "Output Bazis Info",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "dist": "electron-builder --win --dir"
+  },
+  "build": {
+    "appId": "com.mebel.outputbazisinfo",
+    "productName": "Output Bazis Info",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable",
+      "icon": "icon.png"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "data/**/*",
+      "package.json"
+    ]
+  },
+  "keywords": [
+    "mebel",
+    "electron"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0"
+  }
+}
