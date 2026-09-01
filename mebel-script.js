@@ -232,9 +232,14 @@ var jsonData = {
 var jsonString = JSON.stringify(jsonData, null, 2);
 
 // --- Paths ---
-// OBI.exe is searched for: next to the script, up to 4 levels above it,
-// in the current working directory, or selected by the user via file dialog.
-// Put mebel-script.js and OBI.exe in one folder for best results.
+// OBI.exe lookup order:
+//   1. next to the script  (release / dev if placed adjacent)
+//   2. saved manual choice (data\exe_path.txt next to the script)
+//   3. dev builds in subfolders: dist\OBI.exe, dist\release\OBI.exe
+//   4. walking up to 4 parent folders, then the current working directory
+//      (each checked for OBI.exe and dist\OBI.exe)
+// The JSON is always written into `data` next to the found exe,
+// because the app reads its database relative to its own folder.
 var scriptDir = "";
 if (typeof __dirname !== "undefined" && __dirname) {
     scriptDir = __dirname;
@@ -257,28 +262,43 @@ function parentDir(dir) {
 }
 
 function findExePath(startDir) {
+    if (startDir) {
+        var near = startDir + "\\OBI.exe";
+        if (hasFile(near)) return near;
+    }
     try {
         var fs = require('fs');
-        var cfg = startDir + "\\data\\exe_path.txt";
-        if (fs.existsSync(cfg)) {
-            var saved = fs.readFileSync(cfg, 'utf-8').trim();
-            if (saved && hasFile(saved)) return saved;
+        if (startDir) {
+            var cfg = startDir + "\\data\\exe_path.txt";
+            if (fs.existsSync(cfg)) {
+                var saved = fs.readFileSync(cfg, 'utf-8').trim();
+                if (saved && hasFile(saved)) return saved;
+            }
         }
     } catch (e) {}
-
-    var candidates = [];
-    if (startDir) candidates.push(startDir);
+    if (startDir) {
+        var devPaths = [
+            startDir + "\\dist\\OBI.exe",
+            startDir + "\\dist\\release\\OBI.exe"
+        ];
+        for (var di = 0; di < devPaths.length; di++) {
+            if (hasFile(devPaths[di])) return devPaths[di];
+        }
+    }
+    var walk = [];
     var cur = startDir;
     for (var i = 0; i < 4 && cur; i++) {
         cur = parentDir(cur);
-        if (cur) candidates.push(cur);
+        if (cur) walk.push(cur);
     }
     if (typeof process !== "undefined" && process.cwd && process.cwd()) {
-        candidates.push(process.cwd());
+        walk.push(process.cwd());
     }
-    for (var j = 0; j < candidates.length; j++) {
-        var p = candidates[j] + "\\OBI.exe";
-        if (hasFile(p)) return p;
+    for (var j = 0; j < walk.length; j++) {
+        var p1 = walk[j] + "\\OBI.exe";
+        if (hasFile(p1)) return p1;
+        var p2 = walk[j] + "\\dist\\OBI.exe";
+        if (hasFile(p2)) return p2;
     }
     return "";
 }
@@ -304,19 +324,13 @@ var EXE_PATH = findExePath(scriptDir);
 if (!EXE_PATH) {
     EXE_PATH = askExePath(scriptDir);
 }
-if (!scriptDir && EXE_PATH) {
-    scriptDir = parentDir(EXE_PATH);
-}
 
 if (!EXE_PATH) {
-    alert("EXE \u041D\u0415 \u041D\u0410\u0419\u0414\u0415\u041D: " + EXE_PATH + "\n\u041F\u043E\u043C\u0435\u0441\u0442\u0438\u0442\u0435 OBI.exe \u0440\u044F\u0434\u043E\u043C \u0441 mebel-script.js \u0438\u043B\u0438 \u0443\u043A\u0430\u0436\u0438\u0442\u0435 \u0435\u0433\u043E \u0432 \u043E\u043A\u043D\u0435 \u0432\u044B\u0431\u043E\u0440\u0430 \u0444\u0430\u0439\u043B\u0430.");
+    alert("OBI.exe \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D.\n\u041F\u0440\u043E\u0432\u0435\u0440\u0435\u043D\u044B: \u043F\u0430\u043F\u043A\u0430 \u0441\u043A\u0440\u0438\u043F\u0442\u0430, dist\\, \u0432\u0435\u0440\u0445\u043D\u0438\u0435 \u043F\u0430\u043F\u043A\u0438, \u0440\u0430\u0431\u043E\u0447\u0438\u0439 \u043A\u0430\u0442\u0430\u043B\u043E\u0433.\n\u0421\u043A\u043E\u043F\u0438\u0440\u0443\u0439\u0442\u0435 OBI.exe \u0440\u044F\u0434\u043E\u043C \u0441 mebel-script.js \u0438\u043B\u0438 \u0432 \u043F\u0430\u043F\u043A\u0443 dist.");
     Action.Finish();
 } else {
-    if (!scriptDir) {
-        alert("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C \u043F\u0430\u043F\u043A\u0443 \u043F\u0440\u043E\u0433\u0440\u0430\u043C\u043C\u044B.\n\u041F\u043E\u043C\u0435\u0441\u0442\u0438\u0442\u0435 mebel-script.js \u0438 OBI.exe \u0432 \u043E\u0434\u043D\u0443 \u043F\u0430\u043F\u043A\u0443 \u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437.");
-        Action.Finish();
-    }
-    var DATA_DIR = scriptDir + "\\data";
+    var EXE_DIR = parentDir(EXE_PATH);
+    var DATA_DIR = (EXE_DIR || scriptDir || ".") + "\\data";
     var DB_PATH = DATA_DIR + "\\db.json";
 
     try {
@@ -331,7 +345,6 @@ if (!EXE_PATH) {
     }
 
     try {
-        var fs = require('fs');
         var exec = require('child_process').exec;
         exec('start "" "' + EXE_PATH + '"', function(error) {
             if (error) {
