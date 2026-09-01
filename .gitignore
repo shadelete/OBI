@@ -1,6 +1,9 @@
 node_modules/
 dist/
 data/
+release/
+renderer.js
+export.js
 *.log
 .DS_Store
 Thumbs.db
