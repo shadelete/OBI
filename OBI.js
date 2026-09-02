@@ -289,6 +289,17 @@ function scanObject(obj) {
                 fittings[info.name].count++;
             }
         }
+
+        if (obj instanceof TFurnAsm) {
+            fastenersCount++;
+            var name = obj.Name || "Unknown assembly";
+            var info = splitName(name);
+
+            if (!fittings[info.name]) {
+                fittings[info.name] = { name: info.name, code: info.code, count: 0 };
+            }
+            fittings[info.name].count++;
+        }
     } catch (e) {}
 
     try {
