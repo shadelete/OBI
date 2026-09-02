@@ -145,7 +145,7 @@ function renderMaterials() {
         ? `<span class="detail-cuts" title="${escapeAttr(cuts.text)}">${escapeHtml(cuts.text)} <span class="detail-cuts-count">${cuts.count}</span></span>`
         : '';
       const countHtml = (d.count && d.count > 1) ? `<span class="detail-count">×${d.count}</span>` : '';
-      return `<div class="detail-row"><span class="detail-name">${d.position ? `<span class="detail-pos">${escapeHtml(d.position)}</span> ` : ''}${escapeHtml(d.name)}</span>${cutsHtml}${countHtml}<span class="detail-dim">${d.width}×${d.height} мм</span></div>`;
+      return `<div class="detail-row"><span class="detail-name">${d.position ? `<span class="detail-pos">${escapeHtml(d.position)}</span>` : ''}${countHtml}${escapeHtml(d.name)}</span>${cutsHtml}<span class="detail-dim">${d.width}×${d.height} мм</span></div>`;
     }).join('');
     const cutTotal = (m.details || []).reduce((s, d) => s + ((d.cuts || []).length), 0);
     return `
