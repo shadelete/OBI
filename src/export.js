@@ -167,8 +167,6 @@ function profileDataRow(ws, r, poz, name, qty, length) {
   ws.getRow(r).height = 15.75;
 }
 
-// ---- Sheets ----
-
 function materialsSheet(wb, materials) {
   const ws = wb.addWorksheet('Матеріали');
   ws.columns = [
@@ -182,7 +180,7 @@ function materialsSheet(wb, materials) {
     const details = m.details || [];
     let poz = 1;
     details.forEach(d => {
-      materialDataRow(ws, row + 3 + (poz - 1), poz, d.name, 1, d.width, d.height, cutsText(d));
+      materialDataRow(ws, row + 3 + (poz - 1), d.position || poz, d.name, 1, d.width, d.height, cutsText(d));
       poz++;
     });
     row = row + 3 + details.length + (i < list.length - 1 ? 1 : 0);
@@ -203,7 +201,8 @@ function profilesSheet(wb, profiles) {
     const details = (p.details && p.details.length) ? p.details : [{ width: p.width, thickness: p.thickness, length: p.length, count: p.count }];
     let poz = 1;
     details.forEach(d => {
-      profileDataRow(ws, row + 2 + (poz - 1), poz, p.name, d.count || 0, d.length || '');
+      const profilPos = (d.positions && d.positions.length) ? d.positions.join(', ') : (poz || '');
+      profileDataRow(ws, row + 2 + (poz - 1), profilPos, p.name, d.count || 0, d.length || '');
       poz++;
     });
     row = row + 2 + details.length + (i < list.length - 1 ? 1 : 0);

@@ -1,17 +1,17 @@
 // ============================================================
-// OBI - ADV: как OBI.js, но состав фурнитуры вынимается через
+// OBI - ADV: пїЅпїЅпїЅ OBI.js, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 // GetParams('AdvParamData') -> FindNode('Elements')
 // 1. Scan model
 // 2. Save to data/db.json (UTF-8)
 // 3. Launch OBI.exe
 //
-// Правило для фурнитуры С составом:
-//   - родитель остаётся в db как позиция с полем elements (вложенность),
-//     чтобы в базе было видно, из чего состоит;
-//   - элементы состава (все уровни вложенности) добавляются в fittings
-//     отдельными позициями (isComposition: true);
-//   - элемент, совпадающий с самим родителем (имя+код), в список НЕ попадает.
-// Без состава - крепёж добавляется просто как позиция.
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ:
+//   - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ db пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ elements (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ),
+//     пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ;
+//   - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ fittings
+//     пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (isComposition: true);
+//   - пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ+пїЅпїЅпїЅ), пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
+// пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
 // ============================================================
 
 var materials = {};   // TFurnPanel -> keyed by matName|thickness, with per-material edges
@@ -22,10 +22,10 @@ var panelsCount = 0;
 var profilesCount = 0;
 var fastenersCount = 0;
 var draftsCount = 0;
-var compositeCount = 0; // фурнитур, у которых найден состав (AdvParamData/Elements)
-var compositionItems = {}; // элементы состава по ключу name|code
+var compositeCount = 0; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ (AdvParamData/Elements)
+var compositionItems = {}; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ name|code
 
-// Extract article from a name like "...мм\r26534"
+// Extract article from a name like "...пїЅпїЅ\r26534"
 // Splits on carriage-return, returns { name, code }
 function splitName(str) {
     if (!str) return { name: str || "", code: "" };
@@ -38,8 +38,8 @@ function splitName(str) {
     return { name: str, code: "" };
 }
 
-// --- извлекаем состав фурнитуры (как в присланном скрипте) ---
-// Имя/код узла: из node.Name, либо из node.Value ("Имя\rКод").
+// --- пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ) ---
+// пїЅпїЅпїЅ/пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ: пїЅпїЅ node.Name, пїЅпїЅпїЅпїЅ пїЅпїЅ node.Value ("пїЅпїЅпїЅ\rпїЅпїЅпїЅ").
 function nodeNameCode(node) {
     var name = "", value = "";
     try { name = node.Name || ""; } catch (e) { name = ""; }
@@ -83,7 +83,7 @@ function getFastenerElements(fastener) {
     }
 }
 
-// Выпрямляет дерево состава в плоский список ВСЕХ узлов всех уровней.
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
 function flattenElements(elements, out) {
     if (!out) out = [];
     for (var i = 0; i < elements.length; i++) {
@@ -95,7 +95,7 @@ function flattenElements(elements, out) {
     return out;
 }
 
-// Согласуется ли узел состава с самим родителем (имя+код)?
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ+пїЅпїЅпїЅ)?
 function isSameAsParent(e, parentName, parentCode) {
     if (!e || !e.name) return false;
     if (e.name !== parentName) return false;
@@ -157,8 +157,12 @@ function scanObject(obj) {
                 } catch (eCut) {}
             }
 
+            var designation = "";
+            try { designation = obj.ArtPos || ""; } catch (eDes) {}
+
             m.details.push({
                 name: obj.Name || "Panel",
+                position: designation,
                 width: Math.round(w),
                 height: Math.round(h),
                 cuts: cuts
@@ -218,10 +222,14 @@ function scanObject(obj) {
                     width: pw,
                     thickness: pt,
                     length: pl,
-                    count: 0
+                    count: 0,
+                    positions: []
                 };
             }
             pr.details[sizeKey].count++;
+            var pDesignation = "";
+            try { pDesignation = obj.ArtPos || ""; } catch (eDes) {}
+            if (pDesignation) pr.details[sizeKey].positions.push(pDesignation);
         }
 
         if (obj instanceof TDraftBlock) {
@@ -240,12 +248,12 @@ function scanObject(obj) {
             var name = obj.Name || "Unknown fitting";
             var info = splitName(name);
 
-            // состав фурнитуры (все уровни вложенности)
+            // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
             var elements = getFastenerElements(obj);
             if (elements && elements.length > 0) {
                 compositeCount++;
 
-                // родитель: позиция с вложенным составом (elements)
+                // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (elements)
                 if (!fittings[info.name]) {
                     fittings[info.name] = {
                         name: info.name,
@@ -261,8 +269,8 @@ function scanObject(obj) {
                 }
                 fittings[info.name].count++;
 
-                // элементы состава - отдельные позиции в fittings
-                // (без узла, совпадающего с самим родителем)
+                // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ fittings
+                // (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
                 var flat = flattenElements(elements);
                 for (var ei = 0; ei < flat.length; ei++) {
                     var ev = flat[ei];
@@ -274,7 +282,7 @@ function scanObject(obj) {
                     compositionItems[eKey].count++;
                 }
             } else {
-                // одиночный крепёж без состава - добавляем сам объект
+                // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
                 if (!fittings[info.name]) {
                     fittings[info.name] = { name: info.name, code: info.code, count: 0 };
                 }
@@ -309,7 +317,7 @@ try {
     Action.Finish();
 }
 
-// объединяем элементы состава в общий список фурнитуры
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 var compKeys = Object.keys(compositionItems);
 for (var ci = 0; ci < compKeys.length; ci++) {
     var compObj = compositionItems[compKeys[ci]];
@@ -357,8 +365,8 @@ var jsonData = {
 var jsonString = JSON.stringify(jsonData, null, 2);
 
 // --- Paths ---
-// DB всегда пишется в data\db.json РЯДОМ СО СКРИПТОМ (корень проекта).
-// OBI.exe ищется по-прежнему (рядом/ранее выбранный/пользователем), но используется только для запуска.
+// DB пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ data\db.json пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ).
+// OBI.exe пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ), пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
 var scriptDir = "";
 if (typeof __dirname !== "undefined" && __dirname) {
     scriptDir = __dirname;

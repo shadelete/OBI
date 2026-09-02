@@ -124,7 +124,7 @@ function renderMaterials() {
       const cutsHtml = cuts
         ? `<span class="detail-cuts" title="${escapeAttr(cuts.text)}">${escapeHtml(cuts.text)} <span class="detail-cuts-count">${cuts.count}</span></span>`
         : '';
-      return `<div class="detail-row"><span class="detail-name">${escapeHtml(d.name)}</span>${cutsHtml}<span class="detail-dim">${d.width}×${d.height} мм</span></div>`;
+      return `<div class="detail-row"><span class="detail-name">${d.position ? `<span class="detail-pos">${escapeHtml(d.position)}</span> ` : ''}${escapeHtml(d.name)}</span>${cutsHtml}<span class="detail-dim">${d.width}×${d.height} мм</span></div>`;
     }).join('');
     const cutTotal = (m.details || []).reduce((s, d) => s + ((d.cuts || []).length), 0);
     return `
@@ -168,7 +168,7 @@ function renderProfiles() {
     const total = details.reduce((s, d) => s + (d.count || 0), 0);
     const sizeRows = details.map(d =>
       `<div class="detail-row">
-        <span>${d.width || '—'}×${d.thickness || '—'}×${d.length || '—'} мм</span>
+        <span>${(d.positions && d.positions.length) ? `<span class="detail-pos">${escapeHtml(d.positions.join(', '))}</span>` : ''}${d.width || '—'}×${d.thickness || '—'}×${d.length || '—'} мм</span>
         <span class="detail-count">${d.count} шт</span>
       </div>`
     ).join('');
