@@ -105,6 +105,26 @@ function detailCuts(d) {
   };
 }
 
+// Group material details by position (mirrors src/export.js helper).
+// Details without a position are kept separate (count 1 each).
+function groupByPosition(details) {
+  const result = [];
+  const map = {};
+  (details || []).forEach(d => {
+    if (!d.position) {
+      result.push({ ...d, count: 1 });
+      return;
+    }
+    if (!map[d.position]) {
+      map[d.position] = { ...d, count: 1 };
+      result.push(map[d.position]);
+    } else {
+      map[d.position].count++;
+    }
+  });
+  return result;
+}
+
 function renderMaterials() {
   const list = document.getElementById('materials-list');
   const mats = db.materials || [];
@@ -119,12 +139,13 @@ function renderMaterials() {
     const edgeBlock = (m.edges && m.edges.length)
       ? `<div class="edges-block"><div class="edges-title">Кромка:</div>${edges}</div>`
       : `<div class="edges-block"><div class="edges-title">Кромка:</div><div class="edge-item edge-none">Без кромки</div></div>`;
-    const details = (m.details || []).map(d => {
+    const details = groupByPosition(m.details).map(d => {
       const cuts = detailCuts(d);
       const cutsHtml = cuts
         ? `<span class="detail-cuts" title="${escapeAttr(cuts.text)}">${escapeHtml(cuts.text)} <span class="detail-cuts-count">${cuts.count}</span></span>`
         : '';
-      return `<div class="detail-row"><span class="detail-name">${d.position ? `<span class="detail-pos">${escapeHtml(d.position)}</span> ` : ''}${escapeHtml(d.name)}</span>${cutsHtml}<span class="detail-dim">${d.width}×${d.height} мм</span></div>`;
+      const countHtml = (d.count && d.count > 1) ? `<span class="detail-count">×${d.count}</span>` : '';
+      return `<div class="detail-row"><span class="detail-name">${d.position ? `<span class="detail-pos">${escapeHtml(d.position)}</span> ` : ''}${escapeHtml(d.name)}</span>${cutsHtml}${countHtml}<span class="detail-dim">${d.width}×${d.height} мм</span></div>`;
     }).join('');
     const cutTotal = (m.details || []).reduce((s, d) => s + ((d.cuts || []).length), 0);
     return `

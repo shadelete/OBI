@@ -144,6 +144,26 @@ function materialDataRow(ws, r, poz, name, qty, width, height, cuts) {
   ws.getRow(r).height = 15.75;
 }
 
+// Group material details by position, keeping a count. Details without a
+// position are kept separate (count 1 each).
+function groupByPosition(details) {
+  const result = [];
+  const map = {};
+  details.forEach(d => {
+    if (!d.position) {
+      result.push({ ...d, count: 1 });
+      return;
+    }
+    if (!map[d.position]) {
+      map[d.position] = { ...d, count: 1 };
+      result.push(map[d.position]);
+    } else {
+      map[d.position].count++;
+    }
+  });
+  return result;
+}
+
 function profilesHeader(ws, r) {
   ['Поз.', 'Найменування', 'К-сть', 'Довжина, мм'].forEach((lab, i) => {
     const cell = ws.getCell(r, i + 1);
@@ -177,10 +197,10 @@ function materialsSheet(wb, materials) {
   list.forEach((m, i) => {
     titleRow(ws, row, m.name || 'Матеріал', 6);
     materialsHeader(ws, row + 1);
-    const details = m.details || [];
+    const details = groupByPosition(m.details || []);
     let poz = 1;
     details.forEach(d => {
-      materialDataRow(ws, row + 3 + (poz - 1), d.position || poz, d.name, 1, d.width, d.height, cutsText(d));
+      materialDataRow(ws, row + 3 + (poz - 1), d.position || poz, d.name, d.count || 1, d.width, d.height, cutsText(d));
       poz++;
     });
     row = row + 3 + details.length + (i < list.length - 1 ? 1 : 0);
