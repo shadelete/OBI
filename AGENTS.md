@@ -28,8 +28,9 @@
 - Сборка: `npm run dist` = `electron-builder --win --dir` — **только `dist\win-unpacked`, без portable-файла**. Финальный `dist\OBI.exe` даёт `npm run build` = `electron-builder --win` (portable). После релиза обновить `release\OBI-<ver>.zip` (OBI.exe + OBI.js + icon.bmp) вручную из `dist\OBI.exe` и текущего `OBI.js`.
 
 ## Релизный процесс (актуальный тег — v0.1.2)
-- 1) поднять `version` в `package.json`, 2) `npm run build` (`dist\OBI.exe`), 3) собрать `release\OBI-<ver>.zip` = `dist\OBI.exe` + `release\OBI.js` (cp1251) + `release\icon.bmp` (см. ниже), 4) коммит + тег `v<ver>` + `push origin main --tags`, 5) `gh release create v<ver> release\OBI-<ver>.zip release\OBI.js -R shadelete/OBI --title "OBI <ver>"`.
-- Важно перед сборкой zip: перегенерировать `release\OBI.js` из корневого `OBI.js` в cp1251 (см. «Критичные факты»), а в `release\OBI-<ver>.zip` класть **новый** `dist\OBI.exe` (не старый `release\OBI.exe` — он не обновляется сборкой и останется без правок).
+- 1) поднять `version` в `package.json`, 2) `npm run build` (`dist\OBI.exe`), 3) собрать `release\OBI-<ver>.zip` = `dist\OBI.exe` + `release\OBI.js` (cp1251) + `release\icon.bmp` (см. ниже), 4) коммит + тег `v<ver>` + `push origin main --tags`, 5) `gh release create v<ver> release\OBI-<ver>.zip -R shadelete/OBI --title "OBI <ver>"` (единственный ассет — zip; отдельно `OBI.js` на релиз НЕ кладём, он уже внутри архива).
+- Обновление существующего релиза без смены версии: пересобрать `dist\OBI.exe`, перегенерировать `release\OBI.js` в cp1251, пересобрать `release\OBI-<ver>.zip` (через .NET `ZipArchive`, т.к. `Compress-Archive` падает на большом exe при блокировке файла), затем `gh release delete-asset` старого zip + `gh release upload` нового (оба с `--yes`/`--clobber`).
+- Важно перед сборкой zip: перегенерировать `release\OBI.js` из корневого `OBI.js` в cp1251 (см. «Критичные факты»), а в `release\OBI-<ver>.zip` класть **новый** `dist\OBI.exe` (не старый `release\OBI.exe` — он не обновляется сборкой и останется без правок). Перед сборкой zip убедиться, что `dist\OBI.exe` не заблокирован запущенным процессом OBI (закрыть при необходимости).
 - Полезное: `git tag v0.1.1 f6839e1` создаёт тег на конкретном коммите, `gh release create` выводит URL релиза.
 
 ## Схема db.json
