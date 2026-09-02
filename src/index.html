@@ -15,9 +15,10 @@
         </div>
       </div>
       <div class="header-actions">
-        <button class="btn btn-secondary" onclick="openProject()">Відкрити замовлення</button>
-        <button class="btn btn-secondary" onclick="saveProject()">Зберегти замовлення</button>
-        <button class="btn btn-export" onclick="exportExcel()">Експорт Excel</button>
+        <button class="btn btn-secondary" onclick="openProject()" data-i18n="open.project"></button>
+        <button class="btn btn-secondary" onclick="saveProject()" data-i18n="save.project"></button>
+        <button class="btn btn-export" onclick="exportExcel()" data-i18n="export.excel"></button>
+        <button class="btn btn-icon settings-btn" id="settings-btn" title="Налаштування">⚙</button>
       </div>
       <div class="window-controls">
         <button class="win-btn win-min" onclick="windowMinimize()" title="Згорнути">─</button>
@@ -26,46 +27,104 @@
     </div>
     <div class="tabs">
       <div class="tab active" data-tab="materials" onclick="switchTab('materials')">
-        Матеріали та кромка <span class="tab-count" id="count-materials">0</span>
+        <span data-i18n="tab.materials"></span> <span class="tab-count" id="count-materials">0</span>
       </div>
       <div class="tab" data-tab="profiles" onclick="switchTab('profiles')">
-        Профілі <span class="tab-count" id="count-profiles">0</span>
+        <span data-i18n="tab.profiles"></span> <span class="tab-count" id="count-profiles">0</span>
       </div>
       <div class="tab" data-tab="fittings" onclick="switchTab('fittings')">
-        Фурнітура <span class="tab-count" id="count-fittings">0</span>
+        <span data-i18n="tab.fittings"></span> <span class="tab-count" id="count-fittings">0</span>
       </div>
     </div>
     <div class="content">
       <div class="stats" id="stats"></div>
       <div class="panel active" id="panel-materials">
-        <div class="section-title">Матеріали та кромка</div>
+        <div class="section-title" data-i18n="tab.materials"></div>
         <div id="materials-list" class="card-list"></div>
       </div>
       <div class="panel" id="panel-profiles">
-        <div class="section-title">Профілі</div>
+        <div class="section-title" data-i18n="tab.profiles"></div>
         <div id="profiles-list" class="card-list"></div>
       </div>
       <div class="panel" id="panel-fittings">
-        <div class="section-title">Фурнітура</div>
+        <div class="section-title" data-i18n="tab.fittings"></div>
         <div class="add-form" id="add-fitting-form">
           <div class="form-row">
-            <input class="form-input" id="fit-name" placeholder="Найменування фурнітури">
-            <input class="form-input form-input-sm" id="fit-code" placeholder="Артикул">
-            <input class="form-input form-input-sm" id="fit-count" type="number" min="1" placeholder="К-сть">
+            <input class="form-input" id="fit-name" data-i18n-ph="fit.placeholder.name">
+            <input class="form-input form-input-sm" id="fit-code" data-i18n-ph="fit.placeholder.code">
+            <input class="form-input form-input-sm" id="fit-count" type="number" min="1" data-i18n-ph="fit.placeholder.count">
             <select class="form-input form-input-tag" id="fit-tag"></select>
-            <button class="btn btn-primary" onclick="addFitting()">Додати</button>
+            <button class="btn btn-primary" onclick="addFitting()" data-i18n="btn.add"></button>
           </div>
         </div>
         <div class="tag-manager">
-          <span class="tag-manager-label">Управління тегами:</span>
-          <input class="form-input form-input-sm form-input-tag-new" id="new-tag-input" placeholder="Новий тег">
-          <button class="btn btn-primary" onclick="addTag()">Додати тег</button>
+          <span class="tag-manager-label" data-i18n="tags.manage"></span>
+          <input class="form-input form-input-sm form-input-tag-new" id="new-tag-input" data-i18n-ph="tags.new.placeholder">
+          <button class="btn btn-primary" onclick="addTag()" data-i18n="tags.add"></button>
         </div>
         <div id="fittings-columns" class="fit-columns"></div>
         <div id="fittings-list" class="card-list" style="display:none;"></div>
       </div>
     </div>
   </div>
+
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title" data-i18n="settings.title"></span>
+        <button class="btn btn-icon modal-close" id="settings-close" title="Закрити">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section">
+          <div class="settings-label" data-i18n="settings.theme"></div>
+          <div class="settings-options">
+            <label class="settings-option">
+              <input type="radio" name="theme" id="settings-theme-light" value="light" checked>
+              <span data-i18n="settings.theme.light"></span>
+            </label>
+            <label class="settings-option">
+              <input type="radio" name="theme" id="settings-theme-dark" value="dark">
+              <span data-i18n="settings.theme.dark"></span>
+            </label>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-label" data-i18n="settings.language"></div>
+          <div class="settings-options">
+            <label class="settings-option">
+              <input type="radio" name="language" id="settings-lang-uk" value="uk" checked>
+              <span data-i18n="settings.language.uk"></span>
+            </label>
+            <label class="settings-option">
+              <input type="radio" name="language" id="settings-lang-ru" value="ru">
+              <span data-i18n="settings.language.ru"></span>
+            </label>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-label" data-i18n="settings.about"></div>
+          <div class="settings-meta">
+            <div class="meta-row">
+              <span class="meta-label" data-i18n="settings.version"></span>
+              <span class="meta-value" id="settings-version-value">—</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label" data-i18n="settings.author"></span>
+              <span class="meta-value" id="settings-author-value">—</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label" data-i18n="settings.github"></span>
+              <a class="meta-value meta-link" id="settings-github-link" href="#" target="_blank">—</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="closeSettings()" data-i18n="settings.close"></button>
+      </div>
+    </div>
+  </div>
+
   <script src="renderer.js"></script>
 </body>
 </html>

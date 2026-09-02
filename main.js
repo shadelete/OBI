@@ -15,6 +15,35 @@ function dbPath() {
   return path.join(dataDir(), 'data', 'db.json');
 }
 
+function configPath() {
+  return path.join(dataDir(), 'config', 'config.json');
+}
+
+const APP_URL = 'https://github.com/shadelete/OBI';
+const APP_AUTHOR = 'Alexander Bondarenko';
+
+const DEFAULT_CONFIG = Object.freeze({ theme: 'light', language: 'uk' });
+
+function readConfig() {
+  try {
+    const p = configPath();
+    if (!fs.existsSync(p)) return { ...DEFAULT_CONFIG };
+    const data = JSON.parse(fs.readFileSync(p, 'utf-8'));
+    return {
+      theme: data.theme === 'dark' ? 'dark' : 'light',
+      language: data.language === 'ru' ? 'ru' : 'uk'
+    };
+  } catch (e) {
+    return { ...DEFAULT_CONFIG };
+  }
+}
+
+function saveConfig(config) {
+  const p = configPath();
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, JSON.stringify(config, null, 2), 'utf-8');
+}
+
 function ensureDB() {
   const p = dbPath();
   fs.mkdirSync(path.dirname(p), { recursive: true });
@@ -86,6 +115,19 @@ function readDB() {
 }
 
 ipcMain.handle('get-db', () => readDB());
+
+ipcMain.handle('get-config', () => readConfig());
+
+ipcMain.handle('save-config', (event, config) => {
+  saveConfig(config);
+  return { success: true };
+});
+
+ipcMain.handle('get-app-info', () => ({
+  version: app.getVersion(),
+  url: APP_URL,
+  author: APP_AUTHOR
+}));
 
 ipcMain.handle('window-minimize', () => {
   mainWindow.minimize();

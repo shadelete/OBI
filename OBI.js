@@ -194,6 +194,15 @@ function scanObject(obj) {
 
             var pName = obj.Name || "Profile";
             var pInfo = splitName(pName);
+
+            // Extract articul embedded as "(articul NNN)" in the profile name and strip it from the name.
+            var pCode = pInfo.code;
+            var mArticul = pInfo.name.match(/\(\s*\u0430\u0440\u0442\u0438\u043A\u0443\u043B\s+(\d+)\s*\)/);
+            if (mArticul) {
+                if (!pCode) pCode = mArticul[1];
+                pInfo.name = pInfo.name.replace(/\(\s*\u0430\u0440\u0442\u0438\u043A\u0443\u043B\s+\d+\s*\)/, "").replace(/\s{2,}/g, " ").trim();
+            }
+            pInfo.code = pCode;
             var pMat = (obj.MaterialName && splitName(obj.MaterialName).name) || "";
 
             var pKey = pInfo.name;

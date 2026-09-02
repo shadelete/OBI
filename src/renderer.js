@@ -1,7 +1,68 @@
 let db = null;
+let config = { theme: 'light', language: 'uk' };
+let appInfo = { version: '', url: '', author: '' };
 
 const DEFAULT_TAGS = ['Загальна фурнітура', 'Петлі', 'Напрямні', 'Метизна фурнітура'];
 const LEGACY_TAGS = { 'Петли': 'Петлі', 'Направляющие': 'Напрямні', 'Метизная фурнитура': 'Метизна фурнітура', 'Общая фурнитура': 'Загальна фурнітура' };
+
+const I18N = {
+  uk: {
+    'brand':'OBI','open.project':'Відкрити замовлення','save.project':'Зберегти замовлення',
+    'export.excel':'Експорт Excel','tab.materials':'Матеріали та кромка','tab.profiles':'Профілі','tab.fittings':'Фурнітура',
+    'fit.placeholder.name':'Найменування фурнітури','fit.placeholder.code':'Артикул','fit.placeholder.count':'К-сть','btn.add':'Додати',
+    'tags.manage':'Управління тегами:','tags.new.placeholder':'Новий тег','tags.add':'Додати тег',
+    'stat.materials':'Матеріалів','stat.profiles':'Профілів','stat.fittings.pos':'Позицій фурнітури','stat.fittings.units':'Од. фурнітури',
+    'edge.title':'Кромка:','edge.none':'Без кромки','export':'Експорт','cut':'{n} паз','cut.plural':'{n} пазів',
+    'detail.article':'Артикул: ','detail.count':'Деталей: ','detail.parts':'Деталі ({n}):',
+    'pcs':'шт','profiles.sizes':'Розміри ({n}):',
+    'fit.name.placeholder':'Найменування','fit.article.placeholder':'Артикул','fit.drag.title':'Перетягнути',
+    'fit.export.title':'Включити в експорт','fit.category':'Категорія','fit.delete.title':'Видалити',
+    'fit.tag.rename':'Перейменувати тег','fit.tag.delete':'Видалити тег','fit.empty':'Порожньо',
+    'confirm.delete.pos':'Видалити позицію?','confirm.delete.selected':'Видалити вибрані позиції ({n})?','alert.cannot.delete.std':'Стандартний тег не можна видалити',
+    'confirm.delete.tag':'Видалити тег "{tag}"? Фурнітура буде перенесена до "Загальна фурнітура".',
+    'alert.tag.exists':'Такий тег уже існує','alert.enter.name':'Введіть найменування','alert.enter.count':'Введіть кількість','alert.enter.tagname':'Введіть назву тега',
+    'settings':'Налаштування','settings.title':'Налаштування','settings.theme':'Тема','settings.theme.light':'Світла','settings.theme.dark':'Темна',
+    'settings.language':'Мова','settings.language.uk':'Українська','settings.language.ru':'Русский',
+    'settings.about':'Про застосунок','settings.version':'Версія','settings.author':'Автор','settings.github':'GitHub','settings.close':'Закрити',
+    'alert.save.fail':'Не вдалося зберегти зміни','alert.open.fail':'Не вдалося відкрити замовлення',
+    'order.saved':'Замовлення збережено:\n{path}','alert.saveProject.fail':'Не вдалося зберегти замовлення',
+    'export.saved':'Експорт збережено:\n{path}','alert.export.error':'Помилка експорту:\n{error}'
+  },
+  ru: {
+    'brand':'OBI','open.project':'Открыть заказ','save.project':'Сохранить заказ',
+    'export.excel':'Экспорт Excel','tab.materials':'Материалы и кромка','tab.profiles':'Профили','tab.fittings':'Фурнитура',
+    'fit.placeholder.name':'Наименование фурнитуры','fit.placeholder.code':'Артикул','fit.placeholder.count':'Кол-во','btn.add':'Добавить',
+    'tags.manage':'Управление тегами:','tags.new.placeholder':'Новый тег','tags.add':'Добавить тег',
+    'stat.materials':'Материалов','stat.profiles':'Профилей','stat.fittings.pos':'Позиций фурнитуры','stat.fittings.units':'Ед. фурнитуры',
+    'edge.title':'Кромка:','edge.none':'Без кромки','export':'Экспорт','cut':'{n} паз','cut.plural':'{n} пазов',
+    'detail.article':'Артикул: ','detail.count':'Деталей: ','detail.parts':'Детали ({n}):',
+    'pcs':'шт','profiles.sizes':'Размеры ({n}):',
+    'fit.name.placeholder':'Наименование','fit.article.placeholder':'Артикул','fit.drag.title':'Перетащить',
+    'fit.export.title':'Включить в экспорт','fit.category':'Категория','fit.delete.title':'Удалить',
+    'fit.tag.rename':'Переименовать тег','fit.tag.delete':'Удалить тег','fit.empty':'Пусто',
+    'confirm.delete.pos':'Удалить позицию?','confirm.delete.selected':'Удалить выбранные позиции ({n})?','alert.cannot.delete.std':'Стандартный тег нельзя удалить',
+    'confirm.delete.tag':'Удалить тег "{tag}"? Фурнитура будет перенесена в "Загальная фурнитура".',
+    'alert.tag.exists':'Такой тег уже существует','alert.enter.name':'Введите наименование','alert.enter.count':'Введите количество','alert.enter.tagname':'Введите название тега',
+    'settings':'Настройки','settings.title':'Настройки','settings.theme':'Тема','settings.theme.light':'Светлая','settings.theme.dark':'Тёмная',
+    'settings.language':'Язык','settings.language.uk':'Українська','settings.language.ru':'Русский',
+    'settings.about':'О приложении','settings.version':'Версия','settings.author':'Автор','settings.github':'GitHub','settings.close':'Закрыть',
+    'alert.save.fail':'Не удалось сохранить изменения','alert.open.fail':'Не удалось открыть заказ',
+    'order.saved':'Заказ сохранён:\n{path}','alert.saveProject.fail':'Не удалось сохранить заказ',
+    'export.saved':'Экспорт сохранён:\n{path}','alert.export.error':'Ошибка экспорта:\n{error}'
+  }
+};
+
+function lang() {
+  return config && config.language === 'ru' ? 'ru' : 'uk';
+}
+
+function t(key, params) {
+  let s = (I18N[lang()] && I18N[lang()][key]) || key;
+  if (params) {
+    s = s.replace(/\{(\w+)\}/g, (m, k) => (params[k] != null ? params[k] : m));
+  }
+  return s;
+}
 
 function isExported(item) {
   return item.export !== false;
@@ -46,9 +107,14 @@ function tagOptions(selected, order) {
 
 document.addEventListener('DOMContentLoaded', async () => {
   db = await window.api.getDB();
+  try { config = (await window.api.getConfig()) || config; } catch (e) {}
+  try { appInfo = (await window.api.getAppInfo()) || appInfo; } catch (e) {}
+  applyTheme();
+  applyLanguage();
   ensureTagOrder();
   ensureFitIds();
   bindFittingsEvents();
+  bindSettingsEvents();
   renderAll();
 });
 
@@ -62,6 +128,22 @@ function renderAll() {
   updateCounts();
 }
 
+function applyTheme() {
+  document.body.classList.toggle('theme-dark', config.theme === 'dark');
+}
+
+function applyLanguage() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.getAttribute('data-i18n'));
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.setAttribute('placeholder', t(el.getAttribute('data-i18n-ph')));
+  });
+  const settingsBtn = document.getElementById('settings-btn');
+  if (settingsBtn) settingsBtn.title = t('settings');
+  renderAll();
+}
+
 function renderStats() {
   const statsEl = document.getElementById('stats');
   const mats = db.materials || [];
@@ -70,10 +152,10 @@ function renderStats() {
   const totalParts = mats.reduce((s, m) => s + (m.count || 0), 0);
   const totalFit = fit.reduce((s, f) => s + (f.count || 0), 0);
   statsEl.innerHTML = `
-    <div class="stat-card"><div class="stat-value">${mats.length}</div><div class="stat-label">Матеріалів</div></div>
-    <div class="stat-card"><div class="stat-value">${prf.length}</div><div class="stat-label">Профілів</div></div>
-    <div class="stat-card"><div class="stat-value">${fit.length}</div><div class="stat-label">Позицій фурнітури</div></div>
-    <div class="stat-card"><div class="stat-value">${totalFit}</div><div class="stat-label">Од. фурнітури</div></div>
+    <div class="stat-card"><div class="stat-value">${mats.length}</div><div class="stat-label">${t('stat.materials')}</div></div>
+    <div class="stat-card"><div class="stat-value">${prf.length}</div><div class="stat-label">${t('stat.profiles')}</div></div>
+    <div class="stat-card"><div class="stat-value">${fit.length}</div><div class="stat-label">${t('stat.fittings.pos')}</div></div>
+    <div class="stat-card"><div class="stat-value">${totalFit}</div><div class="stat-label">${t('stat.fittings.units')}</div></div>
   `;
 }
 
@@ -101,7 +183,7 @@ function detailCuts(d) {
   const labels = c.map(cu => cu.sign || cu.name).filter(Boolean);
   return {
     count: c.length,
-    text: labels.length ? labels.join('; ') : 'Паз'
+    text: labels.length ? labels.join('; ') : (lang() === 'ru' ? 'Паз' : 'Паз')
   };
 }
 
@@ -137,14 +219,14 @@ function renderMaterials() {
       </div>`
     ).join('');
     const edgeBlock = (m.edges && m.edges.length)
-      ? `<div class="edges-block"><div class="edges-title">Кромка:</div>${edges}</div>`
-      : `<div class="edges-block"><div class="edges-title">Кромка:</div><div class="edge-item edge-none">Без кромки</div></div>`;
+      ? `<div class="edges-block"><div class="edges-title">${t('edge.title')}</div>${edges}</div>`
+      : `<div class="edges-block"><div class="edges-title">${t('edge.title')}</div><div class="edge-item edge-none">${t('edge.none')}</div></div>`;
     const details = groupByPosition(m.details).map(d => {
       const cuts = detailCuts(d);
       const cutsHtml = cuts
         ? `<span class="detail-cuts" title="${escapeAttr(cuts.text)}">${escapeHtml(cuts.text)} <span class="detail-cuts-count">${cuts.count}</span></span>`
         : '';
-      const countHtml = (d.count && d.count > 1) ? `<span class="detail-count">×${d.count}</span>` : '';
+      const countHtml = `<span class="detail-count">${d.count || 1}</span>`;
       return `<div class="detail-row"><span class="detail-name">${d.position ? `<span class="detail-pos">${escapeHtml(d.position)}</span>` : ''}${countHtml}${escapeHtml(d.name)}</span>${cutsHtml}<span class="detail-dim">${d.width}×${d.height} мм</span></div>`;
     }).join('');
     const cutTotal = (m.details || []).reduce((s, d) => s + ((d.cuts || []).length), 0);
@@ -154,19 +236,19 @@ function renderMaterials() {
           <span class="card-title material-title">${escapeHtml(m.name)}</span>
           <div class="card-badges">
             <span class="card-badge badge-material">${thickness} мм</span>
-            ${cutTotal ? `<span class="card-badge badge-cut">${cutTotal} паз${cutTotal > 1 ? 'ів' : ''}</span>` : ''}
-            <label class="exp-label" title="Включити в експорт">
+            ${cutTotal ? `<span class="card-badge badge-cut">${cutTotal > 1 ? t('cut.plural', { n: cutTotal }) : t('cut', { n: cutTotal })}</span>` : ''}
+            <label class="exp-label" title="${t('export')}">
               <input type="checkbox" class="exp-check" ${isExported(m) ? 'checked' : ''} onchange="saveMatExport(${idx}, this.checked)">
-              <span>Експорт</span>
+              <span>${t('export')}</span>
             </label>
           </div>
         </div>
         <div class="card-details">
-          <div class="detail-item"><span class="detail-label">Артикул: </span><span class="detail-value">${fmtCode(m.code)}</span></div>
-          <div class="detail-item"><span class="detail-label">Деталей: </span><span class="detail-value">${m.count}</span></div>
+          <div class="detail-item"><span class="detail-label">${t('detail.article')}</span><span class="detail-value">${fmtCode(m.code)}</span></div>
+          <div class="detail-item"><span class="detail-label">${t('detail.count')}</span><span class="detail-value">${m.count}</span></div>
         </div>
         ${edgeBlock}
-        ${details ? `<div class="parts-list"><div class="edges-title">Деталі (${m.count}):</div>${details}</div>` : ''}
+        ${details ? `<div class="parts-list"><div class="edges-title">${t('detail.parts', { n: m.count })}</div>${details}</div>` : ''}
       </div>
     `;
   }).join('');
@@ -190,7 +272,7 @@ function renderProfiles() {
     const sizeRows = details.map(d =>
       `<div class="detail-row">
         <span>${(d.positions && d.positions.length) ? `<span class="detail-pos">${escapeHtml(d.positions.join(', '))}</span>` : ''}${d.width || '—'}×${d.thickness || '—'}×${d.length || '—'} мм</span>
-        <span class="detail-count">${d.count} шт</span>
+        <span class="detail-count">${d.count} ${t('pcs')}</span>
       </div>`
     ).join('');
     return `
@@ -198,18 +280,18 @@ function renderProfiles() {
         <div class="card-header">
           <span class="card-title">${escapeHtml(p.material || p.name)}</span>
           <div class="card-badges">
-            <span class="card-badge badge-profile">${total} шт</span>
-            <label class="exp-label" title="Включити в експорт">
+            <span class="card-badge badge-profile">${total} ${t('pcs')}</span>
+            <label class="exp-label" title="${t('export')}">
               <input type="checkbox" class="exp-check" ${isExported(p) ? 'checked' : ''} onchange="saveProfExport(${idx}, this.checked)">
-              <span>Експорт</span>
+              <span>${t('export')}</span>
             </label>
           </div>
         </div>
         <div class="card-details">
-          <div class="detail-item"><span class="detail-label">Артикул: </span><span class="detail-value">${fmtCode(p.code)}</span></div>
+          <div class="detail-item"><span class="detail-label">${t('detail.article')}</span><span class="detail-value">${fmtCode(p.code)}</span></div>
         </div>
         <div class="parts-list">
-          <div class="edges-title">Розміри (${details.length}):</div>
+          <div class="edges-title">${t('profiles.sizes', { n: details.length })}</div>
           ${sizeRows}
         </div>
       </div>
@@ -239,22 +321,22 @@ function fitRowHTML(f) {
   const sel = selectedFitIds.has(f.id) ? ' selected' : '';
   return `
     <div class="fit-row${sel}" draggable="true" data-id="${f.id}">
-      <div class="fit-drag-handle" title="Перетягнути">⠿</div>
-      <label class="exp-check-wrap" title="Включити в експорт">
+      <div class="fit-drag-handle" title="${t('fit.drag.title')}">⠿</div>
+      <label class="exp-check-wrap" title="${t('fit.export.title')}">
         <input type="checkbox" class="exp-check" ${isExported(f) ? 'checked' : ''} onchange="saveFitExport(${f.id}, this.checked)">
       </label>
-      <input class="fit-edit-name" value="${escapeAttr(f.name || '')}" placeholder="Найменування"
+      <input class="fit-edit-name" value="${escapeAttr(f.name || '')}" placeholder="${t('fit.name.placeholder')}"
         onchange="saveFitName(${f.id}, this.value)">
-      <select class="fit-tag" onchange="saveFitTag(${f.id}, this.value)" title="Категорія">
+      <select class="fit-tag" onchange="saveFitTag(${f.id}, this.value)" title="${t('fit.category')}">
         ${tagOptions(f.tag)}
       </select>
       <div class="fit-editables">
-        <input class="fit-edit-code" value="${escapeAttr(f.code || '')}" placeholder="Артикул"
+        <input class="fit-edit-code" value="${escapeAttr(f.code || '')}" placeholder="${t('fit.article.placeholder')}"
           onchange="saveFitCode(${f.id}, this.value)">
         <input class="fit-edit-count" type="number" min="1" value="${f.count}"
           onchange="saveFitCount(${f.id}, this.value)">
       </div>
-      <button class="btn btn-icon" onclick="deleteFitting(${f.id})" title="Видалити">✕</button>
+      <button class="btn btn-icon" onclick="deleteFitting(${f.id})" title="${t('fit.delete.title')}">✕</button>
     </div>
   `;
 }
@@ -270,14 +352,14 @@ function renderFittings() {
     return `
       <div class="fit-column" data-tag="${escapeAttr(tag)}">
         <div class="fit-column-header" draggable="true">
-          <span class="fit-tag-handle" title="Перетягнути, щоб змінити порядок тегу">≡</span>
+          <span class="fit-tag-handle" title="${t('fit.drag.title')}">≡</span>
           <span class="fit-column-title">${escapeHtml(tag)}</span>
           <span class="fit-column-count">${items.length}</span>
-          <button class="btn btn-icon btn-tag-rename" data-tag="${escapeAttr(tag)}" title="Перейменувати тег">✎</button>
-          <button class="btn btn-icon btn-tag-del" data-tag="${escapeAttr(tag)}" title="Видалити тег">✕</button>
+          <button class="btn btn-icon btn-tag-rename" data-tag="${escapeAttr(tag)}" title="${t('fit.tag.rename')}">✎</button>
+          <button class="btn btn-icon btn-tag-del" data-tag="${escapeAttr(tag)}" title="${t('fit.tag.delete')}">✕</button>
         </div>
         <div class="fit-column-body">
-          ${items.map(fitRowHTML).join('') || '<div class="fit-column-empty">Порожньо</div>'}
+          ${items.map(fitRowHTML).join('') || `<div class="fit-column-empty">${t('fit.empty')}</div>`}
         </div>
       </div>
     `;
@@ -299,6 +381,11 @@ function bindFittingsEvents() {
     if (e.key === 'Escape' && !e.target.closest('input, select')) {
       selectedFitIds.clear();
       updateRowSelection();
+      return;
+    }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedFitIds.size && !e.target.closest('input, select, textarea')) {
+      e.preventDefault();
+      deleteSelectedFittings();
     }
   });
   const newTagInput = document.getElementById('new-tag-input');
@@ -472,14 +559,49 @@ function fittingsDrop(e) {
   try { ids = JSON.parse(raw); }
   catch (err) { ids = [parseInt(raw, 10)]; }
   if (!Array.isArray(ids)) ids = [ids];
-  ids.forEach(id => {
-    id = Number(id);
-    const f = fitById(id);
-    if (f) f.tag = tag;
-  });
+  ids = ids.map(Number).filter(id => Number.isFinite(id));
+  if (!ids.length) return;
+
+  const body = col.querySelector('.fit-column-body');
+  const beforeId = body ? findBeforeRowId(body, e.clientY) : null;
+  applyFitMove(ids, tag, beforeId);
+
   selectedFitIds.clear();
   updateRowSelection();
   saveDB();
+}
+
+// Determine the fitting row just below the drop point (insert before it),
+// or null to append at the end of the column.
+function findBeforeRowId(body, y) {
+  const rows = Array.from(body.querySelectorAll('.fit-row'));
+  for (const r of rows) {
+    const rc = r.getBoundingClientRect();
+    if (y < rc.top + rc.height / 2) return parseInt(r.dataset.id, 10);
+  }
+  return null;
+}
+
+// Move/multi-move fittings into a tag and reorder them within that tag.
+// Rendering groups by tag preserving db.fittings array order, so we rebuild
+// the array: non-target items first (original order), then target-tag items
+// in the desired order (moved ids inserted before `beforeId`).
+function applyFitMove(ids, tag, beforeId) {
+  if (!db.fittings) db.fittings = [];
+  const idSet = new Set(ids);
+  db.fittings.forEach(f => { if (idSet.has(f.id)) f.tag = tag; });
+
+  const tagKey = normTag(tag);
+  const nonTarget = db.fittings.filter(f => !idSet.has(f.id) && normTag(f.tag) !== tagKey).map(f => f.id);
+  const remaining = db.fittings.filter(f => normTag(f.tag) === tagKey && !idSet.has(f.id)).map(f => f.id);
+
+  let pos = beforeId != null ? remaining.indexOf(beforeId) : -1;
+  if (pos === -1) pos = remaining.length;
+
+  const order = nonTarget.concat(remaining.slice(0, pos)).concat(ids).concat(remaining.slice(pos));
+  const byId = {};
+  db.fittings.forEach(f => { byId[f.id] = f; });
+  db.fittings = order.map(id => byId[id]).filter(Boolean);
 }
 
 function reorderTag(dragTag, targetTag) {
@@ -530,7 +652,7 @@ function startRenameTag(tag) {
 
 function commitRenameTag(oldTag, newTag) {
   const order = getTagOrder();
-  if (order.indexOf(newTag) !== -1) { alert('Такий тег уже існує'); return; }
+  if (order.indexOf(newTag) !== -1) { alert(t('alert.tag.exists')); return; }
   db.tagOrder = order.map(t => (t === oldTag ? newTag : t));
   (db.fittings || []).forEach(f => { if (normTag(f.tag) === oldTag) f.tag = newTag; });
   saveDB();
@@ -577,7 +699,7 @@ function saveFitCount(id, value) {
 function saveDB() {
   ensureTagOrder();
   window.api.saveDB(db).then(res => {
-    if (!(res && res.success)) alert('Не вдалося зберегти зміни');
+    if (!(res && res.success)) alert(t('alert.save.fail'));
     else renderAll();
   });
 }
@@ -590,8 +712,8 @@ function addFitting() {
   const name = nameEl.value.trim();
   const code = codeEl.value.trim();
   const count = parseInt(countEl.value, 10);
-  if (!name) { alert('Введіть найменування'); return; }
-  if (!count || count < 1) { alert('Введіть кількість'); return; }
+  if (!name) { alert(t('alert.enter.name')); return; }
+  if (!count || count < 1) { alert(t('alert.enter.count')); return; }
   const tag = tagEl ? tagEl.value : 'Загальна фурнітура';
   if (!db.fittings) db.fittings = [];
   db.fittings.push({ id: db.fitIdCounter++, name: name, code: code, count: count, tag: tag });
@@ -606,17 +728,28 @@ function addFitting() {
 function deleteFitting(id) {
   const f = fitById(id);
   if (!f) return;
-  if (!confirm('Видалити позицію?')) return;
+  if (!confirm(t('confirm.delete.pos'))) return;
   db.fittings.splice(db.fittings.indexOf(f), 1);
+  saveDB();
+}
+
+function deleteSelectedFittings() {
+  if (!selectedFitIds.size) return;
+  const ids = [...selectedFitIds];
+  if (!confirm(t('confirm.delete.selected', { n: ids.length }))) return;
+  (db.fittings || []).forEach(f => selectedFitIds.delete(f.id));
+  db.fittings = (db.fittings || []).filter(f => !ids.includes(f.id));
+  selectedFitIds.clear();
+  updateRowSelection();
   saveDB();
 }
 
 function addTag() {
   const input = document.getElementById('new-tag-input');
   const name = (input.value || '').trim();
-  if (!name) { alert('Введіть назву тега'); return; }
+  if (!name) { alert(t('alert.enter.tagname')); return; }
   const order = getTagOrder();
-  if (order.indexOf(name) !== -1) { alert('Такий тег уже існує'); return; }
+  if (order.indexOf(name) !== -1) { alert(t('alert.tag.exists')); return; }
   order.push(name);
   db.tagOrder = order;
   input.value = '';
@@ -626,10 +759,10 @@ function addTag() {
 function deleteTag(tag) {
   const order = getTagOrder();
   if (DEFAULT_TAGS.indexOf(tag) !== -1) {
-    alert('Стандартний тег не можна видалити');
+    alert(t('alert.cannot.delete.std'));
     return;
   }
-  if (!confirm(`Видалити тег "${tag}"? Фурнітура буде перенесена до "Загальна фурнітура".`)) return;
+  if (!confirm(t('confirm.delete.tag', { tag }))) return;
   (db.fittings || []).forEach(f => { if (normTag(f.tag) === tag) f.tag = 'Загальна фурнітура'; });
   db.tagOrder = order.filter(t => t !== tag);
   saveDB();
@@ -646,7 +779,7 @@ function escapeAttr(str) {
 async function openProject() {
   const res = await window.api.loadProject();
   if (res.canceled) return;
-  if (!res.success) { alert('Не вдалося відкрити замовлення'); return; }
+  if (!res.success) { alert(t('alert.open.fail')); return; }
   db = res.data;
   if (!db.fittings) db.fittings = [];
   if (!db.materials) db.materials = [];
@@ -659,14 +792,14 @@ async function openProject() {
 async function saveProject() {
   const res = await window.api.saveProject(db);
   if (res.canceled) return;
-  if (res.success) alert(`Замовлення збережено:\n${res.path}`);
-  else alert('Не вдалося зберегти замовлення');
+  if (res.success) alert(t('order.saved', { path: res.path }));
+  else alert(t('alert.saveProject.fail'));
 }
 
 async function exportExcel() {
   const result = await window.api.exportXLSX();
-  if (result.success) alert(`Експорт збережено:\n${result.path}`);
-  else if (result.error) alert(`Помилка експорту:\n${result.error}`);
+  if (result.success) alert(t('export.saved', { path: result.path }));
+  else if (result.error) alert(t('alert.export.error', { error: result.error }));
 }
 
 function windowMinimize() {
@@ -675,4 +808,77 @@ function windowMinimize() {
 
 function windowClose() {
   window.api.windowClose();
+}
+
+// ---- Settings ----
+function bindSettingsEvents() {
+  const openBtn = document.getElementById('settings-btn');
+  if (openBtn) openBtn.addEventListener('click', openSettings);
+  const modal = document.getElementById('settings-modal');
+  if (modal) {
+    modal.addEventListener('click', e => {
+      if (e.target === modal) closeSettings();
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && modal.classList.contains('open')) closeSettings();
+    });
+  }
+  const closeBtn = document.getElementById('settings-close');
+  if (closeBtn) closeBtn.addEventListener('click', closeSettings);
+  const themeLight = document.getElementById('settings-theme-light');
+  const themeDark = document.getElementById('settings-theme-dark');
+  if (themeLight) themeLight.addEventListener('change', () => setTheme('light'));
+  if (themeDark) themeDark.addEventListener('change', () => setTheme('dark'));
+  const langUk = document.getElementById('settings-lang-uk');
+  const langRu = document.getElementById('settings-lang-ru');
+  if (langUk) langUk.addEventListener('change', () => setLanguage('uk'));
+  if (langRu) langRu.addEventListener('change', () => setLanguage('ru'));
+}
+
+function openSettings() {
+  const modal = document.getElementById('settings-modal');
+  if (!modal) return;
+  const themeDark = document.getElementById('settings-theme-dark');
+  const langRu = document.getElementById('settings-lang-ru');
+  if (themeDark) themeDark.checked = config.theme === 'dark';
+  if (langRu) langRu.checked = config.language === 'ru';
+  renderSettingsMeta();
+  modal.classList.add('open');
+}
+
+function closeSettings() {
+  const modal = document.getElementById('settings-modal');
+  if (modal) modal.classList.remove('open');
+  const hiddenInput = document.activeElement;
+  if (hiddenInput && hiddenInput.blur) hiddenInput.blur();
+}
+
+function renderSettingsMeta() {
+  const versionEl = document.getElementById('settings-version-value');
+  const authorEl = document.getElementById('settings-author-value');
+  const linkEl = document.getElementById('settings-github-link');
+  if (versionEl) versionEl.textContent = appInfo.version || '—';
+  if (authorEl) authorEl.textContent = appInfo.author || '—';
+  if (linkEl) {
+    linkEl.textContent = appInfo.url || '—';
+    if (appInfo.url) linkEl.setAttribute('href', appInfo.url);
+  }
+}
+
+function setTheme(theme) {
+  config.theme = theme;
+  applyTheme();
+  saveConfig();
+}
+
+function setLanguage(language) {
+  config.language = language;
+  applyLanguage();
+  const modal = document.getElementById('settings-modal');
+  if (modal) modal.classList.remove('open');
+  saveConfig();
+}
+
+function saveConfig() {
+  try { window.api.saveConfig(config); } catch (e) {}
 }
