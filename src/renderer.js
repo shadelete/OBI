@@ -34,8 +34,7 @@ const I18N = {
     'alert.tag.exists':'Такий тег уже існує','alert.enter.name':'Введіть найменування','alert.enter.count':'Введіть кількість','alert.enter.tagname':'Введіть назву тега',
     'settings':'Налаштування','settings.title':'Налаштування','settings.theme':'Тема','settings.theme.light':'Світла','settings.theme.dark':'Темна',
     'settings.language':'Мова','settings.language.uk':'Українська','settings.language.ru':'Русский',
-    'settings.blacklist':'Чорний список фурнітури','settings.blacklist.empty':'Порожньо',
-    'settings.blacklist.remove':'Видалити зі списку',
+    'settings.rules':'Правила фурнітури','settings.rules.open':'Відкрити',
     'settings.about':'Про застосунок','settings.version':'Версія','settings.author':'Автор','settings.github':'GitHub','settings.close':'Закрити',
     'alert.save.fail':'Не вдалося зберегти зміни','alert.open.fail':'Не вдалося відкрити замовлення',
     'order.saved':'Замовлення збережено:\n{path}','alert.saveProject.fail':'Не вдалося зберегти замовлення',
@@ -63,8 +62,7 @@ const I18N = {
     'alert.tag.exists':'Такой тег уже существует','alert.enter.name':'Введите наименование','alert.enter.count':'Введите количество','alert.enter.tagname':'Введите название тега',
     'settings':'Настройки','settings.title':'Настройки','settings.theme':'Тема','settings.theme.light':'Светлая','settings.theme.dark':'Тёмная',
     'settings.language':'Язык','settings.language.uk':'Українська','settings.language.ru':'Русский',
-    'settings.blacklist':'Чёрный список фурнитуры','settings.blacklist.empty':'Пусто',
-    'settings.blacklist.remove':'Удалить из списка',
+    'settings.rules':'Правила фурнитуры','settings.rules.open':'Открыть',
     'settings.about':'О приложении','settings.version':'Версия','settings.author':'Автор','settings.github':'GitHub','settings.close':'Закрыть',
     'alert.save.fail':'Не удалось сохранить изменения','alert.open.fail':'Не удалось открыть заказ',
     'order.saved':'Заказ сохранён:\n{path}','alert.saveProject.fail':'Не удалось сохранить заказ',
@@ -1240,6 +1238,10 @@ function closeSettings() {
   if (hiddenInput && hiddenInput.blur) hiddenInput.blur();
 }
 
+function openFitRulesWindow() {
+  window.api.openFitRulesWindow();
+}
+
 function renderSettingsMeta() {
   const versionEl = document.getElementById('settings-version-value');
   const authorEl = document.getElementById('settings-author-value');
@@ -1250,41 +1252,6 @@ function renderSettingsMeta() {
     linkEl.textContent = appInfo.url || '—';
     if (appInfo.url) linkEl.setAttribute('href', appInfo.url);
   }
-  renderBlacklist();
-}
-
-function renderBlacklist() {
-  const container = document.getElementById('blacklist-container');
-  if (!container) return;
-  const items = [];
-  (fitRules.blacklist || []).forEach(code => {
-    const f = (db.fittings || []).find(x => x.code === code);
-    const label = f ? f.name : code;
-    items.push({ key: code, label: label + (label !== code ? ' (' + code + ')' : ''), byName: false });
-  });
-  (fitRules.blacklistByName || []).forEach(name => {
-    items.push({ key: name, label: name, byName: true });
-  });
-  if (!items.length) {
-    container.innerHTML = `<div class="meta-row"><span class="meta-value" data-i18n="settings.blacklist.empty"></span></div>`;
-    return;
-  }
-  container.innerHTML = items.map(it =>
-    `<div class="meta-row blacklist-row">
-      <span class="meta-value">${escapeHtml(it.label)}</span>
-      <button class="btn btn-icon" onclick="removeFromBlacklist('${escapeAttr(it.key)}', ${it.byName})" title="${t('settings.blacklist.remove')}">✕</button>
-    </div>`
-  ).join('');
-}
-
-function removeFromBlacklist(key, byName) {
-  const arr = byName ? (fitRules.blacklistByName || []) : fitRules.blacklist;
-  const idx = arr.indexOf(key);
-  if (idx !== -1) arr.splice(idx, 1);
-  const f = (db.fittings || []).find(x => (byName ? x.name === key : x.code === key));
-  if (f) f.export = true;
-  saveFitRules();
-  saveDB();
 }
 
 function setTheme(theme) {

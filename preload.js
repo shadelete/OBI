@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('api', {
   getConfig: () => ipcRenderer.invoke('get-config'),
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
   getFitRules: () => ipcRenderer.invoke('get-fit-rules'),
+  getFitRulesData: () => ipcRenderer.invoke('get-fit-rules-data'),
+  openFitRulesWindow: () => ipcRenderer.invoke('open-fit-rules-window'),
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
   windowMinimize: () => ipcRenderer.invoke('window-minimize'),
   windowMaximize: () => ipcRenderer.invoke('window-maximize'),

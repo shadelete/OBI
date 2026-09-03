@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline';">
+  <title>Правила фурнітури</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body { margin: 0; }
+    .fr-header {
+      display: flex; align-items: center;
+      padding: 12px 16px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .fr-header h2 { margin: 0; font-size: 15px; color: var(--text); flex: 1; }
+    .fr-tabs { display: flex; gap: 4px; }
+    .fr-tab {
+      padding: 6px 12px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text);
+      border-radius: 6px; cursor: pointer; font-size: 12.5px;
+    }
+    .fr-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .fr-body { padding: 16px; overflow-y: auto; height: calc(100vh - 67px); }
+    .fr-list { display: flex; flex-direction: column; gap: 8px; }
+    .fr-group-title { font-size: 12.5px; font-weight: 600; color: var(--text-faint); margin: 12px 0 4px; }
+    .fr-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; background: var(--card);
+      border: 1px solid var(--border); border-radius: 6px;
+    }
+    .fr-item-name { flex: 1; color: var(--text); font-size: 12.5px; }
+    .fr-item-code { color: var(--text-faint); font-size: 11.5px; min-width: 70px; text-align: right; }
+    .fr-empty { color: var(--text-faint); font-size: 12.5px; padding: 12px; text-align: center; }
+    .fr-badge {
+      font-size: 10.5px; padding: 2px 6px; border-radius: 10px;
+      background: var(--bg); border: 1px solid var(--border); color: var(--text-faint);
+    }
+    .fr-badge.bl { background: var(--danger-bg, #fdecea); border-color: var(--danger, #e04b3a); color: var(--danger, #c0392b); }
+    .fr-badge.ok { background: var(--accent-bg, #e7f0ff); border-color: var(--accent); color: var(--accent); }
+    .fr-rem {
+      background: none; border: none; color: var(--text-faint);
+      cursor: pointer; font-size: 14px; line-height: 1; padding: 2px;
+    }
+    .fr-rem:hover { color: var(--danger, #e04b3a); }
+  </style>
+</head>
+<body class="theme-light">
+  <div class="fr-header">
+    <h2 id="fr-title">Правила фурнітури</h2>
+    <div class="fr-tabs">
+      <button class="fr-tab active" data-tab="tags" id="tab-tags">По тегах</button>
+      <button class="fr-tab" data-tab="blacklist" id="tab-blacklist">Чорний список</button>
+    </div>
+  </div>
+  <div class="fr-body" id="fr-body"></div>
+  <script src="fit_rules.js"></script>
+</body>
+</html>

@@ -4,6 +4,7 @@ const fs = require('fs');
 const { exportToXLSXBuffer } = require('./src/export');
 
 let mainWindow;
+let fitRulesWindow;
 
 function dataDir() {
   if (process.env.PORTABLE_EXECUTABLE_DIR) return process.env.PORTABLE_EXECUTABLE_DIR;
@@ -100,6 +101,31 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
 }
 
+function openFitRulesWindow() {
+  if (fitRulesWindow && !fitRulesWindow.isDestroyed()) {
+    fitRulesWindow.focus();
+    return;
+  }
+  fitRulesWindow = new BrowserWindow({
+    width: 820,
+    height: 700,
+    minWidth: 600,
+    minHeight: 400,
+    parent: mainWindow,
+    modal: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true
+    },
+    title: 'Правила фурнітури',
+    icon: path.join(__dirname, 'icon.png')
+  });
+  fitRulesWindow.setMenu(null);
+  fitRulesWindow.loadFile(path.join(__dirname, 'src', 'fit_rules.html'));
+  fitRulesWindow.on('closed', () => { fitRulesWindow = null; });
+}
+
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
@@ -151,6 +177,16 @@ ipcMain.handle('save-config', (event, config) => {
 });
 
 ipcMain.handle('get-fit-rules', () => readFitRules());
+
+ipcMain.handle('get-fit-rules-data', () => {
+  const rules = readFitRules();
+  const db = readDB();
+  return { rules, fittings: db.fittings || [], tagOrder: db.tagOrder || [] };
+});
+
+ipcMain.handle('open-fit-rules-window', () => {
+  openFitRulesWindow();
+});
 
 ipcMain.handle('get-app-info', () => ({
   version: app.getVersion(),

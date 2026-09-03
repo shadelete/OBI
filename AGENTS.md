@@ -52,6 +52,7 @@
 - `src/index.html` — каркас: `.header` (бренд + действия + window-controls), `.tabs` (Матеріали та кромка / Профілі / Фурнітура), `.content` → `.stats` + три `.panel` (`panel-materials`, `panel-profiles`, `panel-fittings`). Панель фурнитуры содержит форму добавления (`#add-fitting-form`), менеджер тегов (`#tag-manager`), контейнер колонок `#fittings-columns` и скрытый список `#fittings-list`.
 - `src/styles.css` — все стили. Базис-дизайн на нейтральных тонах: фон `#f5f7fa`, карточки белые `#ffffff` с рамкой `#e3e8ef`, акцент-синий `#2b6de0`. Классы перечислены по назначению ниже.
 - `src/renderer.js` — вся логика рендера и интерактива (см. ниже).
+- `src/fit_rules.html` + `src/fit_rules.js` — **отдельное модальное окно правил фурнитуры** (список известной фурнитуры по тегам и чёрный список). Открывается из настроек кнопкой «Правила фурнітури» → `window.api.openFitRulesWindow()`. Данные берёт через `window.api.getFitRulesData()` (возвращает `{ rules, fittings, tagOrder }`), удаление из чёрного списка — через `getDB()`+`saveDB()`.
 - `src/export.js` — генерация XLSX (exceljs) и CSV/JSON, вызывается из main процесса. См. отдельный раздел.
 
 ### Глобальное состояние и запуск
@@ -98,7 +99,8 @@
 - Запис: `saveFitTag`/`applyFitMove` (drag&drop) зберігають тег і в `tags[f.code]`, і в `tagsByName[f.name]`; `saveFitExport` — блекліст по коду (коли є код) і в `blacklistByName` по імені (коли коду нема).
 - Зберігання в файл не окремим IPC, а **разом із db.json**: `saveDB()` пише `db.fitRules`, а хендлер `save-db` у `main.js` додатково викликає `saveFitRules(data.fitRules)` → пишеться `fit_rules.json`.
 - Читання на старті: рендерер пріоритетно бере `getFitRules()` (→ `readFitRules()` з `fit_rules.json`), fallback на `db.fitRules`. Далі `applyFitRules()` (перебиває `f.tag`/`f.export`), потім `ensureTagOrder()` (додає нові теги з правил у колонки).
-- Дропдаун тега в UI — `fitRules.tags[f.code]`; фурнітура без коду — `tagsByName[f.name]`. `renderBlacklist`/`removeFromBlacklist` працюють з обома списками блеклісту.
+- Дропдаун тега в UI — `fitRules.tags[f.code]`; фурнітура без коду — `tagsByName[f.name]`.
+- Перегляд/зміна правил — в **окремому вікні** `src/fit_rules.html`+`src/fit_rules.js` (дві вкладки: «По тегах» і «Чорний список»), відкривається з налаштувань через `window.api.openFitRulesWindow()`; видалення з чорного списку — `getDB()`+`saveDB()`.
 
 ### Экспорт (src/export.js) — кратко
 `exportToXLSXBuffer(data)` → 3 листа: «Матеріали» (сгруппирован по поз.), «Профілі», «Фурнітура». Стили-константы `FONT_TITLE/FONT_HEAD/FONT_DATA/FILL_ORANGE/FILL_PEACH/BORDER` (Montserrat + оранжевая палитра, `charset:204`). Фильтрация по `export !== false` (`exported()`). Фурнитура на листе сгруппирована по тегу, порядок тегов = `db.tagOrder` (как в интерфейсе), затем алфавит. При доработке UI помнить: если меняется/добавляется поле в fittings/materials, его надо поддержать и тут (иначе расхождение UI↔Excel).
