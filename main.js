@@ -12,8 +12,62 @@ function dataDir() {
   return __dirname;
 }
 
+function projectsDir() {
+  return path.join(dataDir(), 'data', 'projects');
+}
+
+let activeProjectPath = null;
+
+function listProjects() {
+  const pd = projectsDir();
+  if (!fs.existsSync(pd)) return [];
+  return fs.readdirSync(pd)
+    .filter(f => f.toLowerCase().endsWith('.json'))
+    .map(f => ({
+      name: path.basename(f, '.json'),
+      path: path.join(pd, f),
+      mtime: fs.statSync(path.join(pd, f)).mtimeMs
+    }))
+    .sort((a, b) => b.mtime - a.mtime);
+}
+
+function findMostRecentProject() {
+  const items = listProjects();
+  return items.length ? items[0].path : '';
+}
+
 function dbPath() {
-  return path.join(dataDir(), 'data', 'db.json');
+  if (activeProjectPath && fs.existsSync(activeProjectPath)) return activeProjectPath;
+  const def = path.join(dataDir(), 'data', 'db.json');
+  try {
+    const activePath = path.join(dataDir(), 'data', 'current_project.txt');
+    if (fs.existsSync(activePath)) {
+      let saved = fs.readFileSync(activePath, 'utf-8').trim();
+      if (saved) {
+        if (!path.isAbsolute(saved)) saved = path.resolve(dataDir(), saved);
+        if (fs.existsSync(saved)) return saved;
+      }
+    }
+  } catch (e) {}
+  try {
+    const pd = projectsDir();
+    if (fs.existsSync(pd)) {
+      const files = fs.readdirSync(pd).filter(f => f.toLowerCase().endsWith('.json'));
+      if (files.length) {
+        files.sort((a, b) => fs.statSync(path.join(pd, b)).mtimeMs - fs.statSync(path.join(pd, a)).mtimeMs);
+        return path.join(pd, files[0]);
+      }
+    }
+  } catch (e) {}
+  return def;
+}
+
+function ensureProjectsDir() {
+  fs.mkdirSync(projectsDir(), { recursive: true });
+}
+
+function sanitizeFileName(name) {
+  return String(name || '').replace(/[\\\/:\*\?"<>\|]/g, '_').trim();
 }
 
 function configPath() {
@@ -169,6 +223,11 @@ function readDB() {
 
 ipcMain.handle('get-db', () => readDB());
 
+ipcMain.handle('get-project-name', () => {
+  const p = path.basename(activeProjectPath || dbPath(), '.json');
+  return (p && p !== 'db') ? p : '';
+});
+
 ipcMain.handle('get-config', () => readConfig());
 
 ipcMain.handle('save-config', (event, config) => {
@@ -208,41 +267,55 @@ ipcMain.handle('window-close', () => {
 });
 
 ipcMain.handle('save-db', (event, data) => {
-  fs.writeFileSync(dbPath(), JSON.stringify(data, null, 2), 'utf-8');
+  ensureProjectsDir();
+  const p = activeProjectPath || dbPath();
+  fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf-8');
+  activeProjectPath = p;
   if (data.fitRules) {
     try { saveFitRules(data.fitRules); } catch (e) {}
   }
-  return { success: true };
+  return { success: true, path: p };
 });
 
-ipcMain.handle('save-project', async (event, data) => {
-  const filePath = await dialog.showSaveDialog(mainWindow, {
-    title: 'Зберегти замовлення',
-    defaultPath: 'order.json',
-    filters: [{ name: 'JSON', extensions: ['json'] }]
-  });
-  if (filePath.canceled || !filePath.filePath) return { success: false, canceled: true };
-  fs.writeFileSync(filePath.filePath, JSON.stringify(data, null, 2), 'utf-8');
-  return { success: true, path: filePath.filePath };
-});
-
-ipcMain.handle('load-project', async () => {
-  const filePath = await dialog.showOpenDialog(mainWindow, {
-    title: 'Відкрити замовлення',
-    filters: [{ name: 'JSON', extensions: ['json'] }],
-    properties: ['openFile']
-  });
-  if (filePath.canceled || !filePath.filePaths || !filePath.filePaths[0]) {
-    return { success: false, canceled: true };
+ipcMain.handle('save-project', (event, data) => {
+  ensureProjectsDir();
+  const p = activeProjectPath || findMostRecentProject() || path.join(projectsDir(), 'order.json');
+  fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf-8');
+  activeProjectPath = p;
+  if (data.fitRules) {
+    try { saveFitRules(data.fitRules); } catch (e) {}
   }
-  const buf = fs.readFileSync(filePath.filePaths[0]);
+  return { success: true, path: p };
+});
+
+ipcMain.handle('load-project', (event, filePath) => {
+  if (!filePath || !fs.existsSync(filePath)) return { success: false };
+  const buf = fs.readFileSync(filePath);
   let text = buf.toString('utf-8');
   if (text.includes('\uFFFD')) {
     text = buf.toString('latin1')
       .replace(/[\u0080-\u00FF]/g, ch => windows1251[ch.charCodeAt(0)] || ch);
   }
   const data = JSON.parse(text);
-  return { success: true, data };
+  activeProjectPath = filePath;
+  return { success: true, data, path: filePath };
+});
+
+ipcMain.handle('get-projects', () => {
+  return listProjects().map(({ name, path: p, mtime }) => ({ name, path: p, mtime }));
+});
+
+ipcMain.handle('rename-project', (event, newName) => {
+  const clean = sanitizeFileName(newName);
+  if (!clean || clean === 'db') return { success: false, error: 'invalid-name' };
+  const old = activeProjectPath || dbPath();
+  const newPath = path.join(path.dirname(old), clean + '.json');
+  if (fs.existsSync(newPath) && newPath !== old) {
+    return { success: false, error: 'exists' };
+  }
+  fs.renameSync(old, newPath);
+  activeProjectPath = newPath;
+  return { success: true, name: clean, path: newPath };
 });
 
 ipcMain.handle('export-xlsx', async () => {

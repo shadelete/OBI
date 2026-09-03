@@ -90,6 +90,20 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
   gap: 16px;
 }
 .topbar-left { display: flex; align-items: center; }
+.project-name {
+  color: #c8d0dc;
+  font-size: 14px;
+  font-weight: 600;
+  margin-left: 14px;
+  padding-left: 14px;
+  border-left: 1px solid #3a4150;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+}
+.topbar-light .project-name { color: #2b3440; border-left-color: #d5dbe4; }
 .brand { display: flex; align-items: center; }
 .brand-logo {
   background: linear-gradient(135deg, #2f6fe0, #4d8df0);
@@ -409,6 +423,23 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .meta-link { color: var(--accent); text-decoration: none; }
 .meta-link:hover { text-decoration: underline; }
 .settings-btn { font-size: 15px; }
+.project-list { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto; }
+.project-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.project-item:hover { border-color: var(--accent); background: var(--bg-hover); }
+.project-item-name { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-item-meta { flex: 0 0 auto; font-size: 11px; color: var(--text-faint); }
+.project-empty { font-size: 13px; color: var(--text-faint); padding: 16px 0; text-align: center; }
 
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-thumb { background: #3a4352; border-radius: 6px; }

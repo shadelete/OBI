@@ -2,9 +2,12 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
   getDB: () => ipcRenderer.invoke('get-db'),
+  getProjectName: () => ipcRenderer.invoke('get-project-name'),
+  getProjects: () => ipcRenderer.invoke('get-projects'),
+  renameProject: (name) => ipcRenderer.invoke('rename-project', name),
   saveDB: (data) => ipcRenderer.invoke('save-db', data),
   saveProject: (data) => ipcRenderer.invoke('save-project', data),
-  loadProject: () => ipcRenderer.invoke('load-project'),
+  loadProject: (path) => ipcRenderer.invoke('load-project', path),
   exportXLSX: () => ipcRenderer.invoke('export-xlsx'),
   getConfig: () => ipcRenderer.invoke('get-config'),
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),

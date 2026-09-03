@@ -14,6 +14,7 @@
         <div class="brand">
           <span class="brand-logo">OBI</span>
         </div>
+        <div class="project-name" id="project-name"></div>
       </div>
       <div class="topbar-actions">
         <button class="btn btn-secondary" onclick="openProject()" data-i18n="open.project"></button>
@@ -90,6 +91,22 @@
           </div>
         </div>
       </section>
+    </div>
+  </div>
+
+  <!-- PROJECT PICKER MODAL -->
+  <div class="modal-overlay" id="project-picker-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title" data-i18n="project.open"></span>
+        <button class="btn btn-icon modal-close" id="project-picker-close" title="Закрити">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="project-list" id="project-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeProjectPicker()" data-i18n="settings.close"></button>
+      </div>
     </div>
   </div>
 

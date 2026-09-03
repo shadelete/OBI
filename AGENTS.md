@@ -1,9 +1,9 @@
 # AGENTS.md — Output Bazis Info (OBI)
 
-Электрон-приложение, которое читает `data/db.json` и показывает/экспортирует данные мебельного проекта (материалы, профили, фурнитуру). Данные генерирует **скрипт Базиса** (`OBI.js`), запускаемый внутри САПР «Базис». Пользователь запускает скрипт в Базис, тот пишет db.json и запускает OBI.exe.
+Электрон-приложение, которое читает `data/<проект>.json` и показывает/экспортирует данные мебельного проекта (материалы, профили, фурнитуру). Данные генерирует **скрипт Базиса** (`OBI.js`), запускаемый внутри САПР «Базис». Пользователь запускает скрипт в Базис, тот пишет json (называемый найменованием изделия) в `data\projects\` и запускает OBI.exe.
 
 ## Две независимые части
-- **Скрипт Базиса** (корень): `OBI.js` — единственный рабочий/эталонный скрипт: вынимает состав фурнитуры через `GetParams('AdvParamData')`, пишет db.json в 2 места (корень + рядом с exe), запускает OBI.exe. Это НЕ часть electron-приложения.
+- **Скрипт Базиса** (корень): `OBI.js` — единственный рабочий/эталонный скрипт: вынимает состав фурнитуры через `GetParams('AdvParamData')`, пишет json в 2 места (корень + рядом с exe), запускает OBI.exe. Это НЕ часть electron-приложения.
 - **Electron-приложение**: `main.js`, `preload.js`, `src/renderer.js`, `src/export.js`, `src/index.html`. Основной исходник UI — `src/renderer.js`. Корневые `renderer.js`/`export.js` — gitignored-артефакты, в приложении не используются.
 
 ## Критичные факты о Bazis-скриптах (иначе всё сломается)
@@ -19,8 +19,9 @@
 - Рабочее правило состава: у фурнитуры с `Elements` родитель остаётся в db с деревом `elements` (вложенность) + все внутренние элементы добавляются отдельными позициями с `isComposition:true`; узел, совпадающий с родителем (имя+код), в список не дублируют.
 
 ## Где OBI.exe берёт данные (частый источник «база есть, в интерфейсе пусто»)
-- `main.js`: `dbPath() = <папка exe>\data\db.json` (для portable — `PORTABLE_EXECUTABLE_DIR`, иначе папка exe). Dev-запуск `npx electron .` читает `data/db.json` корня проекта.
-- Поэтому **скрипт-генератор обязан писать db.json и в `папка_скрипта\data\`, и в `data\` рядом с найденным OBI.exe** (сейчас: `dist\data\db.json`). Проверка: `dist\data\db.json` должен обновляться по времени вместе с корневым.
+- `main.js`: `dbPath()` = найсвіжіший `.json` з `data\projects\` (активний проект), інакше `data\db.json`. Базовий каталог: `<папка exe>` (для portable — `PORTABLE_EXECUTABLE_DIR`, інакше папка exe). Dev-запуск `npx electron .` читає по корню проекту. Рядок `current_project.txt` враховується (з резолвом відносних шляхів), але через ризик кодування (Базис пише туди mojibake) надійнішим є scan по `projects\`.
+- Название проекта: `OBI.js` берёт **наименование изделия** из глобальной `Article.Name` (fallback `currentFileData.article.Name`) → `getOrderName()`; имя фала = санiтiзованное `Article.Name`. Файл пишется в `data\projects\<Наименование>.json` (в оба места: в `папка_скрипта\data\` и `data\` рядом с найденным OBI.exe). Шлях активного проекта записывается в `data\current_project.txt` в каждой папке. Если имени нет — fallback на `data\db.json` как раньше.
+- Поэтому **скрипт-генератор обязан писать json и в `папка_скрипта\data\projects\`, и в `data\projects\` рядом с найденным OBI.exe** (сейчас: `dist\data\projects\`). Проверка: `dist\data\current_project.txt` должен обновляться по времени вместе с корневым.
 - Поиск exe (в `OBI.js`): рядом со скриптом → сохранённый путь `data\exe_path.txt` → `dist\OBI.exe` → `dist\release\OBI.exe` → вверх до 4 родительских + cwd.
 
 ## Команды
@@ -73,7 +74,7 @@
   - Сохранение правок: `saveFitExport/Name/Tag/Code/Count` (539-575), каждая вызывает `saveDB()`.
   - `saveDB()` (577): `ensureTagOrder()` → `window.api.saveDB(db)` → по успеху `renderAll()`.
   - Форма добавления: `addFitting()` (585). `deleteFitting()` (606, с confirm).
-- **Файл-операции/экспорт/окно**: `openProject()` (646), `saveProject()` (659), `exportExcel()` (666), `windowMinimize/Close` (672/676).
+- **Файл-операции/экспорт/окно**: `openProject()` (відкриває модальний пікер `#project-picker-modal` зі списком проектів), `saveProject()` (тихо перезаписує активний проект), `startRenameProject()` (клік по назві проекту в шапці → перейменування файлу), `exportExcel()`, `windowMinimize/Close`. Назва проекту в шапці (`.project-name`) клікабельна — біндинги у `bindSettingsEvents()` (`.project-picker-modal` теж там замикається).
 - **Экранирование**: `escapeHtml()` (638), `escapeAttr()` (642) — ОБЯЗАТЕЛЬНО применять к любому пользовательскому/модельному тексту при подстановке в HTML.
 
 ### Стили (стиль-гайд для доработки)
@@ -81,10 +82,11 @@
 - Бейджи категорий: `.badge-material` (синий), `.badge-furniture` (зелёный), `.badge-profile` (оранжевый), `.badge-cut` (оранжевый паз).
 - Кнопки: `.btn-primary`/`.btn-export` (синие), `.btn-secondary`, `.btn-icon` (нейтральные). Поле ввода: `.form-input` (+ `-sm`, `-tag`, `-tag-new` размеры).
 - Селектор стиля обводки при редактировании: `.fit-row.selected` (синяя рамка + glow), `fit-editing` для карточек.
+- **Внимание (drag-зона)**: контент в `.topbar` с `-webkit-app-region: drag` НЕ получает клики. Любой кликабельный элемент в шапке (напр. `.project-name`) обязан иметь `-webkit-app-region: no-drag`, иначе клик перехватывается перетаскиванием окна.
 - Анимация: `@keyframes fadeIn` (141) для появления строк/колонок.
 
 ### IPC (preload.js → main.js)
-`window.api` = `{ getDB, saveDB, saveProject, loadProject, exportXLSX, getConfig, saveConfig, getAppInfo, windowMinimize, windowClose }`. Хендлеры в `main.js`: `get-db`/`save-db` работают с `dbPath()` (данные по умолчанию из той же папки), `save-project`/`load-project` — диалоги с пользователем, `export-xlsx` строит буфер через `exportToXLSXBuffer` из актуального `readDB()` и сохраняет через диалог. Настройки: `get-config`/`save-config` работают с `configPath()` = `<dataDir>\config\config.json`, `get-app-info` отдаёт `{ version, url, author }` (version = `app.getVersion()` из package.json; url/author — константы в main.js).
+`window.api` = `{ getDB, getProjectName, getProjects, renameProject, saveDB, saveProject, loadProject, exportXLSX, getConfig, saveConfig, getAppInfo, windowMinimize, windowClose }`. Хендлеры в `main.js`: `get-db`/`save-db` работают с активным проектом (см. `dbPath()`/`activeProjectPath`), `get-project-name` отдаёт базовое имя активного json без расширения (пустую строку для `db.json`), `get-projects` отдаёт список `{name, path, mtime}` из `data\projects\`, `rename-project` переименовывает файл активного проекта (+ возвращает новое имя/шлях), `save-project` тихо перезаписывает активный проект (без диалога), `load-project(path)` загружает проект по заданному шляху и делает его активным, `export-xlsx` строит буфер через `exportToXLSXBuffer` из актуального `readDB()` и сохраняет через диалог. Настройки: `get-config`/`save-config` работают с `configPath()` = `<dataDir>\config\config.json`, `get-app-info` отдаёт `{ version, url, author }` (version = `app.getVersion()` из package.json; url/author — константы в main.js).
 
 ### Настройки пользователя (config)
 - Файл `config/config.json` (в `dataDir()`, рядом с exe/в корне при dev), НЕ gitignored неявно — добавлен в `.gitignore`. Схема: `{ theme: "light"|"dark", language: "uk"|"ru" }`. `readConfig()` при отсутствии файла возвращает дефолты; `saveConfig()` создаёт папку через `mkdirSync({recursive:true})`.

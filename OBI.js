@@ -38,6 +38,34 @@ function splitName(str) {
     return { name: str, code: "" };
 }
 
+// Get current product name (naymenuvannya vyrobu) from global Article.Name.
+function getOrderName() {
+    try {
+        if (typeof Article !== "undefined" && Article && Article.Name) {
+            return String(Article.Name);
+        }
+    } catch (e) {}
+    try {
+        if (typeof currentFileData !== "undefined" && currentFileData
+            && currentFileData.article && currentFileData.article.Name) {
+            return String(currentFileData.article.Name);
+        }
+    } catch (e) {}
+    return "";
+}
+
+// Sanitize a string into a safe filename.
+function sanitizeFilename(str) {
+    if (!str) return "";
+    return String(str)
+        .replace(/[\\\/\:\*\?\"\<\>\|]/g, "_")
+        .replace(/^[\s\.]+|[\s\.]+$/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+// Sanitize a string into a safe filename.
+
 // --- ��������� ������ ��������� (��� � ���������� �������) ---
 // ���/��� ����: �� node.Name, ���� �� node.Value ("���\r���").
 function nodeNameCode(node) {
@@ -484,13 +512,31 @@ if (!EXE_PATH) {
 
     try {
         var fs = require('fs');
-        if (!fs.existsSync(DATA_DIR)) {
-            fs.mkdirSync(DATA_DIR);
+        var orderName = sanitizeFilename(getOrderName());
+        var baseName = orderName ? (orderName + ".json") : "db.json";
+        var scriptProjects = DATA_DIR + "\\projects";
+        var exeProjects = EXE_DATA_DIR + "\\projects";
+
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+        if (!fs.existsSync(scriptProjects)) fs.mkdirSync(scriptProjects);
+
+        if (orderName) {
+            fs.writeFileSync(scriptProjects + "\\" + baseName, jsonString, 'utf-8');
+        } else {
+            fs.writeFileSync(DATA_DIR + "\\db.json", jsonString, 'utf-8');
         }
-        fs.writeFileSync(DATA_DIR + "\\db.json", jsonString, 'utf-8');
+
+        fs.writeFileSync(DATA_DIR + "\\current_project.txt", (orderName ? (scriptProjects + "\\" + baseName) : (DATA_DIR + "\\db.json")), 'utf-8');
+
         if (EXE_DATA_DIR && EXE_DATA_DIR !== DATA_DIR) {
             if (!fs.existsSync(EXE_DATA_DIR)) fs.mkdirSync(EXE_DATA_DIR);
-            fs.writeFileSync(EXE_DATA_DIR + "\\db.json", jsonString, 'utf-8');
+            if (!fs.existsSync(exeProjects)) fs.mkdirSync(exeProjects);
+            if (orderName) {
+                fs.writeFileSync(exeProjects + "\\" + baseName, jsonString, 'utf-8');
+            } else {
+                fs.writeFileSync(EXE_DATA_DIR + "\\db.json", jsonString, 'utf-8');
+            }
+            fs.writeFileSync(EXE_DATA_DIR + "\\current_project.txt", (orderName ? (exeProjects + "\\" + baseName) : (EXE_DATA_DIR + "\\db.json")), 'utf-8');
         }
     } catch (e) {
         alert("\u041E\u0428\u0418\u0411\u041A\u0410 \u0421\u041E\u0425\u0420\u0410\u041D\u0415\u041D\u0418\u042f: " + e.message);

@@ -38,7 +38,10 @@ const I18N = {
     'settings.about':'Про застосунок','settings.version':'Версія','settings.author':'Автор','settings.github':'GitHub','settings.close':'Закрити',
     'alert.save.fail':'Не вдалося зберегти зміни','alert.open.fail':'Не вдалося відкрити замовлення',
     'order.saved':'Замовлення збережено:\n{path}','alert.saveProject.fail':'Не вдалося зберегти замовлення',
-    'export.saved':'Експорт збережено:\n{path}','alert.export.error':'Помилка експорту:\n{error}'
+    'export.saved':'Експорт збережено:\n{path}','alert.export.error':'Помилка експорту:\n{error}',
+    'project.open':'Відкрити проект','project.rename.placeholder':'Нова назва проекту','project.empty':'Немає збережених проектів',
+    'project.rename.error.exists':'Проект із такою назвою вже існує','project.rename.error.invalid':'Некоректна назва проекту',
+    'project.saved':'Збережено: {name}','project.renamed':'Проект перейменовано: {name}','project.hint':'Клікніть для перейменування'
   },
   ru: {
     'brand':'OBI','open.project':'Открыть заказ','save.project':'Сохранить заказ',
@@ -66,7 +69,10 @@ const I18N = {
     'settings.about':'О приложении','settings.version':'Версия','settings.author':'Автор','settings.github':'GitHub','settings.close':'Закрыть',
     'alert.save.fail':'Не удалось сохранить изменения','alert.open.fail':'Не удалось открыть заказ',
     'order.saved':'Заказ сохранён:\n{path}','alert.saveProject.fail':'Не удалось сохранить заказ',
-    'export.saved':'Экспорт сохранён:\n{path}','alert.export.error':'Ошибка экспорта:\n{error}'
+    'export.saved':'Экспорт сохранён:\n{path}','alert.export.error':'Ошибка экспорта:\n{error}',
+    'project.open':'Открыть проект','project.rename.placeholder':'Новое название проекта','project.empty':'Нет сохранённых проектов',
+    'project.rename.error.exists':'Проект с таким названием уже существует','project.rename.error.invalid':'Некорректное название проекта',
+    'project.saved':'Сохранено: {name}','project.renamed':'Проект переименован: {name}','project.hint':'Нажмите для переименования'
   }
 };
 
@@ -125,6 +131,7 @@ function tagOptions(selected, order) {
 
 document.addEventListener('DOMContentLoaded', async () => {
   db = await window.api.getDB();
+  renderProjectName();
   try { config = (await window.api.getConfig()) || config; } catch (e) {}
   fitRules = null;
   try { fitRules = await window.api.getFitRules(); } catch (e) {}
@@ -148,6 +155,109 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (db.materials && db.materials.length) selId = 0;
   renderAll();
 });
+
+async function renderProjectName() {
+  const el = document.getElementById('project-name');
+  if (!el) return;
+  try {
+    const name = await window.api.getProjectName();
+    el.textContent = name || '';
+  } catch (e) {
+    el.textContent = '';
+  }
+}
+
+async function startRenameProject() {
+  const el = document.getElementById('project-name');
+  if (!el) return;
+  const current = el.textContent.trim();
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.id = 'project-name-input';
+  input.placeholder = t('project.rename.placeholder');
+  input.value = current;
+  el.replaceChildren(input);
+  input.focus();
+  input.select();
+  el.classList.add('editing');
+  input.style.width = Math.max(120, (current.length * 8) + 24) + 'px';
+
+  const done = async () => {
+    el.classList.remove('editing');
+    const val = input.value.trim();
+    if (val && val !== current) {
+      const res = await window.api.renameProject(val);
+      if (res && res.success) {
+        renderProjectName();
+      } else if (res && res.error === 'exists') {
+        alert(t('project.rename.error.exists'));
+        renderProjectName();
+      } else {
+        alert(t('project.rename.error.invalid'));
+        renderProjectName();
+      }
+    } else {
+      renderProjectName();
+    }
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    else if (e.key === 'Escape') { input.value = current; input.blur(); }
+  });
+  input.addEventListener('blur', () => done());
+}
+
+function openProjectPicker() {
+  const overlay = document.getElementById('project-picker-modal');
+  const listEl = document.getElementById('project-list');
+  overlay.classList.add('open');
+  renderProjectPicker();
+}
+
+function closeProjectPicker() {
+  const overlay = document.getElementById('project-picker-modal');
+  overlay.classList.remove('open');
+}
+
+async function renderProjectPicker() {
+  const listEl = document.getElementById('project-list');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  let items = [];
+  try { items = await window.api.getProjects(); } catch (e) {}
+  if (!items.length) {
+    listEl.innerHTML = `<div class="project-empty">${escapeHtml(t('project.empty'))}</div>`;
+    return;
+  }
+  items.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'project-item';
+    row.innerHTML = `
+      <span class="project-item-name">${escapeHtml(p.name)}</span>
+      <span class="project-item-meta">${p.path ? escapeHtml(pathBasename(p.path)) : ''}</span>
+    `;
+    row.title = p.path || '';
+    row.addEventListener('click', async () => {
+      const res = await window.api.loadProject(p.path);
+      if (!res.success) return;
+      db = res.data;
+      if (!db.fittings) db.fittings = [];
+      if (!db.materials) db.materials = [];
+      if (!db.profiles) db.profiles = [];
+      ensureTagOrder();
+      ensureFitIds();
+      renderAll();
+      renderProjectName();
+      closeProjectPicker();
+    });
+    listEl.appendChild(row);
+  });
+}
+
+function pathBasename(p) {
+  const i = p.lastIndexOf('\\');
+  return i > -1 ? p.substring(i + 1) : p;
+}
 
 function renderAll() {
   ensureTagOrder();
@@ -1143,23 +1253,18 @@ function escapeAttr(str) {
 
 // ============ FILE ACTIONS ============
 async function openProject() {
-  const res = await window.api.loadProject();
-  if (res.canceled) return;
-  if (!res.success) { alert(t('alert.open.fail')); return; }
-  db = res.data;
-  if (!db.fittings) db.fittings = [];
-  if (!db.materials) db.materials = [];
-  if (!db.profiles) db.profiles = [];
-  ensureTagOrder();
-  ensureFitIds();
-  saveDB();
+  openProjectPicker();
 }
 
 async function saveProject() {
   const res = await window.api.saveProject(db);
-  if (res.canceled) return;
-  if (res.success) alert(t('order.saved', { path: res.path }));
-  else alert(t('alert.saveProject.fail'));
+  if (res.success) {
+    const name = await window.api.getProjectName();
+    alert(t('project.saved', { name: name || 'order' }));
+    renderProjectName();
+  } else {
+    alert(t('alert.saveProject.fail'));
+  }
 }
 
 async function exportExcel() {
@@ -1218,6 +1323,20 @@ function bindSettingsEvents() {
   const langRu = document.getElementById('settings-lang-ru');
   if (langUk) langUk.addEventListener('change', () => setLanguage('uk'));
   if (langRu) langRu.addEventListener('change', () => setLanguage('ru'));
+
+  const projName = document.getElementById('project-name');
+  if (projName) {
+    projName.title = t('project.hint');
+    projName.addEventListener('click', startRenameProject);
+  }
+  const picker = document.getElementById('project-picker-modal');
+  if (picker) {
+    picker.addEventListener('click', e => {
+      if (e.target === picker) closeProjectPicker();
+    });
+    const pickerClose = document.getElementById('project-picker-close');
+    if (pickerClose) pickerClose.addEventListener('click', closeProjectPicker);
+  }
 }
 
 function openSettings() {
