@@ -149,6 +149,18 @@
           <button class="btn btn-primary" id="open-fit-rules-btn" onclick="openFitRulesWindow()" data-i18n="settings.rules.open">Відкрити</button>
         </div>
         <div class="settings-section">
+          <div class="settings-label" data-i18n="settings.updates"></div>
+          <label class="settings-option settings-checkbox">
+            <input type="checkbox" id="settings-updates-auto">
+            <span data-i18n="settings.updates.auto"></span>
+          </label>
+          <div class="updates-actions">
+            <button class="btn btn-secondary" id="updates-check-btn" onclick="checkUpdates()" data-i18n="settings.updates.check">Перевірити</button>
+            <button class="btn btn-primary" id="updates-apply-btn" onclick="applyUpdates()" style="display:none" data-i18n="settings.updates.apply">Оновити</button>
+          </div>
+          <div class="updates-status" id="updates-status"></div>
+        </div>
+        <div class="settings-section">
           <div class="settings-label" data-i18n="settings.about"></div>
           <div class="settings-meta">
             <div class="meta-row">

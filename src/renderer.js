@@ -41,7 +41,13 @@ const I18N = {
     'export.saved':'Експорт збережено:\n{path}','alert.export.error':'Помилка експорту:\n{error}',
     'project.open':'Відкрити проект','project.rename.placeholder':'Нова назва проекту','project.empty':'Немає збережених проектів',
     'project.rename.error.exists':'Проект із такою назвою вже існує','project.rename.error.invalid':'Некоректна назва проекту',
-    'project.saved':'Збережено: {name}','project.renamed':'Проект перейменовано: {name}','project.hint':'Клікніть для перейменування'
+    'project.saved':'Збережено: {name}','project.renamed':'Проект перейменовано: {name}','project.hint':'Клікніть для перейменування',
+    'settings.updates':'Оновлення','settings.updates.auto':'Автоматично перевіряти оновлення при запуску',
+    'settings.updates.check':'Перевірити оновлення','settings.updates.apply':'Оновити',
+    'update.checking':'Перевірка оновлень...','update.none':'Оновлень немає. Версія {v} — актуальна.',
+    'update.available':'Доступна нова версія: {v} (поточна {cur})','update.available.dev':'Увімкнено dev-версію — оновлення не перевіряються',
+    'update.error':'Помилка перевірки: {error}','update.applying':'Оновлення завантажено. Додаток перезапуститься...',
+    'update.apply.error':'Не вдалося оновити: {error}'
   },
   ru: {
     'brand':'OBI','open.project':'Открыть заказ','save.project':'Сохранить заказ',
@@ -72,7 +78,13 @@ const I18N = {
     'export.saved':'Экспорт сохранён:\n{path}','alert.export.error':'Ошибка экспорта:\n{error}',
     'project.open':'Открыть проект','project.rename.placeholder':'Новое название проекта','project.empty':'Нет сохранённых проектов',
     'project.rename.error.exists':'Проект с таким названием уже существует','project.rename.error.invalid':'Некорректное название проекта',
-    'project.saved':'Сохранено: {name}','project.renamed':'Проект переименован: {name}','project.hint':'Нажмите для переименования'
+    'project.saved':'Сохранено: {name}','project.renamed':'Проект переименован: {name}','project.hint':'Нажмите для переименования',
+    'settings.updates':'Обновления','settings.updates.auto':'Автоматически проверять обновления при запуске',
+    'settings.updates.check':'Проверить обновления','settings.updates.apply':'Обновить',
+    'update.checking':'Проверка обновлений...','update.none':'Обновлений нет. Версия {v} — актуальна.',
+    'update.available':'Доступна новая версия: {v} (текущая {cur})','update.available.dev':'Включена dev-версия — обновления не проверяются',
+    'update.error':'Ошибка проверки: {error}','update.applying':'Обновление загружено. Приложение перезапустится...',
+    'update.apply.error':'Не удалось обновить: {error}'
   }
 };
 
@@ -1324,6 +1336,18 @@ function bindSettingsEvents() {
   if (langUk) langUk.addEventListener('change', () => setLanguage('uk'));
   if (langRu) langRu.addEventListener('change', () => setLanguage('ru'));
 
+  const autoUpd = document.getElementById('settings-updates-auto');
+  if (autoUpd) autoUpd.addEventListener('change', () => {
+    config.autoUpdate = autoUpd.checked;
+    saveConfig();
+  });
+
+  if (window.api.onUpdateAvailable) {
+    window.api.onUpdateAvailable((info) => {
+      if (info && info.available) updateInfo = info;
+    });
+  }
+
   const projName = document.getElementById('project-name');
   if (projName) {
     projName.title = t('project.hint');
@@ -1344,8 +1368,10 @@ function openSettings() {
   if (!modal) return;
   const themeDark = document.getElementById('settings-theme-dark');
   const langRu = document.getElementById('settings-lang-ru');
+  const autoUpd = document.getElementById('settings-updates-auto');
   if (themeDark) themeDark.checked = config.theme === 'dark';
   if (langRu) langRu.checked = config.language === 'ru';
+  if (autoUpd) autoUpd.checked = !!config.autoUpdate;
   renderSettingsMeta();
   modal.classList.add('open');
 }
@@ -1370,6 +1396,72 @@ function renderSettingsMeta() {
   if (linkEl) {
     linkEl.textContent = appInfo.url || '—';
     if (appInfo.url) linkEl.setAttribute('href', appInfo.url);
+  }
+}
+
+let updateInfo = null;
+let updateState = null; // 'checking' | 'idle' | 'applying'
+
+function updateStatusEl() {
+  return document.getElementById('updates-status');
+}
+
+function showUpdateStatus(text, cls) {
+  const el = updateStatusEl();
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'updates-status' + (cls ? ' ' + cls : '');
+}
+
+async function checkUpdates() {
+  updateState = 'checking';
+  showUpdateStatus(t('update.checking'), '');
+  const applyBtn = document.getElementById('updates-apply-btn');
+  if (applyBtn) applyBtn.style.display = 'none';
+  try {
+    const res = await window.api.checkUpdate();
+    updateInfo = res;
+    renderUpdateResult(res);
+  } catch (e) {
+    showUpdateStatus(t('update.error', { error: e.message }), 'err');
+  } finally {
+    updateState = 'idle';
+  }
+}
+
+function renderUpdateResult(res) {
+  if (!res) return;
+  if (res.dev) {
+    showUpdateStatus(t('update.available.dev'), 'ok');
+    return;
+  }
+  if (res.error) {
+    showUpdateStatus(t('update.error', { error: res.error }), 'err');
+    return;
+  }
+  const applyBtn = document.getElementById('updates-apply-btn');
+  if (res.available) {
+    showUpdateStatus(t('update.available', { v: res.latestVersion, cur: res.currentVersion }), 'warn');
+    if (applyBtn) applyBtn.style.display = '';
+  } else {
+    showUpdateStatus(t('update.none', { v: res.currentVersion || appInfo.version }), 'ok');
+    if (applyBtn) applyBtn.style.display = 'none';
+  }
+}
+
+async function applyUpdates() {
+  if (!updateInfo || !updateInfo.available) return;
+  updateState = 'applying';
+  showUpdateStatus(t('update.applying'), '');
+  try {
+    const res = await window.api.applyUpdate(updateInfo);
+    if (!res.success) {
+      updateState = 'idle';
+      showUpdateStatus(t('update.apply.error', { error: res.error }), 'err');
+    }
+  } catch (e) {
+    updateState = 'idle';
+    showUpdateStatus(t('update.apply.error', { error: e.message }), 'err');
   }
 }
 

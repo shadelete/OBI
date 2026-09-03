@@ -15,6 +15,9 @@ contextBridge.exposeInMainWorld('api', {
   getFitRulesData: () => ipcRenderer.invoke('get-fit-rules-data'),
   openFitRulesWindow: () => ipcRenderer.invoke('open-fit-rules-window'),
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
+  checkUpdate: () => ipcRenderer.invoke('check-update'),
+  applyUpdate: (info) => ipcRenderer.invoke('apply-update', info),
+  onUpdateAvailable: (cb) => ipcRenderer.on('update-available', (e, info) => cb(info)),
   windowMinimize: () => ipcRenderer.invoke('window-minimize'),
   windowMaximize: () => ipcRenderer.invoke('window-maximize'),
   windowClose: () => ipcRenderer.invoke('window-close')

@@ -415,6 +415,12 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .settings-options { display: flex; gap: 16px; }
 .settings-option { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); cursor: pointer; user-select: none; }
 .settings-option input { accent-color: var(--accent); width: 15px; height: 15px; }
+.settings-checkbox { margin-top: 4px; }
+.updates-actions { display: flex; gap: 8px; margin-top: 10px; }
+.updates-status { font-size: 12px; color: var(--text-muted); margin-top: 8px; line-height: 1.4; white-space: pre-line; }
+.updates-status.ok { color: var(--accent); }
+.updates-status.warn { color: #e8a33d; }
+.updates-status.err { color: #e85d5d; }
 .settings-meta { display: flex; flex-direction: column; gap: 6px; }
 .meta-row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
 .meta-label { color: var(--text-faint); min-width: 70px; }

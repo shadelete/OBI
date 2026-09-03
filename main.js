@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { exportToXLSXBuffer } = require('./src/export');
+const updater = require('./src/updater');
 
 let mainWindow;
 let fitRulesWindow;
@@ -77,7 +78,7 @@ function configPath() {
 const APP_URL = 'https://github.com/shadelete/OBI';
 const APP_AUTHOR = 'Alexander Bondarenko';
 
-const DEFAULT_CONFIG = Object.freeze({ theme: 'dark', language: 'uk' });
+const DEFAULT_CONFIG = Object.freeze({ theme: 'dark', language: 'uk', autoUpdate: false });
 
 function readConfig() {
   try {
@@ -86,7 +87,8 @@ function readConfig() {
     const data = JSON.parse(fs.readFileSync(p, 'utf-8'));
     return {
       theme: data.theme === 'dark' ? 'dark' : 'light',
-      language: data.language === 'ru' ? 'ru' : 'uk'
+      language: data.language === 'ru' ? 'ru' : 'uk',
+      autoUpdate: !!data.autoUpdate
     };
   } catch (e) {
     return { ...DEFAULT_CONFIG };
@@ -153,6 +155,9 @@ function createWindow() {
 
   mainWindow.setMenu(null);
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
+  mainWindow.webContents.on('did-finish-load', () => {
+    autoCheckUpdates();
+  });
 }
 
 function openFitRulesWindow() {
@@ -252,6 +257,41 @@ ipcMain.handle('get-app-info', () => ({
   url: APP_URL,
   author: APP_AUTHOR
 }));
+
+function updaterTargets() {
+  const dir = dataDir();
+  return {
+    targetExe: path.join(dir, 'OBI.exe'),
+    targetJs: path.join(dir, 'OBI.js'),
+    targetIcon: path.join(dir, 'icon.bmp'),
+    currentVersion: app.getVersion()
+  };
+}
+
+ipcMain.handle('check-update', async () => {
+  return await updater.checkUpdate(updaterTargets());
+});
+
+ipcMain.handle('apply-update', async (event, info) => {
+  try {
+    const targets = updaterTargets();
+    await updater.applyUpdate({ ...targets, assetUrl: info.assetUrl, assetName: info.assetName });
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+async function autoCheckUpdates() {
+  try {
+    const cfg = readConfig();
+    if (!cfg.autoUpdate) return;
+    const info = await updater.checkUpdate(updaterTargets());
+    if (info.available && mainWindow) {
+      mainWindow.webContents.send('update-available', info);
+    }
+  } catch (e) {}
+}
 
 ipcMain.handle('window-minimize', () => {
   mainWindow.minimize();
