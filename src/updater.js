@@ -5,7 +5,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const REPO = 'shadelete/OBI';
-const API_LATEST = `https://api.github.com/repos/${REPO}/releases/latest`;
+const API_RELEASES = `https://api.github.com/repos/${REPO}/releases?per_page=30`;
 
 function getJson(url) {
   return new Promise((resolve, reject) => {
@@ -97,29 +97,57 @@ function writeUpdaterBat(opts) {
 
 async function checkUpdate(opts) {
   const current = opts.currentVersion || '';
-  // Dev builds never update.
-  if (/-(dev|alpha|beta|rc)/i.test(current)) {
+  // Only true dev builds never update. alpha/beta/rc are prereleases that DO update
+  // (to newer prereleases and to final releases) via full semver precedence.
+  if (/-(dev)(?!\w)/i.test(current)) {
     return { available: false, dev: true, currentVersion: current };
   }
-  let release;
+  let releases;
   try {
-    release = await getJson(API_LATEST);
+    releases = await getJson(API_RELEASES);
+    if (!Array.isArray(releases)) releases = [];
   } catch (e) {
     return { available: false, error: e.message, currentVersion: current };
   }
-  const tag = (release.tag_name || '').replace(/^v/, '').trim();
-  const asset = (release.assets || []).find(a => /^OBI-.*\.zip$/i.test(a.name));
-  const latest = tag;
-  const available = compareVersions(latest, current) > 0;
+  // Normalize each release version; ignore drafts.
+  const candidates = releases
+    .filter(r => !r.draft)
+    .map(r => {
+      const v = String(r.tag_name || '').replace(/^v/, '').trim();
+      return { v, semver: parseVersion(v), tag: r.tag_name, r };
+    })
+    .filter(c => c.semver && !/^0\.0\.0/.test(c.v));
+
+  if (candidates.length === 0) {
+    return { available: false, currentVersion: current };
+  }
+
+  // Candidates sorted ascending by semver. Number-crunching may be ambiguous when
+  // a stable and a prerelease share numeric core (e.g. 0.2.0 > 0.2.0-beta). We pick
+  // the newest version that is STRICTLY newer than current (compareVersions handles
+  // prerelease precedence, so a prerelease never wins over its own stable).
+  let newest = null;
+  for (const c of candidates) {
+    if (compareVersions(c.semver, current) > 0) {
+      if (!newest || compareVersions(c.semver, newest.semver) > 0) newest = c;
+    }
+  }
+
+  if (!newest) {
+    return { available: false, currentVersion: current };
+  }
+
+  const rel = newest.r;
+  const asset = (rel.assets || []).find(a => /^OBI-.*\.zip$/i.test(a.name));
   return {
-    available,
+    available: true,
     currentVersion: current,
-    latestVersion: latest,
-    releaseName: release.name || release.tag_name || '',
-    notes: release.body || '',
+    latestVersion: newest.v,
+    releaseName: rel.name || rel.tag_name || '',
+    notes: rel.body || '',
     assetUrl: asset ? asset.browser_download_url : null,
     assetName: asset ? asset.name : null,
-    url: release.html_url || ''
+    url: rel.html_url || ''
   };
 }
 
@@ -147,19 +175,48 @@ async function applyUpdate(opts) {
   return { batPath };
 }
 
+// Semver-aware compare following https://semver.org precedence rules.
+// a/b may be parsed objects ({ core:[maj,min,patch], prerelease:[...] }) or version strings.
+// Prerelease < release. Higher build metadata ignored. Numeric identifiers < alphanumeric.
 function compareVersions(a, b) {
-  const pa = parseVersion(a);
-  const pb = parseVersion(b);
+  const A = typeof a === 'string' ? parseVersion(a) : a;
+  const B = typeof b === 'string' ? parseVersion(b) : b;
+  if (!A || !B) return 0;
   for (let i = 0; i < 3; i++) {
-    if (pa[i] > pb[i]) return 1;
-    if (pa[i] < pb[i]) return -1;
+    if (A.core[i] > B.core[i]) return 1;
+    if (A.core[i] < B.core[i]) return -1;
+  }
+  // Same core: no prerelease is higher than any prerelease.
+  const aPre = A.prerelease;
+  const bPre = B.prerelease;
+  if (!aPre.length && !bPre.length) return 0;
+  if (!aPre.length) return 1;
+  if (!bPre.length) return -1;
+  // Both prereleases: compare identifiers.
+  for (let i = 0; i < Math.max(aPre.length, bPre.length); i++) {
+    const x = aPre[i];
+    const y = bPre[i];
+    if (x === undefined) return -1; // shorter prerelease is lower
+    if (y === undefined) return 1;
+    const xn = /^\d+$/.test(x);
+    const yn = /^\d+$/.test(y);
+    if (xn && yn) {
+      if (parseInt(x, 10) !== parseInt(y, 10)) return parseInt(x, 10) > parseInt(y, 10) ? 1 : -1;
+    } else if (xn !== yn) {
+      return yn ? 1 : -1; // numeric < alphanumeric
+    } else if (x !== y) {
+      return x > y ? 1 : -1; // ASCII lexicographic
+    }
   }
   return 0;
 }
 
 function parseVersion(v) {
-  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(String(v || '').trim());
-  return m ? [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)] : [0, 0, 0];
+  const s = String(v || '').trim();
+  const m = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/.exec(s);
+  if (!m) return null;
+  const pre = m[4] ? m[4].split('.') : [];
+  return { core: [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)], prerelease: pre };
 }
 
-module.exports = { checkUpdate, applyUpdate, compareVersions };
+module.exports = { checkUpdate, applyUpdate, compareVersions, parseVersion };
