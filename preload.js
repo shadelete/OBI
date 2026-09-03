@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('api', {
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
   windowMinimize: () => ipcRenderer.invoke('window-minimize'),
+  windowMaximize: () => ipcRenderer.invoke('window-maximize'),
   windowClose: () => ipcRenderer.invoke('window-close')
 });

@@ -238,7 +238,10 @@ function scanObject(obj) {
             pr.details[sizeKey].count++;
             var pDesignation = "";
             try { pDesignation = obj.ArtPos || ""; } catch (eDes) {}
-            if (pDesignation) pr.details[sizeKey].positions.push(pDesignation);
+            if (pDesignation) {
+                var det0 = pr.details[sizeKey];
+                if (det0.positions.indexOf(pDesignation) === -1) det0.positions.push(pDesignation);
+            }
         }
 
         if (obj instanceof TDraftBlock) {

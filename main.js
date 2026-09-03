@@ -22,7 +22,7 @@ function configPath() {
 const APP_URL = 'https://github.com/shadelete/OBI';
 const APP_AUTHOR = 'Alexander Bondarenko';
 
-const DEFAULT_CONFIG = Object.freeze({ theme: 'light', language: 'uk' });
+const DEFAULT_CONFIG = Object.freeze({ theme: 'dark', language: 'uk' });
 
 function readConfig() {
   try {
@@ -131,6 +131,11 @@ ipcMain.handle('get-app-info', () => ({
 
 ipcMain.handle('window-minimize', () => {
   mainWindow.minimize();
+});
+
+ipcMain.handle('window-maximize', () => {
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
 });
 
 ipcMain.handle('window-close', () => {

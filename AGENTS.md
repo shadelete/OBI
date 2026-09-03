@@ -27,6 +27,11 @@
 - Запуск UI в dev: `npm start` (или `npx electron .`, обёртка `launch.bat`).
 - Сборка: `npm run dist` = `electron-builder --win --dir` — **только `dist\win-unpacked`, без portable-файла**. Финальный `dist\OBI.exe` даёт `npm run build` = `electron-builder --win` (portable). После релиза обновить `release\OBI-<ver>.zip` (OBI.exe + OBI.js + icon.bmp) вручную из `dist\OBI.exe` и текущего `OBI.js`.
 
+## Changelog — правило фиксации изменений
+- Все изменения фиксируются в `CHANGELOG.md` **только когда всё получилось** (работа завершена, проверена/пересобрана — не «во время», не по ходу, а в конце, когда результат готов).
+- Писать **украинской** мовой. Формат — Keep a Changelog: раздел `[Невидане]` (для наработок к следующей версии) при релизе превращается в финальный `[0.X.Y] — дата` раздел.
+- При релизе новые изменения переносятся в финальный раздел, версия в `package.json` поднимается.
+
 ## Релизный процесс (актуальный тег — v0.1.3)
 - 1) поднять `version` в `package.json`, 2) `npm run build` (`dist\OBI.exe`), 3) собрать `release\OBI-<ver>.zip` = `dist\OBI.exe` + `release\OBI.js` (cp1251) + `release\icon.bmp` (см. ниже), 4) коммит + тег `v<ver>` + `push origin main --tags`, 5) `gh release create v<ver> release\OBI-<ver>.zip -R shadelete/OBI --title "OBI <ver>"` (единственный ассет — zip; отдельно `OBI.js` на релиз НЕ кладём, он уже внутри архива).
 - Обновление существующего релиза без смены версии: пересобрать `dist\OBI.exe`, перегенерировать `release\OBI.js` в cp1251, пересобрать `release\OBI-<ver>.zip` (через .NET `ZipArchive`, т.к. `Compress-Archive` падает на большом exe при блокировке файла), затем `gh release delete-asset` старого zip + `gh release upload` нового (оба с `--yes`/`--clobber`).

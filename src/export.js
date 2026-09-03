@@ -20,8 +20,24 @@ function cellValue(item, h) {
   return (v ?? '').toString();
 }
 
+function cutKey(cu) {
+  return cu && (cu.sign || cu.name);
+}
+
+function uniqueCuts(cuts) {
+  const seen = {};
+  const out = [];
+  (cuts || []).forEach(cu => {
+    const k = cutKey(cu);
+    if (k == null || seen[k]) return;
+    seen[k] = true;
+    out.push(cu);
+  });
+  return out;
+}
+
 function cutsText(d) {
-  const c = d.cuts || [];
+  const c = uniqueCuts(d && d.cuts);
   if (!c.length) return '';
   const parts = c.map(cu => cu.sign || cu.name).filter(Boolean);
   return parts.length ? parts.join('; ') : `${c.length} паз`;
@@ -158,7 +174,9 @@ function groupByPosition(details) {
       map[d.position] = { ...d, count: 1 };
       result.push(map[d.position]);
     } else {
-      map[d.position].count++;
+      const target = map[d.position];
+      target.count++;
+      if (d.cuts && d.cuts.length) target.cuts = uniqueCuts((target.cuts || []).concat(d.cuts));
     }
   });
   return result;
@@ -221,7 +239,8 @@ function profilesSheet(wb, profiles) {
     const details = (p.details && p.details.length) ? p.details : [{ width: p.width, thickness: p.thickness, length: p.length, count: p.count }];
     let poz = 1;
     details.forEach(d => {
-      const profilPos = (d.positions && d.positions.length) ? d.positions.join(', ') : (poz || '');
+      const posArr = (d.positions || []).filter((v, i) => d.positions.indexOf(v) === i);
+      const profilPos = posArr.length ? posArr.join(', ') : (poz || '');
       profileDataRow(ws, row + 2 + (poz - 1), profilPos, p.name, d.count || 0, d.length || '');
       poz++;
     });

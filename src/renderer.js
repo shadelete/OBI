@@ -1,6 +1,11 @@
 let db = null;
-let config = { theme: 'light', language: 'uk' };
+let config = { theme: 'dark', language: 'uk' };
 let appInfo = { version: '', url: '', author: '' };
+
+let selCat = 'materials';
+let selId = null;
+let selTab = 'edges';
+let searchQuery = '';
 
 const DEFAULT_TAGS = ['Загальна фурнітура', 'Петлі', 'Напрямні', 'Метизна фурнітура'];
 const LEGACY_TAGS = { 'Петли': 'Петлі', 'Направляющие': 'Напрямні', 'Метизная фурнитура': 'Метизна фурнітура', 'Общая фурнитура': 'Загальна фурнітура' };
@@ -11,10 +16,15 @@ const I18N = {
     'export.excel':'Експорт Excel','tab.materials':'Матеріали та кромка','tab.profiles':'Профілі','tab.fittings':'Фурнітура',
     'fit.placeholder.name':'Найменування фурнітури','fit.placeholder.code':'Артикул','fit.placeholder.count':'К-сть','btn.add':'Додати',
     'tags.manage':'Управління тегами:','tags.new.placeholder':'Новий тег','tags.add':'Додати тег',
-    'stat.materials':'Матеріалів','stat.profiles':'Профілів','stat.fittings.pos':'Позицій фурнітури','stat.fittings.units':'Од. фурнітури',
-    'edge.title':'Кромка:','edge.none':'Без кромки','export':'Експорт','cut':'{n} паз','cut.plural':'{n} пазів',
-    'detail.article':'Артикул: ','detail.count':'Деталей: ','detail.parts':'Деталі ({n}):',
-    'pcs':'шт','profiles.sizes':'Розміри ({n}):',
+    'stat.materials':'Матеріалів','stat.profiles':'Профілів','stat.fittings':'Позицій фурнітури',
+    'stat.total':'Всього позицій','stat.details':'Деталей','stat.edges':'Кромки','stat.thickness':'Товщина','stat.inreport':'Включено в звіт',
+    'stat.article':'Артикул','stat.sizes':'Розмірів','stat.material':'Матеріал','stat.cut':'Пазів',
+    'edge.title':'Кромка','edge.none':'Без кромки','export':'Експорт','to.report':'До звіту',
+    'cut':'{n} паз','cut.plural':'{n} пазів',
+    'detail.article':'Артикул','detail.count':'Деталей','detail.parts':'Деталі', 'pcs':'шт','profiles.sizes':'Розміри',
+    'search.placeholder':'Пошук...','empty.list':'Список порожній','empty.noresults':'Нічого не знайдено',
+    'mat.add':'+ Додати матеріал','prof.add':'+ Додати профіль','fit.add':'+ Додати фурнітуру',
+    'tab.edges':'Кромка','tab.details':'Деталі ({n})','tab.sizes':'Розміри ({n})','tab.info':'Додаткова інформація',
     'fit.name.placeholder':'Найменування','fit.article.placeholder':'Артикул','fit.drag.title':'Перетягнути',
     'fit.export.title':'Включити в експорт','fit.category':'Категорія','fit.delete.title':'Видалити',
     'fit.tag.rename':'Перейменувати тег','fit.tag.delete':'Видалити тег','fit.empty':'Порожньо',
@@ -33,10 +43,15 @@ const I18N = {
     'export.excel':'Экспорт Excel','tab.materials':'Материалы и кромка','tab.profiles':'Профили','tab.fittings':'Фурнитура',
     'fit.placeholder.name':'Наименование фурнитуры','fit.placeholder.code':'Артикул','fit.placeholder.count':'Кол-во','btn.add':'Добавить',
     'tags.manage':'Управление тегами:','tags.new.placeholder':'Новый тег','tags.add':'Добавить тег',
-    'stat.materials':'Материалов','stat.profiles':'Профилей','stat.fittings.pos':'Позиций фурнитуры','stat.fittings.units':'Ед. фурнитуры',
-    'edge.title':'Кромка:','edge.none':'Без кромки','export':'Экспорт','cut':'{n} паз','cut.plural':'{n} пазов',
-    'detail.article':'Артикул: ','detail.count':'Деталей: ','detail.parts':'Детали ({n}):',
-    'pcs':'шт','profiles.sizes':'Размеры ({n}):',
+    'stat.materials':'Материалов','stat.profiles':'Профилей','stat.fittings':'Позиций фурнитуры',
+    'stat.total':'Всего позиций','stat.details':'Деталей','stat.edges':'Кромки','stat.thickness':'Толщина','stat.inreport':'Включено в отчет',
+    'stat.article':'Артикул','stat.sizes':'Размеров','stat.material':'Материал','stat.cut':'Пазов',
+    'edge.title':'Кромка','edge.none':'Без кромки','export':'Экспорт','to.report':'В отчет',
+    'cut':'{n} паз','cut.plural':'{n} пазов',
+    'detail.article':'Артикул','detail.count':'Деталей','detail.parts':'Детали', 'pcs':'шт','profiles.sizes':'Размеры',
+    'search.placeholder':'Поиск...','empty.list':'Список пуст','empty.noresults':'Ничего не найдено',
+    'mat.add':'+ Добавить материал','prof.add':'+ Добавить профиль','fit.add':'+ Добавить фурнитуру',
+    'tab.edges':'Кромка','tab.details':'Детали ({n})','tab.sizes':'Размеры ({n})','tab.info':'Дополнительная информация',
     'fit.name.placeholder':'Наименование','fit.article.placeholder':'Артикул','fit.drag.title':'Перетащить',
     'fit.export.title':'Включить в экспорт','fit.category':'Категория','fit.delete.title':'Удалить',
     'fit.tag.rename':'Переименовать тег','fit.tag.delete':'Удалить тег','fit.empty':'Пусто',
@@ -113,23 +128,53 @@ document.addEventListener('DOMContentLoaded', async () => {
   applyLanguage();
   ensureTagOrder();
   ensureFitIds();
+  bindSearch();
   bindFittingsEvents();
   bindSettingsEvents();
+  if (db.materials && db.materials.length) selId = 0;
   renderAll();
 });
 
 function renderAll() {
   ensureTagOrder();
   ensureFitIds();
-  renderMaterials();
-  renderProfiles();
-  renderFittings();
-  renderStats();
-  updateCounts();
+  renderSidebar();
+  renderListTitle();
+  if (selCat === 'fittings') {
+    showFittingWorkspace();
+    renderFittings();
+  } else {
+    showRegularDetail();
+    renderList();
+    renderDetail();
+  }
 }
 
+function showFittingWorkspace() {
+  const ws = document.querySelector('.workspace');
+  if (ws) ws.classList.add('fittings-mode');
+  const fd = document.getElementById('fittings-detail');
+  if (fd) fd.style.display = 'flex';
+  ['detail-header', 'detail-tabs', 'detail-content', 'detail-stats'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+function showRegularDetail() {
+  const ws = document.querySelector('.workspace');
+  if (ws) ws.classList.remove('fittings-mode');
+  const fd = document.getElementById('fittings-detail');
+  if (fd) fd.style.display = 'none';
+  ['detail-header', 'detail-tabs', 'detail-content', 'detail-stats'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
+  });
+}
+
+// ============ THEME / LANGUAGE ============
 function applyTheme() {
-  document.body.classList.toggle('theme-dark', config.theme === 'dark');
+  document.body.classList.toggle('theme-light', config.theme === 'light');
 }
 
 function applyLanguage() {
@@ -141,44 +186,402 @@ function applyLanguage() {
   });
   const settingsBtn = document.getElementById('settings-btn');
   if (settingsBtn) settingsBtn.title = t('settings');
+  const search = document.getElementById('search-input');
+  if (search) search.placeholder = t('search.placeholder');
   renderAll();
 }
 
-function renderStats() {
-  const statsEl = document.getElementById('stats');
+// ============ SIDEBAR ============
+function renderSidebar() {
   const mats = db.materials || [];
   const prf = db.profiles || [];
   const fit = db.fittings || [];
-  const totalParts = mats.reduce((s, m) => s + (m.count || 0), 0);
-  const totalFit = fit.reduce((s, f) => s + (f.count || 0), 0);
+  const badgeMats = document.getElementById('badge-materials');
+  const badgePrf = document.getElementById('badge-profiles');
+  const badgeFit = document.getElementById('badge-fittings');
+  if (badgeMats) badgeMats.textContent = mats.length;
+  if (badgePrf) badgePrf.textContent = prf.length;
+  if (badgeFit) badgeFit.textContent = fit.length;
+
+  const statsEl = document.getElementById('sidebar-stats');
+  const totalFitUnits = fit.reduce((s, f) => s + (f.count || 0), 0);
+  const total = mats.length + prf.length + fit.length;
   statsEl.innerHTML = `
-    <div class="stat-card"><div class="stat-value">${mats.length}</div><div class="stat-label">${t('stat.materials')}</div></div>
-    <div class="stat-card"><div class="stat-value">${prf.length}</div><div class="stat-label">${t('stat.profiles')}</div></div>
-    <div class="stat-card"><div class="stat-value">${fit.length}</div><div class="stat-label">${t('stat.fittings.pos')}</div></div>
-    <div class="stat-card"><div class="stat-value">${totalFit}</div><div class="stat-label">${t('stat.fittings.units')}</div></div>
+    <div class="stats-title">${t('stat.total')}</div>
+    <div class="stats-total">${total}</div>
+    <div class="stats-rows">
+      <div class="stats-row"><span>${t('stat.materials')}</span><span class="stat-val">${mats.length}</span></div>
+      <div class="stats-row"><span>${t('stat.profiles')}</span><span class="stat-val">${prf.length}</span></div>
+      <div class="stats-row"><span>${t('stat.fittings')}</span><span class="stat-val">${totalFitUnits}</span></div>
+    </div>
   `;
 }
 
-function updateCounts() {
-  document.getElementById('count-materials').textContent = (db.materials || []).length;
-  document.getElementById('count-profiles').textContent = (db.profiles || []).length;
-  document.getElementById('count-fittings').textContent = (db.fittings || []).length;
+function switchCat(cat) {
+  selCat = cat;
+  selId = null;
+  selTab = 'edges';
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.cat === cat));
+  const search = document.getElementById('search-input');
+  if (search) search.value = '';
+  searchQuery = '';
+  renderAll();
 }
 
-function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
-  document.getElementById(`panel-${tab}`).classList.add('active');
-  if (tab === 'fittings') renderFittings();
+// ============ LIST (materials / profiles) ============
+function renderListTitle() {
+  const title = document.getElementById('list-title');
+  if (!title) return;
+  if (selCat === 'materials') title.textContent = t('tab.materials');
+  else if (selCat === 'profiles') title.textContent = t('tab.profiles');
+  else title.textContent = t('tab.fittings');
+  const btnAdd = document.getElementById('btn-add');
+  if (btnAdd) {
+    if (selCat === 'materials') btnAdd.textContent = t('mat.add');
+    else if (selCat === 'profiles') btnAdd.textContent = t('prof.add');
+    else btnAdd.textContent = t('fit.add');
+  }
 }
 
+function bindSearch() {
+  const search = document.getElementById('search-input');
+  if (!search) return;
+  search.addEventListener('input', () => {
+    searchQuery = search.value.trim().toLowerCase();
+    if (selCat === 'fittings') renderFitList(); else renderList();
+  });
+}
+
+function matCardHTML(m, i) {
+  const thickness = Math.round(m.thickness) === m.thickness ? m.thickness : m.thickness.toFixed(1);
+  const q = searchQuery;
+  const nameHtml = q ? highlight(m.name || '', q) : escapeHtml(m.name || '');
+  const code = (m.code || '').toLowerCase();
+  const nameLower = (m.name || '').toLowerCase();
+  const matchCode = q && code.indexOf(q) !== -1;
+  return `
+    <div class="list-card ${i === selId ? 'selected' : ''}" onclick="selectMat(${i})">
+      <div class="lc-thickness">${thickness} мм</div>
+      <div class="lc-name">${nameHtml}</div>
+      <div class="lc-meta">
+        <span>${t('detail.article')}: <b>${matchCode ? highlight(m.code || '', q) : escapeHtml(m.code || '—')}</b></span>
+        <span>${t('detail.count')}: <b>${m.count || 0}</b></span>
+      </div>
+    </div>
+  `;
+}
+
+function profCardHTML(p, i) {
+  const details = (p.details && p.details.length) ? p.details : [{ length: p.length, count: p.count }];
+  const total = details.reduce((s, d) => s + (d.count || 0), 0);
+  const q = searchQuery;
+  const nameHtml = q ? highlight(p.material || p.name || '', q) : escapeHtml(p.material || p.name || '');
+  const code = (p.code || '').toLowerCase();
+  const nameLower = (p.material || p.name || '').toLowerCase();
+  const matchCode = q && code.indexOf(q) !== -1;
+  return `
+    <div class="list-card ${i === selId ? 'selected' : ''}" onclick="selectProf(${i})">
+      <div class="lc-name">${nameHtml}</div>
+      <div class="lc-sub">${details.length} ${t('profiles.sizes').toLowerCase()}</div>
+      <div class="lc-meta">
+        <span>${t('detail.article')}: <b>${matchCode ? highlight(p.code || '', q) : escapeHtml(p.code || '—')}</b></span>
+        <span>${t('detail.count')}: <b>${total}</b></span>
+      </div>
+    </div>
+  `;
+}
+
+function renderList() {
+  const body = document.getElementById('list-body');
+  if (!body) return;
+  if (selCat === 'materials') {
+    const mats = db.materials || [];
+    const list = mats
+      .map((m, i) => ({ m, i }))
+      .filter(({ m, i }) => {
+        if (!searchQuery) return true;
+        const c = ((m.code || '') + ' ' + (m.name || '')).toLowerCase();
+        return c.indexOf(searchQuery) !== -1;
+      });
+    body.innerHTML = list.length
+      ? list.map(({ m, i }) => matCardHTML(m, i)).join('')
+      : (mats.length ? `<div class="list-noresults">${t('empty.noresults')}</div>` : `<div class="list-empty">${t('empty.list')}</div>`);
+  } else {
+    const prf = db.profiles || [];
+    const list = prf
+      .map((p, i) => ({ p, i }))
+      .filter(({ p }) => {
+        if (!searchQuery) return true;
+        const c = ((p.code || '') + ' ' + (p.material || p.name || '')).toLowerCase();
+        return c.indexOf(searchQuery) !== -1;
+      });
+    body.innerHTML = list.length
+      ? list.map(({ p, i }) => profCardHTML(p, i)).join('')
+      : (prf.length ? `<div class="list-noresults">${t('empty.noresults')}</div>` : `<div class="list-empty">${t('empty.list')}</div>`);
+  }
+}
+
+function highlight(text, q) {
+  const esc = escapeHtml(text);
+  if (!q) return esc;
+  const idx = text.toLowerCase().indexOf(q);
+  if (idx === -1) return esc;
+  const safe = escapeHtml(text.slice(idx, idx + q.length));
+  return escapeHtml(text.slice(0, idx)) + '<b style="color:var(--accent)">' + safe + '</b>' + escapeHtml(text.slice(idx + q.length));
+}
+
+function selectMat(i) {
+  selId = i;
+  selTab = 'edges';
+  renderList();
+  renderDetail();
+}
+
+function selectProf(i) {
+  selId = i;
+  selTab = 'sizes';
+  renderList();
+  renderDetail();
+}
+
+// ============ DETAIL (materials / profiles) ============
+function detailHeader(sel, badgeClass, badgeHtml) {
+  const sub = sel.sub.map(s => `<div class="dh-sub-item"><span class="sub-label">${s.label}</span><b>${s.value}</b></div>`).join('');
+  return `
+    <div class="dh-top">
+      <div class="dh-title-wrap">
+        <div class="dh-title">${escapeHtml(sel.title)}</div>
+        <span class="dh-badge ${badgeClass}">${badgeHtml}</span>
+      </div>
+      <div class="dh-actions">
+        <label class="exp-label" title="${t('to.report')}">
+          <input type="checkbox" ${sel.exported ? 'checked' : ''} onchange="${sel.onExport}">
+          <span>${t('to.report')}</span>
+        </label>
+        <button class="btn btn-secondary" onclick="${sel.onExcel}">${t('export')}</button>
+      </div>
+    </div>
+    <div class="dh-sub">${sub}</div>
+  `;
+}
+
+function renderDetail() {
+  const header = document.getElementById('detail-header');
+  const tabs = document.getElementById('detail-tabs');
+  const content = document.getElementById('detail-content');
+  const stats = document.getElementById('detail-stats');
+  const fitDetail = document.getElementById('fittings-detail');
+  if (fitDetail) fitDetail.style.display = 'none';
+
+  if (selCat === 'materials') renderMatDetail(header, tabs, content, stats);
+  else if (selCat === 'profiles') renderProfDetail(header, tabs, content, stats);
+}
+
+function renderMatDetail(header, tabs, content, stats) {
+  const mats = db.materials || [];
+  const m = selId != null ? mats[selId] : mats[0];
+  if (!m) {
+    header.innerHTML = '';
+    tabs.innerHTML = '';
+    content.innerHTML = `<div class="list-empty">${t('empty.list')}</div>`;
+    if (stats) stats.innerHTML = '';
+    return;
+  }
+  const thickness = Math.round(m.thickness) === m.thickness ? m.thickness : m.thickness.toFixed(1);
+  const edgeCount = (m.edges || []).length;
+  const detCount = (m.details || []).length;
+
+  header.innerHTML = detailHeader({
+    title: m.name || '',
+    exported: isExported(m),
+    onExport: `saveMatExport(${selId != null ? selId : '0'}, this.checked)`,
+    onExcel: 'exportExcel()',
+    sub: [
+      { label: t('detail.article') + ':', value: fmtCode(m.code) },
+      { label: t('detail.count') + ':', value: m.count || 0 }
+    ]
+  }, 'badge-material', `${thickness} мм`);
+
+  tabs.innerHTML = `
+    <div class="dtab ${selTab === 'edges' ? 'active' : ''}" onclick="setMatTab('edges')">${t('tab.edges')}</div>
+    <div class="dtab ${selTab === 'details' ? 'active' : ''}" onclick="setMatTab('details')">${t('tab.details', { n: detCount })}</div>
+    <div class="dtab ${selTab === 'info' ? 'active' : ''}" onclick="setMatTab('info')">${t('tab.info')}</div>
+  `;
+
+  if (selTab === 'info') {
+    const cutTotal = (m.details || []).reduce((s, d) => s + (d.cuts || []).length, 0);
+    content.innerHTML = `
+      <div class="info-grid">
+        ${infoItem(t('detail.article'), fmtCode(m.code))}
+        ${infoItem(t('stat.thickness'), thickness + ' мм')}
+        ${infoItem(t('detail.count'), m.count || 0)}
+        ${infoItem(t('stat.edges'), edgeCount)}
+        ${infoItem(t('stat.cut'), cutTotal)}
+      </div>
+    `;
+  } else {
+    const edgesBlock = (m.edges && m.edges.length) ? `
+      <div class="edge-block">
+        <div class="block-title">${t('edge.title')}</div>
+        ${m.edges.map(e => `
+          <div class="edge-row"><span class="edge-name">${escapeHtml(e.name)}</span><span class="edge-dim">${e.thickness} мм · арт. ${fmtCode(e.code)}</span></div>
+        `).join('')}
+      </div>` : `<div class="edge-none">${t('edge.none')}</div>`;
+
+    const grouped = groupByPosition(m.details);
+    const detailsBlock = `
+      <div class="block-title">${t('detail.parts')} (${detCount})</div>
+      <div class="dparts">
+        ${grouped.map(d => {
+          const cuts = detailCuts(d);
+          const posHtml = d.position ? `<span class="dpart-pos">${escapeHtml(d.position)}</span>` : '';
+          const countHtml = (d.count || 1) > 1 ? `<span class="dpart-count">×${d.count}</span>` : '';
+          const cutHtml = cuts ? ` · <span style="color:var(--orange)">${escapeHtml(cuts.text)}</span>` : '';
+          return `<div class="dpart-row"><span class="dpart-name">${posHtml}${countHtml}${escapeHtml(d.name)}${cutHtml}</span><span class="dpart-dim">${d.width}×${d.height} мм</span></div>`;
+        }).join('')}
+      </div>`;
+
+    if (selTab === 'edges') {
+      content.innerHTML = edgesBlock + `<div class="separator"></div>` + detailsBlock;
+    } else {
+      content.innerHTML = detailsBlock;
+    }
+  }
+
+  stats.innerHTML = `
+    <div class="dstat"><span class="ds-label">${t('stat.details')}</span><span class="ds-value">${m.count || 0}</span></div>
+    <div class="dstat"><span class="ds-label">${t('stat.edges')}</span><span class="ds-value">${edgeCount}</span></div>
+    <div class="dstat"><span class="ds-label">${t('stat.thickness')}</span><span class="ds-value">${thickness} ММ</span></div>
+    <div class="dstat"><span class="ds-label">${t('stat.inreport')}</span><span class="ds-value ${isExported(m) ? 'green' : ''}">${isExported(m) ? '☑' : '☐'}</span></div>
+  `;
+}
+
+function setMatTab(tab) {
+  selTab = tab;
+  renderDetail();
+}
+
+function infoItem(label, value) {
+  return `<div class="info-item"><div class="info-label">${escapeHtml(label)}</div><div class="info-value">${value}</div></div>`;
+}
+
+function renderProfDetail(header, tabs, content, stats) {
+  const prf = db.profiles || [];
+  const p = selId != null ? prf[selId] : prf[0];
+  if (!p) {
+    header.innerHTML = '';
+    tabs.innerHTML = '';
+    content.innerHTML = `<div class="list-empty">${t('empty.list')}</div>`;
+    if (stats) stats.innerHTML = '';
+    return;
+  }
+  const details = (p.details && p.details.length) ? p.details : [{ length: p.length, count: p.count }];
+  const total = details.reduce((s, d) => s + (d.count || 0), 0);
+
+  header.innerHTML = detailHeader({
+    title: p.material || p.name || '',
+    exported: isExported(p),
+    onExport: `saveProfExport(${selId != null ? selId : '0'}, this.checked)`,
+    onExcel: 'exportExcel()',
+    sub: [
+      { label: t('detail.article') + ':', value: fmtCode(p.code) }
+    ]
+  }, 'badge-profile', `${total} ${t('pcs')}`);
+
+  tabs.innerHTML = `
+    <div class="dtab ${selTab === 'sizes' ? 'active' : ''}" onclick="setProfTab('sizes')">${t('tab.sizes', { n: details.length })}</div>
+    <div class="dtab ${selTab === 'info' ? 'active' : ''}" onclick="setProfTab('info')">${t('tab.info')}</div>
+  `;
+
+  if (selTab === 'info') {
+    content.innerHTML = `
+      <div class="info-grid">
+        ${infoItem(t('detail.article'), fmtCode(p.code))}
+        ${infoItem(t('stat.material'), escapeHtml(p.material || p.name || ''))}
+        ${infoItem(t('detail.count'), total)}
+        ${infoItem(t('stat.sizes'), details.length)}
+      </div>
+    `;
+  } else {
+    content.innerHTML = `
+      <div class="block-title">${t('profiles.sizes')} (${details.length})</div>
+      ${details.map(d => {
+        const pos = uniqPositions(d);
+        return `<div class="p-size-row">
+          <span>${pos.length ? `<span class="p-size-pos">${escapeHtml(pos.join(', '))}</span>` : ''}<span class="p-size-len">${d.length || '—'} мм</span></span>
+          <span class="p-size-count">${d.count} ${t('pcs')}</span>
+        </div>`;
+      }).join('') || `<div class="list-empty">${t('empty.list')}</div>`}
+    `;
+  }
+
+  stats.innerHTML = `
+    <div class="dstat"><span class="ds-label">${t('detail.count')}</span><span class="ds-value">${total}</span></div>
+    <div class="dstat"><span class="ds-label">${t('stat.sizes')}</span><span class="ds-value accent">${details.length}</span></div>
+  `;
+}
+
+function setProfTab(tab) {
+  selTab = tab;
+  renderDetail();
+}
+
+// ============ FITTINGS LIST (navigation) ============
+function renderFitList() {
+  const body = document.getElementById('list-body');
+  if (!body) return;
+  const fit = (db.fittings || []).filter(f => {
+    if (!searchQuery) return true;
+    return ((f.code || '') + ' ' + (f.name || '')).toLowerCase().indexOf(searchQuery) !== -1;
+  });
+  body.innerHTML = fit.length
+    ? fit.map(f => `
+        <div class="list-card" onclick="jumpToFit(${f.id})">
+          <div class="lc-name">${escapeHtml(f.name || '')}</div>
+          <div class="lc-sub">${fmtCode(f.code)} · ${normTag(f.tag)}</div>
+          <div class="lc-meta"><span>${t('detail.count')}: <b>${f.count}</b></span></div>
+        </div>
+      `).join('')
+    : `<div class="list-empty">${t('empty.list')}</div>`;
+}
+
+function jumpToFit(id) {
+  const row = document.querySelector(`.fit-column .fit-row[data-id="${id}"]`);
+  if (row) {
+    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    row.style.outline = '2px solid var(--accent)';
+    setTimeout(() => { row.style.outline = ''; }, 800);
+  }
+}
+
+// ============ HELPERS ============
 function fmtCode(code) {
   return code ? code : '—';
 }
 
+function uniqPositions(d) {
+  const arr = (d && d.positions) || [];
+  return arr.filter((v, i) => arr.indexOf(v) === i);
+}
+
+function cutKey(cu) {
+  return cu && (cu.sign || cu.name);
+}
+
+function uniqueCuts(cuts) {
+  const seen = {};
+  const out = [];
+  (cuts || []).forEach(cu => {
+    const k = cutKey(cu);
+    if (k == null || seen[k]) return;
+    seen[k] = true;
+    out.push(cu);
+  });
+  return out;
+}
+
 function detailCuts(d) {
-  const c = d.cuts || [];
+  const c = uniqueCuts(d.cuts);
   if (!c.length) return null;
   const labels = c.map(cu => cu.sign || cu.name).filter(Boolean);
   return {
@@ -187,8 +590,6 @@ function detailCuts(d) {
   };
 }
 
-// Group material details by position (mirrors src/export.js helper).
-// Details without a position are kept separate (count 1 each).
 function groupByPosition(details) {
   const result = [];
   const map = {};
@@ -201,112 +602,15 @@ function groupByPosition(details) {
       map[d.position] = { ...d, count: 1 };
       result.push(map[d.position]);
     } else {
-      map[d.position].count++;
+      const target = map[d.position];
+      target.count++;
+      if (d.cuts && d.cuts.length) target.cuts = uniqueCuts((target.cuts || []).concat(d.cuts));
     }
   });
   return result;
 }
 
-function renderMaterials() {
-  const list = document.getElementById('materials-list');
-  const mats = db.materials || [];
-  list.innerHTML = mats.map((m, idx) => {
-    const thickness = Math.round(m.thickness) === m.thickness ? m.thickness : m.thickness.toFixed(1);
-    const edges = (m.edges || []).map(e =>
-      `<div class="edge-item">
-        <span class="edge-name">${escapeHtml(e.name)}</span>
-        <span class="edge-dim">${e.thickness} мм · арт. ${fmtCode(e.code)}</span>
-      </div>`
-    ).join('');
-    const edgeBlock = (m.edges && m.edges.length)
-      ? `<div class="edges-block"><div class="edges-title">${t('edge.title')}</div>${edges}</div>`
-      : `<div class="edges-block"><div class="edges-title">${t('edge.title')}</div><div class="edge-item edge-none">${t('edge.none')}</div></div>`;
-    const details = groupByPosition(m.details).map(d => {
-      const cuts = detailCuts(d);
-      const cutsHtml = cuts
-        ? `<span class="detail-cuts" title="${escapeAttr(cuts.text)}">${escapeHtml(cuts.text)} <span class="detail-cuts-count">${cuts.count}</span></span>`
-        : '';
-      const countHtml = `<span class="detail-count">${d.count || 1}</span>`;
-      return `<div class="detail-row"><span class="detail-name">${d.position ? `<span class="detail-pos">${escapeHtml(d.position)}</span>` : ''}${countHtml}${escapeHtml(d.name)}</span>${cutsHtml}<span class="detail-dim">${d.width}×${d.height} мм</span></div>`;
-    }).join('');
-    const cutTotal = (m.details || []).reduce((s, d) => s + ((d.cuts || []).length), 0);
-    return `
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title material-title">${escapeHtml(m.name)}</span>
-          <div class="card-badges">
-            <span class="card-badge badge-material">${thickness} мм</span>
-            ${cutTotal ? `<span class="card-badge badge-cut">${cutTotal > 1 ? t('cut.plural', { n: cutTotal }) : t('cut', { n: cutTotal })}</span>` : ''}
-            <label class="exp-label" title="${t('export')}">
-              <input type="checkbox" class="exp-check" ${isExported(m) ? 'checked' : ''} onchange="saveMatExport(${idx}, this.checked)">
-              <span>${t('export')}</span>
-            </label>
-          </div>
-        </div>
-        <div class="card-details">
-          <div class="detail-item"><span class="detail-label">${t('detail.article')}</span><span class="detail-value">${fmtCode(m.code)}</span></div>
-          <div class="detail-item"><span class="detail-label">${t('detail.count')}</span><span class="detail-value">${m.count}</span></div>
-        </div>
-        ${edgeBlock}
-        ${details ? `<div class="parts-list"><div class="edges-title">${t('detail.parts', { n: m.count })}</div>${details}</div>` : ''}
-      </div>
-    `;
-  }).join('');
-}
-
-function saveMatExport(idx, checked) {
-  const m = db.materials[idx];
-  if (!m) return;
-  m.export = checked;
-  saveDB();
-}
-
-function renderProfiles() {
-  const list = document.getElementById('profiles-list');
-  const prf = db.profiles || [];
-  list.innerHTML = prf.map((p, idx) => {
-    const details = (p.details && p.details.length)
-      ? p.details
-      : [{ width: p.width, thickness: p.thickness, length: p.length, count: p.count }];
-    const total = details.reduce((s, d) => s + (d.count || 0), 0);
-    const sizeRows = details.map(d =>
-      `<div class="detail-row">
-        <span>${(d.positions && d.positions.length) ? `<span class="detail-pos">${escapeHtml(d.positions.join(', '))}</span>` : ''}${d.width || '—'}×${d.thickness || '—'}×${d.length || '—'} мм</span>
-        <span class="detail-count">${d.count} ${t('pcs')}</span>
-      </div>`
-    ).join('');
-    return `
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">${escapeHtml(p.material || p.name)}</span>
-          <div class="card-badges">
-            <span class="card-badge badge-profile">${total} ${t('pcs')}</span>
-            <label class="exp-label" title="${t('export')}">
-              <input type="checkbox" class="exp-check" ${isExported(p) ? 'checked' : ''} onchange="saveProfExport(${idx}, this.checked)">
-              <span>${t('export')}</span>
-            </label>
-          </div>
-        </div>
-        <div class="card-details">
-          <div class="detail-item"><span class="detail-label">${t('detail.article')}</span><span class="detail-value">${fmtCode(p.code)}</span></div>
-        </div>
-        <div class="parts-list">
-          <div class="edges-title">${t('profiles.sizes', { n: details.length })}</div>
-          ${sizeRows}
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function saveProfExport(idx, checked) {
-  const p = db.profiles[idx];
-  if (!p) return;
-  p.export = checked;
-  saveDB();
-}
-
-// ---- Fittings: multi-select, drag&drop, tags ----
+// ============ FITTINGS: multi-select, drag&drop, tags ============
 let selectedFitIds = new Set();
 let marqueeEl = null;
 let marqueeActive = false;
@@ -571,8 +875,6 @@ function fittingsDrop(e) {
   saveDB();
 }
 
-// Determine the fitting row just below the drop point (insert before it),
-// or null to append at the end of the column.
 function findBeforeRowId(body, y) {
   const rows = Array.from(body.querySelectorAll('.fit-row'));
   for (const r of rows) {
@@ -582,10 +884,6 @@ function findBeforeRowId(body, y) {
   return null;
 }
 
-// Move/multi-move fittings into a tag and reorder them within that tag.
-// Rendering groups by tag preserving db.fittings array order, so we rebuild
-// the array: non-target items first (original order), then target-tag items
-// in the desired order (moved ids inserted before `beforeId`).
 function applyFitMove(ids, tag, beforeId) {
   if (!db.fittings) db.fittings = [];
   const idSet = new Set(ids);
@@ -768,6 +1066,7 @@ function deleteTag(tag) {
   saveDB();
 }
 
+// ============ ESCAPING ============
 function escapeHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -776,6 +1075,7 @@ function escapeAttr(str) {
   return escapeHtml(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// ============ FILE ACTIONS ============
 async function openProject() {
   const res = await window.api.loadProject();
   if (res.canceled) return;
@@ -806,11 +1106,30 @@ function windowMinimize() {
   window.api.windowMinimize();
 }
 
+function windowMaximize() {
+  window.api.windowMaximize();
+}
+
 function windowClose() {
   window.api.windowClose();
 }
 
-// ---- Settings ----
+// ============ SAVE EXPORT TOGGLES ============
+function saveMatExport(i, checked) {
+  const m = db.materials[i];
+  if (!m) return;
+  m.export = checked;
+  saveDB();
+}
+
+function saveProfExport(i, checked) {
+  const p = db.profiles[i];
+  if (!p) return;
+  p.export = checked;
+  saveDB();
+}
+
+// ============ SETTINGS ============
 function bindSettingsEvents() {
   const openBtn = document.getElementById('settings-btn');
   if (openBtn) openBtn.addEventListener('click', openSettings);

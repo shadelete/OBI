@@ -8,13 +8,14 @@
 </head>
 <body>
   <div class="app">
-    <div class="header">
-      <div class="header-left">
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <div class="topbar-left">
         <div class="brand">
           <span class="brand-logo">OBI</span>
         </div>
       </div>
-      <div class="header-actions">
+      <div class="topbar-actions">
         <button class="btn btn-secondary" onclick="openProject()" data-i18n="open.project"></button>
         <button class="btn btn-secondary" onclick="saveProject()" data-i18n="save.project"></button>
         <button class="btn btn-export" onclick="exportExcel()" data-i18n="export.excel"></button>
@@ -22,52 +23,77 @@
       </div>
       <div class="window-controls">
         <button class="win-btn win-min" onclick="windowMinimize()" title="Згорнути">─</button>
+        <button class="win-btn win-max" onclick="windowMaximize()" title="Розгорнути">□</button>
         <button class="win-btn win-close" onclick="windowClose()" title="Закрити">✕</button>
       </div>
     </div>
-    <div class="tabs">
-      <div class="tab active" data-tab="materials" onclick="switchTab('materials')">
-        <span data-i18n="tab.materials"></span> <span class="tab-count" id="count-materials">0</span>
-      </div>
-      <div class="tab" data-tab="profiles" onclick="switchTab('profiles')">
-        <span data-i18n="tab.profiles"></span> <span class="tab-count" id="count-profiles">0</span>
-      </div>
-      <div class="tab" data-tab="fittings" onclick="switchTab('fittings')">
-        <span data-i18n="tab.fittings"></span> <span class="tab-count" id="count-fittings">0</span>
-      </div>
-    </div>
-    <div class="content">
-      <div class="stats" id="stats"></div>
-      <div class="panel active" id="panel-materials">
-        <div class="section-title" data-i18n="tab.materials"></div>
-        <div id="materials-list" class="card-list"></div>
-      </div>
-      <div class="panel" id="panel-profiles">
-        <div class="section-title" data-i18n="tab.profiles"></div>
-        <div id="profiles-list" class="card-list"></div>
-      </div>
-      <div class="panel" id="panel-fittings">
-        <div class="section-title" data-i18n="tab.fittings"></div>
-        <div class="add-form" id="add-fitting-form">
-          <div class="form-row">
-            <input class="form-input" id="fit-name" data-i18n-ph="fit.placeholder.name">
-            <input class="form-input form-input-sm" id="fit-code" data-i18n-ph="fit.placeholder.code">
-            <input class="form-input form-input-sm" id="fit-count" type="number" min="1" data-i18n-ph="fit.placeholder.count">
-            <select class="form-input form-input-tag" id="fit-tag"></select>
-            <button class="btn btn-primary" onclick="addFitting()" data-i18n="btn.add"></button>
+
+    <div class="workspace">
+      <!-- SIDEBAR -->
+      <aside class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+          <div class="nav-item active" data-cat="materials" onclick="switchCat('materials')">
+            <span class="nav-label" data-i18n="tab.materials"></span>
+            <span class="nav-badge" id="badge-materials">0</span>
+          </div>
+          <div class="nav-item" data-cat="profiles" onclick="switchCat('profiles')">
+            <span class="nav-label" data-i18n="tab.profiles"></span>
+            <span class="nav-badge" id="badge-profiles">0</span>
+          </div>
+          <div class="nav-item" data-cat="fittings" onclick="switchCat('fittings')">
+            <span class="nav-label" data-i18n="tab.fittings"></span>
+            <span class="nav-badge" id="badge-fittings">0</span>
+          </div>
+        </nav>
+        <div class="sidebar-stats" id="sidebar-stats"></div>
+      </aside>
+
+      <!-- LIST PANEL -->
+      <section class="list-panel">
+        <div class="list-header">
+          <div class="list-title" id="list-title" data-i18n="tab.materials"></div>
+          <div class="list-search">
+            <input class="search-input" id="search-input" placeholder="Пошук...">
           </div>
         </div>
-        <div class="tag-manager">
-          <span class="tag-manager-label" data-i18n="tags.manage"></span>
-          <input class="form-input form-input-sm form-input-tag-new" id="new-tag-input" data-i18n-ph="tags.new.placeholder">
-          <button class="btn btn-primary" onclick="addTag()" data-i18n="tags.add"></button>
+        <div class="list-body" id="list-body"></div>
+        <div class="list-footer">
+          <button class="btn btn-primary btn-add" id="btn-add" data-i18n="mat.add"></button>
         </div>
-        <div id="fittings-columns" class="fit-columns"></div>
-        <div id="fittings-list" class="card-list" style="display:none;"></div>
-      </div>
+      </section>
+
+      <!-- DETAIL PANEL -->
+      <section class="detail-panel">
+        <div class="detail-header" id="detail-header"></div>
+        <div class="detail-tabs" id="detail-tabs"></div>
+        <div class="detail-content" id="detail-content"></div>
+        <div class="detail-stats" id="detail-stats"></div>
+
+        <!-- Fittings workspace (persistent, shown when category = fittings) -->
+        <div class="fittings-detail" id="fittings-detail" style="display:none;">
+          <div class="fittings-wrap">
+            <div class="fitting-toolbar">
+              <div class="fitting-add-form" id="add-fitting-form">
+                <input class="form-input" id="fit-name" data-i18n-ph="fit.placeholder.name">
+                <input class="form-input form-input-sm" id="fit-code" data-i18n-ph="fit.placeholder.code">
+                <input class="form-input form-input-sm" id="fit-count" type="number" min="1" data-i18n-ph="fit.placeholder.count">
+                <select class="form-input form-input-tag" id="fit-tag"></select>
+                <button class="btn btn-primary" onclick="addFitting()" data-i18n="btn.add"></button>
+              </div>
+              <div class="tag-manager">
+                <span class="tag-manager-label" data-i18n="tags.manage"></span>
+                <input class="form-input form-input-sm form-input-tag-new" id="new-tag-input" data-i18n-ph="tags.new.placeholder">
+                <button class="btn btn-primary" onclick="addTag()" data-i18n="tags.add"></button>
+              </div>
+            </div>
+            <div id="fittings-columns" class="fit-columns"></div>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 
+  <!-- SETTINGS MODAL -->
   <div class="modal-overlay" id="settings-modal">
     <div class="modal">
       <div class="modal-header">
