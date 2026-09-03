@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('api', {
   exportXLSX: () => ipcRenderer.invoke('export-xlsx'),
   getConfig: () => ipcRenderer.invoke('get-config'),
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
+  getFitRules: () => ipcRenderer.invoke('get-fit-rules'),
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
   windowMinimize: () => ipcRenderer.invoke('window-minimize'),
   windowMaximize: () => ipcRenderer.invoke('window-maximize'),

@@ -405,6 +405,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .meta-row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
 .meta-label { color: var(--text-faint); min-width: 70px; }
 .meta-value { color: var(--text); }
+.blacklist-row { justify-content: space-between; padding: 2px 0; }
 .meta-link { color: var(--accent); text-decoration: none; }
 .meta-link:hover { text-decoration: underline; }
 .settings-btn { font-size: 15px; }

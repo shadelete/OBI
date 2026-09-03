@@ -44,6 +44,33 @@ function saveConfig(config) {
   fs.writeFileSync(p, JSON.stringify(config, null, 2), 'utf-8');
 }
 
+function fitRulesPath() {
+  return path.join(dataDir(), 'data', 'fit_rules.json');
+}
+
+const DEFAULT_FIT_RULES = Object.freeze({ tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [] });
+
+function readFitRules() {  try {
+    const p = fitRulesPath();
+    if (!fs.existsSync(p)) return { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [] };
+    const data = JSON.parse(fs.readFileSync(p, 'utf-8'));
+    return {
+      tags: (data.tags && typeof data.tags === 'object') ? data.tags : {},
+      tagsByName: (data.tagsByName && typeof data.tagsByName === 'object') ? data.tagsByName : {},
+      blacklist: Array.isArray(data.blacklist) ? data.blacklist : [],
+      blacklistByName: Array.isArray(data.blacklistByName) ? data.blacklistByName : []
+    };
+  } catch (e) {
+    return { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [] };
+  }
+}
+
+function saveFitRules(rules) {
+  const p = fitRulesPath();
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, JSON.stringify(rules, null, 2), 'utf-8');
+}
+
 function ensureDB() {
   const p = dbPath();
   fs.mkdirSync(path.dirname(p), { recursive: true });
@@ -123,6 +150,8 @@ ipcMain.handle('save-config', (event, config) => {
   return { success: true };
 });
 
+ipcMain.handle('get-fit-rules', () => readFitRules());
+
 ipcMain.handle('get-app-info', () => ({
   version: app.getVersion(),
   url: APP_URL,
@@ -144,6 +173,9 @@ ipcMain.handle('window-close', () => {
 
 ipcMain.handle('save-db', (event, data) => {
   fs.writeFileSync(dbPath(), JSON.stringify(data, null, 2), 'utf-8');
+  if (data.fitRules) {
+    try { saveFitRules(data.fitRules); } catch (e) {}
+  }
   return { success: true };
 });
 

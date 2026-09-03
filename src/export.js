@@ -155,7 +155,7 @@ function materialDataRow(ws, r, poz, name, qty, width, height, cuts) {
   ws.getCell(r, 6).value = cuts;
   for (let c = 1; c <= 6; c++) {
     const cell = ws.getCell(r, c);
-    dataCell(cell, (c === 2 || c === 6) ? 'left' : 'center');
+    dataCell(cell, c === 2 ? 'left' : 'center');
   }
   ws.getRow(r).height = 15.75;
 }

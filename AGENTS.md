@@ -24,8 +24,10 @@
 - Поиск exe (в `OBI.js`): рядом со скриптом → сохранённый путь `data\exe_path.txt` → `dist\OBI.exe` → `dist\release\OBI.exe` → вверх до 4 родительских + cwd.
 
 ## Команды
+- **Запуск при тестировании**: пользователь запускает `OBI.js` из Базиса → тот стартует `dist\OBI.exe`. Соответственно, **любые правки в `src/*.js`, `src/*.html`, `src/*.css` требуют пересборки через `npm run dist`**, иначе OBI.exe не подхватит изменения.
 - Запуск UI в dev: `npm start` (или `npx electron .`, обёртка `launch.bat`).
 - Сборка: `npm run dist` = `electron-builder --win --dir` — **только `dist\win-unpacked`, без portable-файла**. Финальный `dist\OBI.exe` даёт `npm run build` = `electron-builder --win` (portable). После релиза обновить `release\OBI-<ver>.zip` (OBI.exe + OBI.js + icon.bmp) вручную из `dist\OBI.exe` и текущего `OBI.js`.
+- **ВАЖНО**: OBI.js запускає саме `dist\OBI.exe` (portable), тому для тестування правок у src/ через OBI.js потрібно `npm run build` (а НЕ `npm run dist` — той створює `dist\win-unpacked\Output Bazis Info.exe`, який OBI.js не використовує).
 
 ## Changelog — правило фиксации изменений
 - Все изменения фиксируются в `CHANGELOG.md` **только когда всё получилось** (работа завершена, проверена/пересобрана — не «во время», не по ходу, а в конце, когда результат готов).
@@ -89,6 +91,14 @@
 - Логика (renderer.js): `openSettings`/`closeSettings`, `setTheme`, `setLanguage`, `saveConfig` (→ `window.api.saveConfig`), `renderSettingsMeta` (заполняет версию/автора/ссылку).
 - Тема: `applyTheme()` вешает класс `theme-dark` на `body`; цвета — CSS-переменные в `:root` (светлая) и `body.theme-dark` (тёмная) в `src/styles.css`.
 - Язык: `applyLanguage()` — обходит элементы с `data-i18n` (textContent) и `data-i18n-ph` (placeholder), перерисовывает списки через `renderAll()`. Словарь `I18N` в renderer.js (справа `uk`, `ru`), доступ через `t(key, params)` (подстановка `{n}`/`{path}`/`{tag}`); `lang()` возвращает 'ru'|'uk'. ТЕГИ (`DEFAULT_TAGS`, значения `f.tag`, «Загальна фурнітура») — это ДАННЫЕ из db, их НЕ переводят (не трогать).
+
+### Правила фурнітури (fit_rules) — запам'ятовування тегів і блеклісту
+- Окремий файл `<dataDir>\data\fit_rules.json` (поряд із exe, в корені при dev) — **загальні правила**, які можна передавати іншим. Схема: `{ tags:{код:тег}, tagsByName:{ім'я:тег}, blacklist:[коди], blacklistByName:[імена] }`.
+- Мета: при завантаженні нового проекту фурнітура **автоматично розкидається по тегах** і **вимикається в експорті** на основі накопиченої історії (по артикулу `f.code` або, якщо коду нема, по імені `f.name`).
+- Запис: `saveFitTag`/`applyFitMove` (drag&drop) зберігають тег і в `tags[f.code]`, і в `tagsByName[f.name]`; `saveFitExport` — блекліст по коду (коли є код) і в `blacklistByName` по імені (коли коду нема).
+- Зберігання в файл не окремим IPC, а **разом із db.json**: `saveDB()` пише `db.fitRules`, а хендлер `save-db` у `main.js` додатково викликає `saveFitRules(data.fitRules)` → пишеться `fit_rules.json`.
+- Читання на старті: рендерер пріоритетно бере `getFitRules()` (→ `readFitRules()` з `fit_rules.json`), fallback на `db.fitRules`. Далі `applyFitRules()` (перебиває `f.tag`/`f.export`), потім `ensureTagOrder()` (додає нові теги з правил у колонки).
+- Дропдаун тега в UI — `fitRules.tags[f.code]`; фурнітура без коду — `tagsByName[f.name]`. `renderBlacklist`/`removeFromBlacklist` працюють з обома списками блеклісту.
 
 ### Экспорт (src/export.js) — кратко
 `exportToXLSXBuffer(data)` → 3 листа: «Матеріали» (сгруппирован по поз.), «Профілі», «Фурнітура». Стили-константы `FONT_TITLE/FONT_HEAD/FONT_DATA/FILL_ORANGE/FILL_PEACH/BORDER` (Montserrat + оранжевая палитра, `charset:204`). Фильтрация по `export !== false` (`exported()`). Фурнитура на листе сгруппирована по тегу, порядок тегов = `db.tagOrder` (как в интерфейсе), затем алфавит. При доработке UI помнить: если меняется/добавляется поле в fittings/materials, его надо поддержать и тут (иначе расхождение UI↔Excel).
