@@ -233,7 +233,7 @@ function scanObject(obj) {
             pInfo.code = pCode;
             var pMat = (obj.MaterialName && splitName(obj.MaterialName).name) || "";
 
-            var pKey = pInfo.name;
+            var pKey = pInfo.name + "|" + pMat;
             if (!profiles[pKey]) {
                 profiles[pKey] = {
                     name: pInfo.name,
