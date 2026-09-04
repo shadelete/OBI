@@ -35,7 +35,7 @@
 - Писать **украинской** мовой. Формат — Keep a Changelog: раздел `[Невидане]` (для наработок к следующей версии) при релизе превращается в финальный `[0.X.Y] — дата` раздел.
 - При релизе новые изменения переносятся в финальный раздел, версия в `package.json` поднимается.
 
-## Релизный процесс (актуальный тег — v0.2.0-beta, планується v0.2.0)
+## Релизный процесс (актуальный тег — v0.2.0-beta.1, планується v0.2.0)
 - 1) поднять `version` в `package.json`, 2) `npm run build` (`dist\OBI.exe`), 3) собрать `release\OBI-<ver>.zip` = `dist\OBI.exe` + `release\OBI.js` (cp1251) + `release\icon.bmp` (см. ниже), 4) коммит + тег `v<ver>` + `push origin main --tags`, 5) `gh release create v<ver> release\OBI-<ver>.zip -R shadelete/OBI --title "OBI <ver>" --notes "<описание>"` (единственный ассет — zip; отдельно `OBI.js` на релиз НЕ кладём, он уже внутри архива).
 - **Описание релиза**: писать продающее описание для пользователя (что изменилось, топ фич), а не технический changelog. Черновик лежит в `release_description.txt` в корне (если менялся текст — отредактировать `gh release edit v<ver> --notes "$(Get-Content release_description.txt -Raw -Encoding UTF8)"`). В `gh release create` можно передать `--notes-file release_description.txt` вместо `--notes`.
 - **Пре-релизы** (beta/rc): `gh release create v<ver> ... --prerelease` (SKIP tota caches). Важно: пре-релизы НЕ попадают в `releases/latest` (GitHub игнорирует их там), а наш апдейтер ходит в `releases?per_page=30` и сам выбирает новейшую семантически новую версию — тому для теста обновления достаточно выложить `v0.2.0-beta.1` соответствующий ассет `OBI-0.2.0-beta.1.zip`.
