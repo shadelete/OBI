@@ -18,6 +18,8 @@ var materials = {};   // TFurnPanel -> keyed by matName|thickness, with per-mate
 var profiles = {};    // TExtrusionBody
 var fittings = {};    // TFastener
 var totalObjects = 0;
+
+function r4(n) { return Math.round(n * 10000) / 10000; }
 var panelsCount = 0;
 var profilesCount = 0;
 var fastenersCount = 0;
@@ -191,8 +193,8 @@ function scanObject(obj) {
             m.details.push({
                 name: obj.Name || "Panel",
                 position: designation,
-                width: w,
-                height: h,
+                width: r4(w),
+                height: r4(h),
                 cuts: cuts
             });
 
@@ -247,9 +249,9 @@ function scanObject(obj) {
             var pw = 0, pt = 0, pl = 0;
             try {
                 if (obj.GSize) {
-                    pw = obj.GSize.x || 0;
-                    pt = obj.GSize.y || 0;
-                    pl = obj.GSize.z || 0;
+                    pw = r4(obj.GSize.x) || 0;
+                    pt = r4(obj.GSize.y) || 0;
+                    pl = r4(obj.GSize.z) || 0;
                 }
             } catch (e) {}
 
