@@ -7,10 +7,17 @@ const { spawn } = require('child_process');
 const REPO = 'shadelete/OBI';
 const API_RELEASES = `https://api.github.com/repos/${REPO}/releases?per_page=30`;
 
-function getJson(url) {
+function getJson(url, _redirects) {
+  _redirects = _redirects || 0;
   return new Promise((resolve, reject) => {
+    if (_redirects > 5) { reject(new Error('Too many redirects')); return; }
     const mod = url.startsWith('https:') ? https : http;
     const req = mod.get(url, { headers: { 'User-Agent': 'OBI-updater', 'Accept': 'application/vnd.github.v3+json' } }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume();
+        getJson(res.headers.location, _redirects + 1).then(resolve, reject);
+        return;
+      }
       let body = '';
       res.setEncoding('utf8');
       res.on('data', c => body += c);
@@ -27,10 +34,17 @@ function getJson(url) {
   });
 }
 
-function download(url, dest) {
+function download(url, dest, _redirects) {
+  _redirects = _redirects || 0;
   return new Promise((resolve, reject) => {
+    if (_redirects > 5) { reject(new Error('Too many redirects')); return; }
     const mod = url.startsWith('https:') ? https : http;
     const req = mod.get(url, { headers: { 'User-Agent': 'OBI-updater' } }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume();
+        download(res.headers.location, dest, _redirects + 1).then(resolve, reject);
+        return;
+      }
       if (res.statusCode !== 200) { reject(new Error('HTTP ' + res.statusCode)); res.resume(); return; }
       const out = fs.createWriteStream(dest);
       res.pipe(out);
