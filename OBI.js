@@ -191,8 +191,8 @@ function scanObject(obj) {
             m.details.push({
                 name: obj.Name || "Panel",
                 position: designation,
-                width: Math.round(w),
-                height: Math.round(h),
+                width: w,
+                height: h,
                 cuts: cuts
             });
 
@@ -247,9 +247,9 @@ function scanObject(obj) {
             var pw = 0, pt = 0, pl = 0;
             try {
                 if (obj.GSize) {
-                    pw = Math.round(obj.GSize.x) || 0;
-                    pt = Math.round(obj.GSize.y) || 0;
-                    pl = Math.round(obj.GSize.z) || 0;
+                    pw = obj.GSize.x || 0;
+                    pt = obj.GSize.y || 0;
+                    pl = obj.GSize.z || 0;
                 }
             } catch (e) {}
 
