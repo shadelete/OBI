@@ -73,47 +73,106 @@ function extractZip(zipPath, destDir) {
   });
 }
 
-const UPDATER_PS1 = `
+const msleep = (ms) => { const s = Date.now(); while (Date.now() - s < ms) {} };
+
+// ASCII-only launcher: starts updater.ps1 hidden and independent of the parent process.
+// WScript (GUI subsystem) spawned with detached:true + windowsHide survives Electron's
+// exit, and piping into PowerShell keeps everything out of any visible console window.
+const VBS_LAUNCHER = `' updater-launcher - starts install.ps1 hidden, independent of parent
+Dim sh : Set sh = CreateObject("WScript.Shell")
+Dim i, cmd
+cmd = "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & WScript.Arguments(0) & """"
+For i = 1 To WScript.Arguments.Count - 1
+  cmd = cmd & " """ & WScript.Arguments(i) & """"
+Next
+sh.Run cmd, 0, False
+`;
+// PowerShell installer: survives Electron's exit (launched detached via wscript/VBS,
+// proven against the real packaged runtime) so it runs AFTER the app has fully closed
+// and released its exe. Then it replaces the executable, copies side files, relaunches
+// and cleans up. ASCII-only; all paths arrive as argv tokens (UTF-16) so Cyrillic
+// survives. Logs step-by-step to upd.log.
+const INSTALLER_PS1 = `
 param(
-  [string] $srcDir,
+  [string] $srcExe,
   [string] $targetExe,
   [string] $targetJs,
   [string] $targetIcon,
-  [string] $logFile
+  [string] $logFile,
+  [string] $frame
 )
-function Log($m) {
-  try { Add-Content -LiteralPath $logFile -Value ((Get-Date -Format "HH:mm:ss") + " " + $m) -Encoding ASCII } catch {}
-}
+function Log($m) { try { Add-Content -LiteralPath $logFile -Value ((Get-Date -Format "HH:mm:ss") + " " + $m) -Encoding ASCII } catch {} }
 Log "start"
-# No process-wait loop: a lingering OBI.exe child (GPU/crashpad) can keep it alive and
-# stall forever. Instead we retry the copy — Copy-Item fails while the old exe is still
-# locked and succeeds once it frees up. Everything is logged to upd.log for diagnosis.
-$srcExe = Join-Path $srcDir "OBI.exe"
-$exeOk = $false
+# The parent app is quitting; wait until its exe is fully released (no OBI process), so
+# the old file is no longer locked/mapped and can be overwritten.
+$waited = 0
+for (; $waited -lt 60; $waited++) {
+  if (-not (Get-Process -Name "OBI" -ErrorAction SilentlyContinue)) { break }
+  Start-Sleep -Seconds 1
+}
+Log ("wait-exit waited=" + $waited)
+# Replace the executable; retry in case the old file is still briefly held.
+$ok = $false
 for ($i = 0; $i -lt 30; $i++) {
-  if (-not (Test-Path -LiteralPath $srcExe)) { Log ("src-exe-missing i=" + $i); break }
   try {
     Copy-Item -LiteralPath $srcExe -Destination $targetExe -Force -ErrorAction Stop
-    $exeOk = $true
+    $ok = $true
     Log ("copy-exe-ok i=" + $i)
     break
   } catch {
     Log ("copy-exe-fail i=" + $i + " " + $_.Exception.Message)
-    Start-Sleep -Seconds 1
+    Start-Sleep -Milliseconds 500
   }
 }
 foreach ($f in @(@("OBI.js", $targetJs), @("icon.bmp", $targetIcon))) {
-  $s = Join-Path $srcDir $f[0]
+  $s = Join-Path (Split-Path -Parent $srcExe) $f[0]
   if ($f[1] -and (Test-Path -LiteralPath $s)) {
     try { Copy-Item -LiteralPath $s -Destination $f[1] -Force -ErrorAction Stop; Log ("copy-" + $f[0] + "-ok") }
     catch { Log ("copy-" + $f[0] + "-fail " + $_.Exception.Message) }
   }
 }
-try { Start-Process -FilePath $targetExe; Log "launched" } catch { Log ("launch-fail " + $_.Exception.Message) }
-Start-Sleep -Seconds 1
-try { Remove-Item -LiteralPath $srcDir -Recurse -Force -ErrorAction Stop } catch { Log ("cleanup-fail " + $_.Exception.Message) }
+if ($ok) { try { Start-Process -FilePath $targetExe; Log "launched" } catch { Log ("launch-fail " + $_.Exception.Message) } }
 Log "done"
+if ($frame) { try { Remove-Item -LiteralPath $frame -Recurse -Force -ErrorAction SilentlyContinue } catch {} }
 `;
+
+// Standalone installer builder: writes a hidden launcher (wscript -> vbs -> powershell)
+// that outlives the electron process, so the installer reliably runs AFTER the app exits.
+// All paths are passed as argv (UTF-16), no literals embedded, content ASCII-only.
+function writeStandalone(frame, extractDir, targetExe, targetJs, targetIcon) {
+  const ps1 = path.join(frame, 'install.ps1');
+  const vbs = path.join(frame, 'launch.vbs');
+  fs.writeFileSync(ps1, '\uFEFF' + INSTALLER_PS1, 'utf8');
+  fs.writeFileSync(vbs, VBS_LAUNCHER, 'utf8');
+  const child = spawn('wscript.exe',
+    [vbs, ps1,
+      path.join(extractDir, 'OBI.exe'), targetExe, targetJs || '', targetIcon || '',
+      path.join(frame, 'upd.log'), frame],
+    { detached: true, windowsHide: true, stdio: 'ignore' });
+  child.unref();
+}
+
+// The portable stub keeps OBI.exe mapped/locked while the app runs: overwriting it from
+// the running process fails (EBUSY/sharing violation — proven on the live exe). So the
+// in-App copy is only a best-effort fast path; the authoritative replacement is done by
+// the detached installer above AFTER we quit. Both are armed here so nothing depends on
+// timing between the copy and the app's exit.
+function installInto(extractDir, targetExe, targetJs, targetIcon, frame) {
+  const srcExe = path.join(extractDir, 'OBI.exe');
+  if (!fs.existsSync(srcExe)) throw new Error('OBI.exe missing in update package');
+  writeStandalone(frame, extractDir, targetExe, targetJs, targetIcon);
+  let done = false;
+  for (let i = 0; i < 20; i++) {
+    try { fs.copyFileSync(srcExe, targetExe); done = true; break; } catch (e) { msleep(250); }
+  }
+  // Side files are not locked, so copy them in-process when the exe copy succeeded.
+  if (done) {
+    for (const [name, dest] of [['OBI.js', targetJs], ['icon.bmp', targetIcon]]) {
+      const src = path.join(extractDir, name);
+      if (dest && fs.existsSync(src)) { try { fs.copyFileSync(src, dest); } catch (e) {} }
+    }
+  }
+}
 
 async function checkUpdate(opts) {
   const current = opts.currentVersion || '';
@@ -190,19 +249,8 @@ async function applyUpdate(opts) {
   await download(assetUrl, zipPath);
   const extractDir = path.join(tmpRoot, 'files');
   await extractZip(zipPath, extractDir);
-  const scriptPath = path.join(tmpRoot, 'updater.ps1');
-  const logPath = path.join(tmpRoot, 'upd.log');
-  fs.writeFileSync(scriptPath, '\uFEFF' + UPDATER_PS1, 'utf8');
-  // Launch the updater hidden. We must NOT use {detached:true} — on Windows Node then ignores
-  // windowsHide and a visible console pops up. Without detached Windows still lets the
-  // child outlive the parent (no job object), so detached:false + windowsHide:true + stdio:'ignore'
-  // is safe and hidden. Paths pass as UTF-16 argv -> non-ASCII (Cyrillic) survives unchanged.
-  const child = spawn('powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', scriptPath,
-      extractDir, opts.targetExe, opts.targetJs || '', opts.targetIcon || '', logPath],
-    { windowsHide: true, stdio: 'ignore' });
-  child.unref();
-  return { scriptPath };
+  installInto(extractDir, opts.targetExe, opts.targetJs, opts.targetIcon, tmpRoot);
+  return { success: true };
 }
 
 // Semver-aware compare following https://semver.org precedence rules.

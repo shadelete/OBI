@@ -185,10 +185,58 @@ function openFitRulesWindow() {
   fitRulesWindow.on('closed', () => { fitRulesWindow = null; });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  if (process.env.OBI_TEST_UPDATE === '1') {
+    autoTestUpdate();
+    const hb = () => {
+      try { fs.appendFileSync(path.join(dataDir(), 'data', 'updtest.log'), new Date().toISOString() + ' beat\n'); } catch (e) {}
+      setTimeout(hb, 2000);
+    };
+    hb();
+  }
+  if (process.env.OBI_TEST_WSCRIPT === '1') {
+    const { spawn } = require('child_process');
+    const marker = path.join(process.env.TEMP || 'C:\\Temp', 'obi-wscript-' + Date.now() + '.txt');
+    try { fs.appendFileSync(path.join(dataDir(), 'data', 'updtest.log'), 'TEST_WSCRIPT marker=' + marker + '\n'); } catch (e) {}
+    const p = spawn('wscript.exe',
+      [process.env.OBI_LAUNCHER_VBS,
+       process.env.OBI_WRITE_PS1,
+       marker],
+      { detached: true, windowsHide: true, stdio: 'ignore' });
+    p.unref();
+    try { fs.appendFileSync(path.join(dataDir(), 'data', 'updtest.log'), 'TEST_WSCRIPT spawned pid=' + p.pid + '\n'); } catch (e) {}
+    setTimeout(() => app.quit(), 800);
+  }
+  createWindow();
+});
 
+// Headless self-update used for local E2E testing: OBI_TEST_UPDATE=1 triggers the
+// normal update flow (check -> apply -> quit) without UI interaction. Never set in
+// production, so it is inert unless explicitly enabled.
+async function autoTestUpdate() {
+  const dbg = (m) => {
+    try { fs.appendFileSync(path.join(dataDir(), 'data', 'updtest.log'), new Date().toISOString() + ' ' + m + '\n'); } catch (e) {}
+  };
+  try {
+    const targets = updaterTargets();
+    dbg('checkUpdate start');
+    const info = await updater.checkUpdate(targets);
+    dbg('checkUpdate => available=' + info.available + ' latest=' + info.latestVersion + ' url=' + (info.assetUrl || 'none'));
+    if (info.available && info.assetUrl) {
+      dbg('applyUpdate start');
+      const r = await updater.applyUpdate({ ...targets, assetUrl: info.assetUrl, assetName: info.assetName });
+      dbg('applyUpdate done success=' + r.success);
+      setTimeout(() => app.quit(), 800);
+    }
+  } catch (e) {
+    dbg('error: ' + (e && e.message));
+  }
+}
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin') {
+    try { fs.appendFileSync(path.join(dataDir(), 'data', 'updtest.log'), new Date().toISOString() + ' window-all-closed\n'); } catch (e) {}
+    app.quit();
+  }
 });
 
 const windows1251 = (() => {
