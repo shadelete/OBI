@@ -276,6 +276,7 @@ ipcMain.handle('apply-update', async (event, info) => {
   try {
     const targets = updaterTargets();
     await updater.applyUpdate({ ...targets, assetUrl: info.assetUrl, assetName: info.assetName });
+    setTimeout(() => app.quit(), 800);
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };

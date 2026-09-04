@@ -73,41 +73,47 @@ function extractZip(zipPath, destDir) {
   });
 }
 
-function escapeBat(s) {
-  return String(s).replace(/%/g, '%%');
+const UPDATER_PS1 = `
+param(
+  [string] $srcDir,
+  [string] $targetExe,
+  [string] $targetJs,
+  [string] $targetIcon,
+  [string] $logFile
+)
+function Log($m) {
+  try { Add-Content -LiteralPath $logFile -Value ((Get-Date -Format "HH:mm:ss") + " " + $m) -Encoding ASCII } catch {}
 }
-
-// Build updater.bat that waits for OBI.exe to exit, replaces files, relaunches, cleans temp.
-function writeUpdaterBat(opts) {
-  const { extractDir, targetExe, targetJs, targetIcon, appLauncher } = opts;
-  const lines = [];
-  lines.push('@echo off');
-  lines.push('setlocal');
-  lines.push('cd /d "%~dp0"');
-  lines.push(':wait');
-  lines.push('>nul 2>&1 tasklist /FI "IMAGENAME eq OBI.exe" | find /i "OBI.exe" >nul');
-  lines.push('if %errorlevel% EQU 0 (');
-  lines.push('   timeout /t 1 /nobreak >nul');
-  lines.push('   goto wait');
-  lines.push(')');
-  // copy new files over the current install dir
-  if (extractDir && targetExe) {
-    lines.push(`copy /y "${escapeBat(extractDir)}\\OBI.exe" "${escapeBat(targetExe)}" >nul`);
+Log "start"
+# No process-wait loop: a lingering OBI.exe child (GPU/crashpad) can keep it alive and
+# stall forever. Instead we retry the copy — Copy-Item fails while the old exe is still
+# locked and succeeds once it frees up. Everything is logged to upd.log for diagnosis.
+$srcExe = Join-Path $srcDir "OBI.exe"
+$exeOk = $false
+for ($i = 0; $i -lt 30; $i++) {
+  if (-not (Test-Path -LiteralPath $srcExe)) { Log ("src-exe-missing i=" + $i); break }
+  try {
+    Copy-Item -LiteralPath $srcExe -Destination $targetExe -Force -ErrorAction Stop
+    $exeOk = $true
+    Log ("copy-exe-ok i=" + $i)
+    break
+  } catch {
+    Log ("copy-exe-fail i=" + $i + " " + $_.Exception.Message)
+    Start-Sleep -Seconds 1
   }
-  if (targetJs) {
-    lines.push(`if exist "${escapeBat(extractDir)}\\OBI.js" copy /y "${escapeBat(extractDir)}\\OBI.js" "${escapeBat(targetJs)}" >nul`);
-  }
-  if (targetIcon) {
-    lines.push(`if exist "${escapeBat(extractDir)}\\icon.bmp" copy /y "${escapeBat(extractDir)}\\icon.bmp" "${escapeBat(targetIcon)}" >nul`);
-  }
-  if (appLauncher) {
-    lines.push(`start "" "${escapeBat(appLauncher)}"`);
-  }
-  lines.push('timeout /t 1 /nobreak >nul');
-  lines.push(`rmdir /s /q "${escapeBat(extractDir)}" >nul 2>&1`);
-  lines.push('endlocal');
-  return lines.join('\r\n');
 }
+foreach ($f in @(@("OBI.js", $targetJs), @("icon.bmp", $targetIcon))) {
+  $s = Join-Path $srcDir $f[0]
+  if ($f[1] -and (Test-Path -LiteralPath $s)) {
+    try { Copy-Item -LiteralPath $s -Destination $f[1] -Force -ErrorAction Stop; Log ("copy-" + $f[0] + "-ok") }
+    catch { Log ("copy-" + $f[0] + "-fail " + $_.Exception.Message) }
+  }
+}
+try { Start-Process -FilePath $targetExe; Log "launched" } catch { Log ("launch-fail " + $_.Exception.Message) }
+Start-Sleep -Seconds 1
+try { Remove-Item -LiteralPath $srcDir -Recurse -Force -ErrorAction Stop } catch { Log ("cleanup-fail " + $_.Exception.Message) }
+Log "done"
+`;
 
 async function checkUpdate(opts) {
   const current = opts.currentVersion || '';
@@ -168,25 +174,35 @@ async function checkUpdate(opts) {
 async function applyUpdate(opts) {
   const { assetUrl, assetName } = opts;
   if (!assetUrl) throw new Error('no asset url');
-  const tmpRoot = path.join(opts.tmpBase || require('os').tmpdir(), 'obi-update');
-  if (fs.existsSync(tmpRoot)) fs.rmSync(tmpRoot, { recursive: true, force: true });
+  const tmpBase = opts.tmpBase || require('os').tmpdir();
+  const tmpRoot = path.join(tmpBase, 'obi-update-' + Date.now());
+  // Clean stale dirs from earlier interrupted runs (best effort, never fatal).
+  try {
+    const existing = fs.readdirSync(tmpBase);
+    for (const e of existing) {
+      if (/^obi-update(-\d+)?$/.test(e)) {
+        try { fs.rmSync(path.join(tmpBase, e), { recursive: true, force: true }); } catch (err) {}
+      }
+    }
+  } catch (err) {}
   fs.mkdirSync(tmpRoot, { recursive: true });
   const zipPath = path.join(tmpRoot, assetName || 'OBI-update.zip');
   await download(assetUrl, zipPath);
   const extractDir = path.join(tmpRoot, 'files');
   await extractZip(zipPath, extractDir);
-  const batPath = path.join(tmpRoot, 'updater.bat');
-  const bat = writeUpdaterBat({
-    extractDir,
-    targetExe: opts.targetExe,
-    targetJs: opts.targetJs || null,
-    targetIcon: opts.targetIcon || null,
-    appLauncher: opts.targetExe
-  });
-  fs.writeFileSync(batPath, bat, 'utf8');
-  const child = spawn('cmd.exe', ['/c', batPath], { detached: true, stdio: 'ignore', windowsHide: true });
+  const scriptPath = path.join(tmpRoot, 'updater.ps1');
+  const logPath = path.join(tmpRoot, 'upd.log');
+  fs.writeFileSync(scriptPath, '\uFEFF' + UPDATER_PS1, 'utf8');
+  // Launch the updater hidden. We must NOT use {detached:true} — on Windows Node then ignores
+  // windowsHide and a visible console pops up. Without detached Windows still lets the
+  // child outlive the parent (no job object), so detached:false + windowsHide:true + stdio:'ignore'
+  // is safe and hidden. Paths pass as UTF-16 argv -> non-ASCII (Cyrillic) survives unchanged.
+  const child = spawn('powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', scriptPath,
+      extractDir, opts.targetExe, opts.targetJs || '', opts.targetIcon || '', logPath],
+    { windowsHide: true, stdio: 'ignore' });
   child.unref();
-  return { batPath };
+  return { scriptPath };
 }
 
 // Semver-aware compare following https://semver.org precedence rules.
