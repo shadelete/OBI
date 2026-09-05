@@ -12,6 +12,16 @@ function exported(item) {
   return item.export !== false;
 }
 
+const LEGACY_TAGS = { 'Петли': 'Петлі', 'Направляющие': 'Напрямні', 'Метизная фурнитура': 'Метизна фурнітура', 'Общая фурнитура': 'Загальна фурнітура' };
+
+function normTag(t) {
+  return LEGACY_TAGS[t] || t;
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function cellValue(item, h) {
   let v = item[h];
   if (Array.isArray(v)) {
@@ -287,17 +297,15 @@ function fittingsSheet(wb, fittings, tagOrder) {
   ws.columns = [
     { width: 7.7 }, { width: 28.7 }, { width: 16.7 }, { width: 14.7 }, { width: 10.7 }
   ];
-  const LEGACY_TAGS = { 'Петли': 'Петлі', 'Направляющие': 'Напрямні', 'Метизная фурнитура': 'Метизна фурнітура', 'Общая фурнитура': 'Загальна фурнітура' };
-  const norm = t => (LEGACY_TAGS[t] || t);
   const groups = {};
   const list = (fittings || []).filter(exported);
   list.forEach(f => {
-    const tag = norm(f.tag || 'Загальна фурнітура');
+    const tag = normTag(f.tag || 'Загальна фурнітура');
     if (!groups[tag]) groups[tag] = [];
     groups[tag].push(f);
   });
   // Order: as in the interface (tagOrder), then any remaining tags alphabetically
-  const order = (tagOrder && Array.isArray(tagOrder) ? tagOrder.map(norm) : []);
+  const order = (tagOrder && Array.isArray(tagOrder) ? tagOrder.map(normTag) : []);
   const orderedTags = Object.keys(groups).sort((a, b) => {
     const ia = order.indexOf(a);
     const ib = order.indexOf(b);
@@ -338,6 +346,126 @@ function fittingsSheet(wb, fittings, tagOrder) {
   return ws;
 }
 
+// ---- PDF (HTML report rendered via Chromium printToPDF) ----
+// One table per group (material / profile / tag). A group that does not fit
+// (<25% of it fits) is moved entirely to the next page: main.js measures the
+// print layout and adds the .split class (break-before: page) to such groups.
+// Columns align across groups via table-layout: fixed plus identical
+// percentage colgroups per section.
+const PDF_CSS = `
+  body { font-family: Arial, 'Segoe UI', sans-serif; color: #2b3440; margin: 0; font-size: 12px; }
+  h1 { margin: 0 0 2px; font-size: 20px; }
+  .meta { color: #8a94a6; font-size: 11px; margin-bottom: 10px; }
+  .part { margin-top: 22px; }
+  .part-title { background: #c64e24; color: #fff; font-weight: 700; font-size: 15px; padding: 5px 10px; border-radius: 3px; margin-bottom: 4px; }
+  .gwrap { }
+  .split { break-before: page; page-break-before: always; }
+  table.grp { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  table.grp th, table.grp td { border: 1px solid #783c1e; padding: 3px 6px; overflow-wrap: anywhere; }
+  table.grp .st-title th { background: #c64e24; color: #fff; font-weight: 700; font-size: 12.5px; text-align: left; }
+  table.grp .st-head th { background: #ffe6d2; font-weight: 600; }
+  th, td.l { text-align: left; } td.c, th.c { text-align: center; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+`;
+
+const MAT_COLS = '<col style="width:7%"><col style="width:36%"><col style="width:8%"><col style="width:11%"><col style="width:11%"><col style="width:27%">';
+const PROF_COLS = '<col style="width:12%"><col style="width:45%"><col style="width:10%"><col style="width:33%">';
+const FIT_COLS = '<col style="width:8%"><col style="width:42%"><col style="width:22%"><col style="width:20%"><col style="width:8%">';
+
+function materialPdfTable(m) {
+  const details = groupByPosition(m.details || []);
+  const rows = details.map((d, i) => `
+    <tr>
+      <td class="c">${esc(d.position || i + 1)}</td>
+      <td class="l">${esc(d.name)}</td>
+      <td class="c">${d.count || 1}</td>
+      <td class="c">${d.width != null ? d.width : ''}</td>
+      <td class="c">${d.height != null ? d.height : ''}</td>
+      <td class="c">${esc(cutsText(d))}</td>
+    </tr>`).join('');
+  return `<div class="gwrap"><table class="grp"><colgroup>${MAT_COLS}</colgroup>
+  <thead>
+    <tr class="st-title"><th colspan="6">${esc(m.name)}</th></tr>
+    <tr class="st-head"><th>Поз.</th><th>Найменування</th><th>К-сть</th><th>Довжина</th><th>Ширина</th><th>Паз</th></tr>
+  </thead>
+  <tbody>${rows}</tbody>
+  </table></div>`;
+}
+
+function profilePdfTable(p) {
+  const details = (p.details && p.details.length) ? p.details : [{ width: p.width, thickness: p.thickness, length: p.length, count: p.count, positions: [] }];
+  const rows = details.map((d, i) => {
+    const posArr = (d.positions || []).filter((v, j) => d.positions.indexOf(v) === j);
+    const pos = posArr.length ? posArr.join(', ') : (i + 1);
+    return `<tr><td class="c">${esc(pos)}</td><td class="l">${esc(p.name)}</td><td class="c">${d.count || 0}</td><td class="c">${d.length != null ? d.length : ''}</td></tr>`;
+  }).join('');
+  return `<div class="gwrap"><table class="grp"><colgroup>${PROF_COLS}</colgroup>
+  <thead>
+    <tr class="st-title"><th colspan="4">${esc(p.material || p.name || 'Профіль')}</th></tr>
+    <tr class="st-head"><th>Поз.</th><th>Найменування</th><th>К-сть</th><th>Довжина, мм</th></tr>
+  </thead>
+  <tbody>${rows}</tbody>
+  </table></div>`;
+}
+
+function fittingPdfTable(tag, items) {
+  const rows = items.map((f, i) => `
+    <tr>
+      <td class="c">${i + 1}</td>
+      <td class="l">${esc(f.name)}</td>
+      <td class="c">${esc(f.code || '')}</td>
+      <td class="c">${esc(f.supplier || '')}</td>
+      <td class="c">${f.count}</td>
+    </tr>`).join('');
+  return `<div class="gwrap"><table class="grp"><colgroup>${FIT_COLS}</colgroup>
+  <thead>
+    <tr class="st-title"><th colspan="5">${esc(tag)}</th></tr>
+    <tr class="st-head"><th>Поз.</th><th>Найменування</th><th>Артикул</th><th>Постачальник</th><th>К-сть</th></tr>
+  </thead>
+  <tbody>${rows}</tbody>
+  </table></div>`;
+}
+
+function buildPdfHtml(data) {
+  const materials = (data.materials || []).filter(exported);
+  const profiles = (data.profiles || []).filter(exported);
+  const fittings = (data.fittings || []).filter(exported);
+
+  const order = (data.tagOrder && Array.isArray(data.tagOrder) ? data.tagOrder.map(normTag) : []);
+  const groups = {};
+  fittings.forEach(f => {
+    const tag = normTag(f.tag || 'Загальна фурнітура');
+    if (!groups[tag]) groups[tag] = [];
+    groups[tag].push(f);
+  });
+  const orderedTags = Object.keys(groups).sort((a, b) => {
+    const ia = order.indexOf(a);
+    const ib = order.indexOf(b);
+    return (ia === -1 && ib === -1) ? 0 : (ia === -1 ? 1 : (ib === -1 ? -1 : ia - ib));
+  });
+
+  const parts = [];
+  if (materials.length) {
+    parts.push(`<div class="part"><div class="part-title">Матеріали</div>${materials.map(materialPdfTable).join('')}</div>`);
+  }
+  if (profiles.length) {
+    parts.push(`<div class="part"><div class="part-title">Профілі</div>${profiles.map(profilePdfTable).join('')}</div>`);
+  }
+  if (orderedTags.length) {
+    parts.push(`<div class="part"><div class="part-title">Фурнітура</div>${orderedTags.map(tag => fittingPdfTable(tag, groups[tag])).join('')}</div>`);
+  }
+
+  const d = new Date().toLocaleDateString('uk-UA');
+  const docTitle = data.orderName || data.name || 'Output Bazis Info';
+  return `<!DOCTYPE html>
+<html lang="uk"><head><meta charset="utf-8"><title>${esc(docTitle)}</title><style>${PDF_CSS}</style></head>
+<body>
+  <h1>${esc(docTitle)}</h1>
+  <div class="meta">${esc(data.name || '')}${data.name && data.name !== docTitle ? ' · ' : ''}${d}</div>
+  ${parts.join('')}
+</body></html>`;
+}
+
 async function exportToXLSXBuffer(data) {
   const wb = new ExcelJS.Workbook();
   wb.title = 'Output Bazis Info';
@@ -346,4 +474,4 @@ async function exportToXLSXBuffer(data) {
   return buffer;
 }
 
-module.exports = { exportToJSON, exportToXLSXBuffer };
+module.exports = { exportToJSON, exportToXLSXBuffer, buildPdfHtml };

@@ -116,6 +116,36 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
   box-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
 .topbar-actions { display: flex; gap: 8px; margin-left: auto; -webkit-app-region: no-drag; }
+.export-dropdown { position: relative; }
+.export-dropdown .btn-export::after { content: ' ▾'; }
+.export-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 100;
+  min-width: 180px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  padding: 4px;
+}
+.export-menu.open { display: block; }
+.export-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.export-menu-item:hover { background: var(--bg-hover); color: var(--text-strong); }
 .topbar-light .topbar { background: #eef1f6; border-bottom-color: var(--border); }
 
 /* ============ BUTTONS ============ */

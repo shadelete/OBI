@@ -14,7 +14,7 @@ const LEGACY_TAGS = { 'Петли': 'Петлі', 'Направляющие': '�
 const I18N = {
   uk: {
     'brand':'OBI','open.project':'Відкрити замовлення','save.project':'Зберегти замовлення',
-    'export.excel':'Експорт Excel','tab.materials':'Матеріали та кромка','tab.profiles':'Профілі','tab.fittings':'Фурнітура',
+    'export.excel':'Експорт Excel','export.pdf':'Експорт у PDF','tab.materials':'Матеріали та кромка','tab.profiles':'Профілі','tab.fittings':'Фурнітура',
     'fit.placeholder.name':'Найменування фурнітури','fit.placeholder.code':'Артикул','fit.placeholder.count':'К-сть','btn.add':'Додати',
     'tags.manage':'Управління тегами:','tags.new.placeholder':'Новий тег','tags.add':'Додати тег',
     'stat.materials':'Матеріалів','stat.profiles':'Профілів','stat.fittings':'Позицій фурнітури',
@@ -72,7 +72,7 @@ const I18N = {
   },
   ru: {
     'brand':'OBI','open.project':'Открыть заказ','save.project':'Сохранить заказ',
-    'export.excel':'Экспорт Excel','tab.materials':'Материалы и кромка','tab.profiles':'Профили','tab.fittings':'Фурнитура',
+    'export.excel':'Экспорт Excel','export.pdf':'Экспорт в PDF','tab.materials':'Материалы и кромка','tab.profiles':'Профили','tab.fittings':'Фурнитура',
     'fit.placeholder.name':'Наименование фурнитуры','fit.placeholder.code':'Артикул','fit.placeholder.count':'Кол-во','btn.add':'Добавить',
     'tags.manage':'Управление тегами:','tags.new.placeholder':'Новый тег','tags.add':'Добавить тег',
     'stat.materials':'Материалов','stat.profiles':'Профилей','stat.fittings':'Позиций фурнитуры',
@@ -1619,10 +1619,33 @@ async function saveProject() {
 }
 
 async function exportExcel() {
-  const result = await window.api.exportXLSX();
+  const result = await window.api.exportXLSX(db);
   if (result.success) alert(t('export.saved', { path: result.path }));
   else if (result.error) alert(t('alert.export.error', { error: result.error }));
 }
+
+async function exportPDF() {
+  closeExportMenu();
+  const result = await window.api.exportPDF(db);
+  if (result.success) alert(t('export.saved', { path: result.path }));
+  else if (result.error) alert(t('alert.export.error', { error: result.error }));
+}
+
+function toggleExportMenu(event) {
+  if (event) event.stopPropagation();
+  const menu = document.getElementById('export-menu');
+  if (menu) menu.classList.toggle('open');
+}
+
+function closeExportMenu() {
+  const menu = document.getElementById('export-menu');
+  if (menu) menu.classList.remove('open');
+}
+
+document.addEventListener('click', (ev) => {
+  const dd = document.getElementById('export-dropdown');
+  if (dd && !dd.contains(ev.target)) closeExportMenu();
+});
 
 function windowMinimize() {
   window.api.windowMinimize();

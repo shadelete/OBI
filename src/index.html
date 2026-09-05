@@ -20,7 +20,13 @@
         <button class="btn btn-secondary" onclick="openProject()" data-i18n="open.project"></button>
         <button class="btn btn-secondary" onclick="saveProject()" data-i18n="save.project"></button>
         <button class="btn btn-secondary" onclick="openCalcModal()" data-i18n="calc.button"></button>
-        <button class="btn btn-export" onclick="exportExcel()" data-i18n="export.excel"></button>
+        <div class="export-dropdown" id="export-dropdown">
+          <button class="btn btn-export" onclick="toggleExportMenu(event)" data-i18n="export"></button>
+          <div class="export-menu" id="export-menu">
+            <button class="export-menu-item" onclick="exportExcel()" data-i18n="export.excel"></button>
+            <button class="export-menu-item" onclick="exportPDF()" data-i18n="export.pdf"></button>
+          </div>
+        </div>
         <button class="btn btn-icon settings-btn" id="settings-btn" title="Налаштування">⚙</button>
       </div>
       <div class="window-controls">

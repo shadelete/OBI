@@ -1,7 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { exportToXLSXBuffer } = require('./src/export');
+const os = require('os');
+const { exportToXLSXBuffer, buildPdfHtml } = require('./src/export');
 const updater = require('./src/updater');
 const calcWorkbook = require('./src/workbook');
 
@@ -449,10 +450,9 @@ ipcMain.handle('rename-project', (event, newName) => {
   return { success: true, name: clean, path: newPath };
 });
 
-ipcMain.handle('export-xlsx', async () => {
+ipcMain.handle('export-xlsx', async (_e, data) => {
   try {
-    const data = readDB();
-    const buffer = await exportToXLSXBuffer(data);
+    const buffer = await exportToXLSXBuffer(data || readDB());
     const base = path.basename(activeProjectPath || dbPath(), '.json');
     const fileName = ((base && base !== 'db') ? base : 'mebel-export') + '.xlsx';
     const filePath = await dialog.showSaveDialog(mainWindow, {
@@ -467,5 +467,72 @@ ipcMain.handle('export-xlsx', async () => {
     return { success: false };
   } catch (e) {
     return { success: false, error: e.message };
+  }
+});
+
+// PDF print-page geometry: A4 landscape, 0.4in margins, @96 CSS dpi
+const PDF_PAGE_PX = 716.86;
+// A group is moved to the next page only when <25% of it fits on the
+// current one (i.e. >75% would spill); otherwise it may split naturally.
+const PDF_MEASURE_SCRIPT = `(() => {
+  const P = ${PDF_PAGE_PX};
+  const q = '.gwrap:not(.split)';
+  let rounds = 0, changed = true;
+  while (changed && rounds < 100) {
+    changed = false; rounds++;
+    document.querySelectorAll(q).forEach(el => {
+      const r = el.getBoundingClientRect();
+      if (!r.height) return;
+      const rem = P - (r.top % P);
+      if (rem / r.height < 0.25) {
+        el.classList.add('split');
+        const part = el.closest('.part');
+        if (part && part.querySelector('.grp') === el) {
+          const t = part.querySelector('.part-title');
+          if (t) t.classList.add('split');
+        }
+        changed = true;
+      }
+    });
+  }
+  return rounds;
+})();`;
+
+ipcMain.handle('export-pdf', async (_e, data) => {
+  let win = null;
+  let tmp = null;
+  try {
+    const html = buildPdfHtml(data || readDB());
+    const base = path.basename(activeProjectPath || dbPath(), '.json');
+    const fileName = ((base && base !== 'db') ? base : 'mebel-export') + '.pdf';
+    const filePath = await dialog.showSaveDialog(mainWindow, {
+      title: 'Зберегти PDF',
+      defaultPath: fileName,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    });
+    if (filePath.canceled || !filePath.filePath) return { success: false };
+
+    tmp = path.join(os.tmpdir(), `obi-pdf-${Date.now()}.html`);
+    fs.writeFileSync(tmp, html, 'utf8');
+    // Content width of A4 landscape minus 0.4in side margins (276.68mm == 1045.8px @96dpi)
+    win = new BrowserWindow({ show: false, useContentSize: true, width: 1046, height: 2000, webPreferences: { sandbox: true } });
+    win.webContents.setZoomFactor(1);
+    await win.loadFile(tmp);
+    await new Promise(r => setTimeout(r, 300));
+    await win.webContents.executeJavaScript(PDF_MEASURE_SCRIPT);
+    await new Promise(r => setTimeout(r, 120));
+    const pdf = await win.webContents.printToPDF({
+      pageSize: 'A4',
+      landscape: true,
+      printBackground: true,
+      margins: { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 }
+    });
+    fs.writeFileSync(filePath.filePath, pdf);
+    return { success: true, path: filePath.filePath };
+  } catch (e) {
+    return { success: false, error: e.message };
+  } finally {
+    if (win && !win.isDestroyed()) win.destroy();
+    if (tmp) { try { fs.unlinkSync(tmp); } catch (e) {} }
   }
 });
