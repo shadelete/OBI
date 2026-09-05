@@ -69,9 +69,9 @@ function exportSection(rows, title, items) {
       }
     }
   } else if (title === 'Фурнитура') {
-    rows.push('Название;Артикул;Кол-во');
+    rows.push('Название;Артикул;Поставщик;Кол-во');
     for (const item of items) {
-      rows.push(`${item.name};${item.code || ''};${item.count}`);
+      rows.push(`${item.name};${item.code || ''};${item.supplier || ''};${item.count}`);
     }
   } else {
     const headers = Object.keys(items[0]);
@@ -98,6 +98,39 @@ function exportToJSON(data, format = 'json') {
 function solid(cell, fill) { cell.fill = fill; }
 function hdr(cell) { cell.font = FONT_HEAD; cell.alignment = { horizontal: 'center', vertical: 'middle' }; }
 function dataCell(cell, align) { cell.font = FONT_DATA; cell.border = { left: BORDER, right: BORDER, top: BORDER, bottom: BORDER }; cell.alignment = { horizontal: align || 'center' }; }
+
+function cellText(val) {
+  if (val == null) return '';
+  if (typeof val === 'object') {
+    if (val.richText) return val.richText.map(r => r.text || '').join('');
+    if (val.text != null) return String(val.text);
+    if (val.result != null) return String(val.result);
+    return '';
+  }
+  return String(val);
+}
+
+// Auto-fit column widths from non-merged cell contents, keeping the preset
+// width as a minimum so narrow columns don't collapse.
+function autofitColumns(ws) {
+  const need = {};
+  ws.eachRow(row => {
+    row.eachCell({ includeEmpty: false }, cell => {
+      if (cell.isMerged) return;
+      const col = cell.col;
+      const text = cellText(cell.value).split('\n');
+      let maxLine = 0;
+      text.forEach(l => { maxLine = Math.max(maxLine, l.length); });
+      if (!need[col]) need[col] = 0;
+      need[col] = Math.max(need[col], maxLine);
+    });
+  });
+  ws.columns.forEach((colDef, i) => {
+    if (!need[i + 1]) return;
+    const w = Math.min(90, Math.max(9, Math.ceil(need[i + 1] * 1.3 + 3)));
+    colDef.width = Math.max(colDef.width || 9, w);
+  });
+}
 
 // Title row: orange fill, merged across columns 1..nCols
 function titleRow(ws, row, text, nCols, height) {
@@ -252,7 +285,7 @@ function profilesSheet(wb, profiles) {
 function fittingsSheet(wb, fittings, tagOrder) {
   const ws = wb.addWorksheet('Фурнітура');
   ws.columns = [
-    { width: 7.7 }, { width: 28.7 }, { width: 16.7 }, { width: 10.7 }
+    { width: 7.7 }, { width: 28.7 }, { width: 16.7 }, { width: 14.7 }, { width: 10.7 }
   ];
   const LEGACY_TAGS = { 'Петли': 'Петлі', 'Направляющие': 'Напрямні', 'Метизная фурнитура': 'Метизна фурнітура', 'Общая фурнитура': 'Загальна фурнітура' };
   const norm = t => (LEGACY_TAGS[t] || t);
@@ -274,10 +307,10 @@ function fittingsSheet(wb, fittings, tagOrder) {
   let row = 1;
   orderedTags.forEach(tag => {
     // Tag section title (as in interface, no caps), bordered like other sheets
-    titleRow(ws, row, tag, 4);
+    titleRow(ws, row, tag, 5);
     row++;
     // Header, same style as materials/profiles
-    ['Поз.', 'Найменування', 'Артикул', 'К-сть'].forEach((lab, i) => {
+    ['Поз.', 'Найменування', 'Артикул', 'Постачальник', 'К-сть'].forEach((lab, i) => {
       const cell = ws.getCell(row, i + 1);
       cell.value = lab;
       hdr(cell);
@@ -291,8 +324,9 @@ function fittingsSheet(wb, fittings, tagOrder) {
       ws.getCell(row, 1).value = i + 1;
       ws.getCell(row, 2).value = f.name;
       ws.getCell(row, 3).value = f.code || '';
-      ws.getCell(row, 4).value = f.count;
-      for (let c = 1; c <= 4; c++) {
+      ws.getCell(row, 4).value = f.supplier || '';
+      ws.getCell(row, 5).value = f.count;
+      for (let c = 1; c <= 5; c++) {
         const cell = ws.getCell(row, c);
         dataCell(cell, c === 2 ? 'left' : 'center');
       }
@@ -307,9 +341,7 @@ function fittingsSheet(wb, fittings, tagOrder) {
 async function exportToXLSXBuffer(data) {
   const wb = new ExcelJS.Workbook();
   wb.title = 'Output Bazis Info';
-  materialsSheet(wb, data.materials);
-  profilesSheet(wb, data.profiles);
-  fittingsSheet(wb, data.fittings, data.tagOrder);
+  [materialsSheet(wb, data.materials), profilesSheet(wb, data.profiles), fittingsSheet(wb, data.fittings, data.tagOrder)].forEach(autofitColumns);
   const buffer = await wb.xlsx.writeBuffer();
   return buffer;
 }

@@ -19,6 +19,7 @@
       <div class="topbar-actions">
         <button class="btn btn-secondary" onclick="openProject()" data-i18n="open.project"></button>
         <button class="btn btn-secondary" onclick="saveProject()" data-i18n="save.project"></button>
+        <button class="btn btn-secondary" onclick="openCalcModal()" data-i18n="calc.button"></button>
         <button class="btn btn-export" onclick="exportExcel()" data-i18n="export.excel"></button>
         <button class="btn btn-icon settings-btn" id="settings-btn" title="Налаштування">⚙</button>
       </div>
@@ -73,21 +74,80 @@
         <!-- Fittings workspace (persistent, shown when category = fittings) -->
         <div class="fittings-detail" id="fittings-detail" style="display:none;">
           <div class="fittings-wrap">
-            <div class="fitting-toolbar">
-              <div class="fitting-add-form" id="add-fitting-form">
-                <input class="form-input" id="fit-name" data-i18n-ph="fit.placeholder.name">
-                <input class="form-input form-input-sm" id="fit-code" data-i18n-ph="fit.placeholder.code">
-                <input class="form-input form-input-sm" id="fit-count" type="number" min="1" data-i18n-ph="fit.placeholder.count">
-                <select class="form-input form-input-tag" id="fit-tag"></select>
-                <button class="btn btn-primary" onclick="addFitting()" data-i18n="btn.add"></button>
+            <!-- Header -->
+            <div class="fw-header">
+              <div class="fw-header-left">
+                <div class="fw-title" data-i18n="fw.title">Фурнітура</div>
+                <div class="fw-subtitle" data-i18n="fw.subtitle">Керування номенклатурою фурнітури в проєкті</div>
               </div>
-              <div class="tag-manager">
-                <span class="tag-manager-label" data-i18n="tags.manage"></span>
-                <input class="form-input form-input-sm form-input-tag-new" id="new-tag-input" data-i18n-ph="tags.new.placeholder">
-                <button class="btn btn-primary" onclick="addTag()" data-i18n="tags.add"></button>
+              <div class="fw-header-right">
+                <div class="fw-tag-controls">
+                  <span class="fw-tag-controls-label" data-i18n="fw.tags.manage">Управління тегами</span>
+                  <input class="fw-input fw-input-tag-new" id="new-tag-input" data-i18n-ph="tags.new.placeholder">
+                  <button class="btn btn-primary" onclick="addTag()" data-i18n="tags.add"></button>
+                </div>
+                <div class="fw-actions">
+                  <button class="btn btn-secondary" onclick="sortFittings('code')" data-i18n="fw.sort.article">Артикул</button>
+                  <button class="btn btn-secondary" onclick="sortFittings('count')" data-i18n="fw.sort.count">К-сть</button>
+                  <button class="btn btn-primary" onclick="saveFwChanges()" data-i18n="fw.save">Зберегти</button>
+                </div>
               </div>
             </div>
-            <div id="fittings-columns" class="fit-columns"></div>
+
+            <!-- Search -->
+            <div class="fw-search">
+              <span class="fw-search-icon">🔍</span>
+              <input class="fw-search-input" id="fw-search-input" data-i18n-ph="fw.search.placeholder">
+            </div>
+
+            <!-- Tabs -->
+            <div class="fw-tabs" id="fw-tabs"></div>
+
+            <!-- Main workspace -->
+            <div class="fw-main">
+              <div class="fw-columns" id="fittings-columns"></div>
+              <div class="fw-sidebar">
+                <div class="fw-sidebar-title" data-i18n="fw.sidebar.title">Додавання позиції</div>
+                <div class="fw-sidebar-form">
+                  <label class="fw-field">
+                    <span class="fw-field-label" data-i18n="fw.field.category">Категорія</span>
+                    <select class="fw-input" id="fw-add-tag"></select>
+                  </label>
+                  <label class="fw-field">
+                    <span class="fw-field-label" data-i18n="fw.field.name">Назва</span>
+                    <input class="fw-input" id="fw-add-name" data-i18n-ph="fw.field.name.placeholder">
+                  </label>
+                  <label class="fw-field">
+                    <span class="fw-field-label" data-i18n="fw.field.code">Артикул</span>
+                    <input class="fw-input" id="fw-add-code" data-i18n-ph="fw.field.code.placeholder">
+                  </label>
+                  <label class="fw-field">
+                    <span class="fw-field-label" data-i18n="fw.field.supplier">Постачальник</span>
+                    <select class="fw-input" id="fw-add-supplier">
+                      <option value="">—</option>
+                      <option value="Owwa">Owwa</option>
+                      <option value="Viyar">Viyar</option>
+                      <option value="Blum">Blum</option>
+                    </select>
+                  </label>
+                  <label class="fw-field">
+                    <span class="fw-field-label" data-i18n="fw.field.count">К-сть</span>
+                    <input class="fw-input" id="fw-add-count" type="number" min="1" value="1">
+                  </label>
+                  <button class="btn btn-primary fw-add-btn" onclick="addFittingFromSidebar()" data-i18n="fw.add.btn">Додати позицію</button>
+                  <button class="btn fw-clear-btn" onclick="clearFwForm()" data-i18n="fw.clear.btn">Очистити форму</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="fw-footer">
+              <div class="fw-footer-left" id="fw-selected-label">Вибрано позицій: 0</div>
+              <div class="fw-footer-center">
+                <button class="btn btn-danger" id="fw-delete-btn" onclick="deleteSelectedFittings()" data-i18n="fw.delete.selected">Видалити вибрані (0)</button>
+              </div>
+              <div class="fw-footer-right" id="fw-total-label">Загальна кількість: 0</div>
+            </div>
           </div>
         </div>
       </section>
@@ -106,6 +166,37 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeProjectPicker()" data-i18n="settings.close"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CALC (workbook) MODAL -->
+  <div class="modal-overlay" id="calc-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title" data-i18n="calc.title"></span>
+        <button class="btn btn-icon modal-close" id="calc-modal-close" title="Закрити">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section">
+          <div class="settings-label" data-i18n="calc.file.label"></div>
+          <div class="calc-file-row">
+            <button class="btn btn-secondary" id="calc-choose-btn" onclick="chooseCalcWorkbook()" data-i18n="calc.file.choose"></button>
+            <span class="calc-file-name" id="calc-file-name" data-i18n="calc.file.none"></span>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-label" data-i18n="calc.room.label"></div>
+          <div class="calc-room-row">
+            <input class="form-input" id="calc-room-input" data-i18n-ph="calc.room.placeholder">
+            <button class="btn btn-secondary" id="calc-room-auto" onclick="setCalcRoomAuto()" data-i18n="calc.room.default"></button>
+          </div>
+          <div class="calc-room-hint" id="calc-room-hint"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeCalcModal()" data-i18n="settings.close"></button>
+        <button class="btn btn-primary" id="calc-write-btn" onclick="writeCalcWorkbook()" data-i18n="calc.write"></button>
       </div>
     </div>
   </div>
@@ -147,6 +238,12 @@
         <div class="settings-section">
           <div class="settings-label" data-i18n="settings.rules"></div>
           <button class="btn btn-primary" id="open-fit-rules-btn" onclick="openFitRulesWindow()" data-i18n="settings.rules.open">Відкрити</button>
+        </div>
+        <div class="settings-section">
+          <div class="settings-label" data-i18n="settings.tags.per.row"></div>
+          <div class="settings-options settings-tpr">
+            <input type="number" id="settings-tags-per-row" min="1" max="6" step="1">
+          </div>
         </div>
         <div class="settings-section">
           <div class="settings-label" data-i18n="settings.updates"></div>

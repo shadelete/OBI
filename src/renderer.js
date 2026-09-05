@@ -1,6 +1,6 @@
 let db = null;
 let config = { theme: 'dark', language: 'uk' };
-let fitRules = { tags: {}, blacklist: [] };
+let fitRules = { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [] };
 let appInfo = { version: '', url: '', author: '' };
 
 let selCat = 'materials';
@@ -34,7 +34,7 @@ const I18N = {
     'alert.tag.exists':'Такий тег уже існує','alert.enter.name':'Введіть найменування','alert.enter.count':'Введіть кількість','alert.enter.tagname':'Введіть назву тега',
     'settings':'Налаштування','settings.title':'Налаштування','settings.theme':'Тема','settings.theme.light':'Світла','settings.theme.dark':'Темна',
     'settings.language':'Мова','settings.language.uk':'Українська','settings.language.ru':'Русский',
-    'settings.rules':'Правила фурнітури','settings.rules.open':'Відкрити',
+    'settings.rules':'Правила експорту','settings.rules.open':'Відкрити',
     'settings.about':'Про застосунок','settings.version':'Версія','settings.author':'Автор','settings.github':'GitHub','settings.close':'Закрити',
     'alert.save.fail':'Не вдалося зберегти зміни','alert.open.fail':'Не вдалося відкрити замовлення',
     'order.saved':'Замовлення збережено:\n{path}','alert.saveProject.fail':'Не вдалося зберегти замовлення',
@@ -47,7 +47,28 @@ const I18N = {
     'update.checking':'Перевірка оновлень...','update.none':'Оновлень немає. Версія {v} — актуальна.',
     'update.available':'Доступна нова версія: {v} (поточна {cur})','update.available.dev':'Увімкнено dev-версію — оновлення не перевіряються',
     'update.error':'Помилка перевірки: {error}','update.applying':'Оновлення завантажено. Додаток перезапуститься...',
-    'update.apply.error':'Не вдалося оновити: {error}'
+    'update.apply.error':'Не вдалося оновити: {error}',
+    'fw.title':'Фурнітура','fw.subtitle':'Керування номенклатурою фурнітури в проєкті',
+    'fw.tags.manage':'Управління тегами','fw.sort.article':'Артикул','fw.sort.count':'К-сть','fw.save':'Зберегти',
+    'fw.search.placeholder':'Пошук по назві, артикулу або постачальнику...',
+    'fw.sidebar.title':'Додавання позиції','fw.field.category':'Категорія','fw.field.name':'Назва',
+    'fw.field.code':'Артикул','fw.field.supplier':'Постачальник','fw.field.count':'К-сть',
+    'fw.field.name.placeholder':'Введіть назву','fw.field.code.placeholder':'Введіть артикул',
+    'fw.add.btn':'Додати позицію','fw.clear.btn':'Очистити форму',
+    'fw.add.column':'+ Додати позицію','fw.show.more':'Показати ще {n} ↓','fw.empty':'Немає позицій',
+    'fw.selected.count':'Вибрано позицій: {n}','fw.delete.selected':'Видалити вибрані ({n})',
+    'fw.total.count':'Загальна кількість: {n}','fw.quantity':'К-сть','fw.tab.count':'{tag} ({n})',
+    'fw.sidebar.edit':'Редагування позиції','fw.edit.btn':'Зберегти зміни',
+    'fw.tabs.all':'Всі',
+    'fw.export.toggle':'Включити/вимкнути позицію в експорті',
+    'settings.tags.per.row':'Кількість тегів у ряду',
+    'calc.button':'Розрахунок','calc.title':'Розрахунок фурнітури',
+    'calc.file.label':'Файл-книга','calc.file.choose':'Обрати файл','calc.file.none':'Файл не обрано',
+    'calc.room.label':'Приміщення','calc.room.placeholder':'Назва приміщення (із проекту)',
+    'calc.room.default':'Авто (з проекту)','calc.write':'Записати в книгу',
+    'calc.written':'Записано: {sheets}','calc.room.used':'Приміщення: {name}',
+    'calc.err.no.file':'Спочатку оберіть файл-книгу','calc.err.no.room':'Вкажіть назву приміщення',
+    'calc.err':'Помилка запису: {error}','calc.no.rows':'Немає даних для запису'
   },
   ru: {
     'brand':'OBI','open.project':'Открыть заказ','save.project':'Сохранить заказ',
@@ -71,7 +92,7 @@ const I18N = {
     'alert.tag.exists':'Такой тег уже существует','alert.enter.name':'Введите наименование','alert.enter.count':'Введите количество','alert.enter.tagname':'Введите название тега',
     'settings':'Настройки','settings.title':'Настройки','settings.theme':'Тема','settings.theme.light':'Светлая','settings.theme.dark':'Тёмная',
     'settings.language':'Язык','settings.language.uk':'Українська','settings.language.ru':'Русский',
-    'settings.rules':'Правила фурнитуры','settings.rules.open':'Открыть',
+    'settings.rules':'Правила экспорта','settings.rules.open':'Открыть',
     'settings.about':'О приложении','settings.version':'Версия','settings.author':'Автор','settings.github':'GitHub','settings.close':'Закрыть',
     'alert.save.fail':'Не удалось сохранить изменения','alert.open.fail':'Не удалось открыть заказ',
     'order.saved':'Заказ сохранён:\n{path}','alert.saveProject.fail':'Не удалось сохранить заказ',
@@ -84,7 +105,28 @@ const I18N = {
     'update.checking':'Проверка обновлений...','update.none':'Обновлений нет. Версия {v} — актуальна.',
     'update.available':'Доступна новая версия: {v} (текущая {cur})','update.available.dev':'Включена dev-версия — обновления не проверяются',
     'update.error':'Ошибка проверки: {error}','update.applying':'Обновление загружено. Приложение перезапустится...',
-    'update.apply.error':'Не удалось обновить: {error}'
+    'update.apply.error':'Не удалось обновить: {error}',
+    'fw.title':'Фурнитура','fw.subtitle':'Управление номенклатурой фурнитуры в проекте',
+    'fw.tags.manage':'Управление тегами','fw.sort.article':'Артикул','fw.sort.count':'К-сть','fw.save':'Сохранить',
+    'fw.search.placeholder':'Поиск по названию, артикулу или поставщику...',
+    'fw.sidebar.title':'Добавление позиции','fw.field.category':'Категория','fw.field.name':'Название',
+    'fw.field.code':'Артикул','fw.field.supplier':'Поставщик','fw.field.count':'К-сть',
+    'fw.field.name.placeholder':'Введите название','fw.field.code.placeholder':'Введите артикул',
+    'fw.add.btn':'Добавить позицию','fw.clear.btn':'Очистить форму',
+    'fw.add.column':'+ Добавить позицию','fw.show.more':'Показать ещё {n} ↓','fw.empty':'Нет позиций',
+    'fw.selected.count':'Выбрано позиций: {n}','fw.delete.selected':'Удалить выбранные ({n})',
+    'fw.total.count':'Общее количество: {n}','fw.quantity':'К-сть','fw.tab.count':'{tag} ({n})',
+    'fw.sidebar.edit':'Редактирование позиции','fw.edit.btn':'Сохранить изменения',
+    'fw.tabs.all':'Все',
+    'fw.export.toggle':'Включить/выключить позицию в экспорте',
+    'settings.tags.per.row':'Количество тегов в ряду',
+    'calc.button':'Расчёт','calc.title':'Расчёт фурнитуры',
+    'calc.file.label':'Файл-книга','calc.file.choose':'Выбрать файл','calc.file.none':'Файл не выбран',
+    'calc.room.label':'Помещение','calc.room.placeholder':'Название помещения (из проекта)',
+    'calc.room.default':'Авто (из проекта)','calc.write':'Записать в книгу',
+    'calc.written':'Записано: {sheets}','calc.room.used':'Помещение: {name}',
+    'calc.err.no.file':'Сначала выберите файл-книгу','calc.err.no.room':'Укажите название помещения',
+    'calc.err':'Ошибка записи: {error}','calc.no.rows':'Нет данных для записи'
   }
 };
 
@@ -148,12 +190,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   fitRules = null;
   try { fitRules = await window.api.getFitRules(); } catch (e) {}
   if (!fitRules || !fitRules.tags) {
-    fitRules = (db && db.fitRules) ? db.fitRules : { tags: {}, blacklist: [] };
+    fitRules = (db && db.fitRules) ? db.fitRules : { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [] };
   }
   if (!fitRules.tags) fitRules.tags = {};
   if (!fitRules.tagsByName) fitRules.tagsByName = {};
   if (!fitRules.blacklist) fitRules.blacklist = [];
   if (!fitRules.blacklistByName) fitRules.blacklistByName = [];
+  if (!fitRules.suppliers) fitRules.suppliers = {};
+  if (!fitRules.suppliersByName) fitRules.suppliersByName = {};
+  if (!fitRules.matBlacklist) fitRules.matBlacklist = [];
+  if (!fitRules.matBlacklistByName) fitRules.matBlacklistByName = [];
+  if (!fitRules.profBlacklist) fitRules.profBlacklist = [];
+  if (!fitRules.profBlacklistByName) fitRules.profBlacklistByName = [];
   if (db) delete db.fitRules;
   try { appInfo = (await window.api.getAppInfo()) || appInfo; } catch (e) {}
   applyTheme();
@@ -381,10 +429,15 @@ function renderListTitle() {
 
 function bindSearch() {
   const search = document.getElementById('search-input');
-  if (!search) return;
-  search.addEventListener('input', () => {
+  if (search) search.addEventListener('input', () => {
     searchQuery = search.value.trim().toLowerCase();
-    if (selCat === 'fittings') renderFitList(); else renderList();
+    if (selCat === 'fittings') renderFittings(); else renderList();
+  });
+
+  const fwSearch = document.getElementById('fw-search-input');
+  if (fwSearch) fwSearch.addEventListener('input', () => {
+    searchQuery = fwSearch.value.trim().toLowerCase();
+    renderFittings();
   });
 }
 
@@ -422,6 +475,12 @@ function profCardHTML(p, i) {
       <div class="lc-meta">
         <span>${t('detail.article')}: <b>${matchCode ? highlight(p.code || '', q) : escapeHtml(p.code || '—')}</b></span>
         <span>${t('detail.count')}: <b>${total}</b></span>
+      </div>
+      <div class="lc-supplier" onclick="event.stopPropagation()">
+        <label>${t('fw.field.supplier')}:</label>
+        <select onchange="saveProfileSupplier(${i}, this.value)">
+          ${supplierOptions(p.supplier)}
+        </select>
       </div>
     </div>
   `;
@@ -682,7 +741,7 @@ function renderFitList() {
 }
 
 function jumpToFit(id) {
-  const row = document.querySelector(`.fit-column .fit-row[data-id="${id}"]`);
+  const row = document.querySelector(`.fw-column .fw-card[data-id="${id}"]`);
   if (row) {
     row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     row.style.outline = '2px solid var(--accent)';
@@ -752,59 +811,298 @@ let marqueeEl = null;
 let marqueeActive = false;
 let mx0 = 0, my0 = 0;
 let suppressNextClick = false;
+let fwAddTagDefault = 'Загальна фурнітура';
+let fwEditingId = null;
 
 function fitById(id) {
   return (db.fittings || []).find(f => f.id === id);
 }
 
-function fitRowHTML(f) {
+let fwActiveTab = null;     // active category tab
+let fwShownCount = {};      // tag -> number of items currently shown in column
+const FW_PAGE = 8;          // how many extra items to reveal per "Показати ще"
+
+function fwFilteredFittings() {
+  const q = searchQuery;
+  return (db.fittings || []).filter(f => {
+    if (!q) return true;
+    const hay = ((f.name || '') + ' ' + (f.code || '') + ' ' + (f.supplier || '')).toLowerCase();
+    return hay.indexOf(q) !== -1;
+  });
+}
+
+function supplierOptions(selected) {
+  const known = ['Owwa', 'Viyar', 'Blum'];
+  const extra = [];
+  (db.fittings || []).forEach(f => {
+    if (f.supplier && known.indexOf(f.supplier) === -1 && extra.indexOf(f.supplier) === -1) extra.push(f.supplier);
+  });
+  (db.profiles || []).forEach(p => {
+    if (p.supplier && known.indexOf(p.supplier) === -1 && extra.indexOf(p.supplier) === -1) extra.push(p.supplier);
+  });
+  const all = known.concat(extra);
+  return `<option value="">—</option>` + all.map(s =>
+    `<option value="${escapeAttr(s)}" ${s === (selected || '') ? 'selected' : ''}>${escapeHtml(s)}</option>`
+  ).join('');
+}
+
+function fwCardHTML(f) {
   const sel = selectedFitIds.has(f.id) ? ' selected' : '';
+  const noEx = f.export === false ? ' no-export' : '';
   return `
-    <div class="fit-row${sel}" draggable="true" data-id="${f.id}">
-      <div class="fit-drag-handle" title="${t('fit.drag.title')}">⠿</div>
-      <label class="exp-check-wrap" title="${t('fit.export.title')}">
-        <input type="checkbox" class="exp-check" ${isExported(f) ? 'checked' : ''} onchange="saveFitExport(${f.id}, this.checked)">
+    <div class="fw-card${sel}${noEx}" draggable="true" data-id="${f.id}">
+      <span class="fw-drag-handle" title="${t('fit.drag.title')}">⠿</span>
+      <label class="fw-check" title="${t('fw.export.toggle')}" onclick="event.stopPropagation()">
+        <input type="checkbox" class="fw-check-input" ${f.export === false ? '' : 'checked'}
+          onchange="saveFitExport(${f.id}, this.checked)">
       </label>
-      <input class="fit-edit-name" value="${escapeAttr(f.name || '')}" placeholder="${t('fit.name.placeholder')}"
-        onchange="saveFitName(${f.id}, this.value)">
-      <select class="fit-tag" onchange="saveFitTag(${f.id}, this.value)" title="${t('fit.category')}">
-        ${tagOptions(f.tag)}
-      </select>
-      <div class="fit-editables">
-        <input class="fit-edit-code" value="${escapeAttr(f.code || '')}" placeholder="${t('fit.article.placeholder')}"
-          onchange="saveFitCode(${f.id}, this.value)">
-        <input class="fit-edit-count" type="number" min="1" value="${f.count}"
-          onchange="saveFitCount(${f.id}, this.value)">
+      <div class="fw-card-main">
+        <div class="fw-card-editor">
+          <input class="fw-card-name" value="${escapeAttr(f.name || '')}" placeholder="${t('fit.name.placeholder')}"
+            onchange="saveFitName(${f.id}, this.value)">
+          <span class="fw-card-qty-label">${t('fw.quantity')}</span>
+          <input class="fw-card-count" type="number" min="1" value="${f.count}"
+            onchange="saveFitCount(${f.id}, this.value)">
+        </div>
+        <div class="fw-card-editor">
+          <input class="fw-card-code" value="${escapeAttr(f.code || '')}" placeholder="${t('fit.article.placeholder')}"
+            onchange="saveFitCode(${f.id}, this.value)">
+          <select class="fw-card-supplier" onchange="saveFitSupplier(${f.id}, this.value)" title="${t('fw.field.supplier')}">
+            ${supplierOptions(f.supplier)}
+          </select>
+        </div>
       </div>
-      <button class="btn btn-icon" onclick="deleteFitting(${f.id})" title="${t('fit.delete.title')}">✕</button>
+      <button class="btn btn-icon fw-card-del" title="${t('fit.delete.title')}" onclick="event.stopPropagation(); deleteFitting(${f.id})">✕</button>
     </div>
   `;
 }
 
-function renderFittings() {
-  const container = document.getElementById('fittings-columns');
-  const order = getTagOrder();
-  const fit = db.fittings || [];
-  const addTagSelect = document.getElementById('fit-tag');
-  if (addTagSelect) addTagSelect.innerHTML = tagOptions('Загальна фурнітура', order);
-  container.innerHTML = order.map(tag => {
-    const items = fit.filter(f => normTag(f.tag) === tag);
-    return `
-      <div class="fit-column" data-tag="${escapeAttr(tag)}">
-        <div class="fit-column-header" draggable="true">
-          <span class="fit-tag-handle" title="${t('fit.drag.title')}">≡</span>
-          <span class="fit-column-title">${escapeHtml(tag)}</span>
-          <span class="fit-column-count">${items.length}</span>
+function fwColumnHTML(tag) {
+  const items = fwFilteredFittings().filter(f => normTag(f.tag) === tag);
+  const total = items.length;
+  const shown = fwShownCount[tag] != null ? fwShownCount[tag] : Math.min(total, FW_PAGE);
+  const visible = items.slice(0, shown);
+  const remaining = total - visible.length;
+  return `
+    <div class="fw-column" data-tag="${escapeAttr(tag)}">
+      <div class="fw-col-header" draggable="true">
+        <span class="fw-fit-tag-handle" title="${t('fit.drag.title')}">≡</span>
+        <span class="fw-col-title">${escapeHtml(tag)}</span>
+        <span class="fw-col-count">${total}</span>
+        <div class="fw-col-header-actions">
           <button class="btn btn-icon btn-tag-rename" data-tag="${escapeAttr(tag)}" title="${t('fit.tag.rename')}">✎</button>
           <button class="btn btn-icon btn-tag-del" data-tag="${escapeAttr(tag)}" title="${t('fit.tag.delete')}">✕</button>
         </div>
-        <div class="fit-column-body">
-          ${items.map(fitRowHTML).join('') || `<div class="fit-column-empty">${t('fit.empty')}</div>`}
-        </div>
       </div>
-    `;
+      <button class="fw-col-add" onclick="fwAddToColumn('${escapeAttr(tag)}')">${t('fw.add.column')}</button>
+      <div class="fw-col-body">
+        ${visible.map(fwCardHTML).join('') || `<div class="fw-empty">${t('fw.empty')}</div>`}
+      </div>
+      <div class="fw-col-footer">
+        ${remaining > 0 ? `<button class="fw-show-more" onclick="fwShowMore('${escapeAttr(tag)}', ${total})">${t('fw.show.more', { n: remaining })}</button>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function fwAddToColumn(tag) {
+  fwAddTagDefault = tag;
+  if (fwEditingId != null) {
+    fwEditingId = null;
+    clearFwForm();
+  }
+  renderFwSidebar();
+  const nameEl = document.getElementById('fw-add-name');
+  if (nameEl) nameEl.focus();
+}
+
+function fwTagsPerRow() {
+  const n = parseInt(config.tagsPerRow, 10);
+  return (n >= 1 && n <= 6) ? n : 4;
+}
+
+function renderFwTabs() {
+  const tabs = document.getElementById('fw-tabs');
+  if (!tabs) return;
+  const order = getTagOrder();
+  const counts = {};
+  (db.fittings || []).forEach(f => {
+    const tag = normTag(f.tag);
+    counts[tag] = (counts[tag] || 0) + 1;
+  });
+  const allCls = fwActiveTab === null ? ' active' : '';
+  const allBtn = `<div class="fw-tab fw-tab-all${allCls}" onclick="fwShowAll()">${t('fw.tabs.all')}</div>`;
+  const tagTabs = order.map(tag => {
+    const n = counts[tag] || 0;
+    const active = fwActiveTab === tag;
+    return `<div class="fw-tab${active ? ' active' : ''}" data-tag="${escapeAttr(tag)}" onclick="fwSwitchTab('${escapeAttr(tag)}')">
+      ${escapeHtml(tag)} <span class="fw-tab-count">(${n})</span>
+    </div>`;
   }).join('');
+  tabs.innerHTML = allBtn + tagTabs;
+}
+
+function fwShowAll() {
+  fwActiveTab = null;
+  renderFittings();
+}
+
+function renderFwSidebar() {
+  const sel = document.getElementById('fw-add-tag');
+  if (sel) sel.innerHTML = tagOptions(fwAddTagDefault || 'Загальна фурнітура', getTagOrder());
+  updateFwFormTitle();
+}
+
+function renderFwFooter() {
+  const total = (db.fittings || []).length;
+  const selTr = document.getElementById('fw-selected-label');
+  if (selTr) selTr.textContent = t('fw.selected.count', { n: selectedFitIds.size });
+  const delBtn = document.getElementById('fw-delete-btn');
+  if (delBtn) {
+    delBtn.textContent = t('fw.delete.selected', { n: selectedFitIds.size });
+    delBtn.disabled = selectedFitIds.size === 0;
+  }
+  const totEl = document.getElementById('fw-total-label');
+  if (totEl) totEl.textContent = t('fw.total.count', { n: total });
+}
+
+function renderFittings() {
+  const container = document.getElementById('fittings-columns');
+  if (!container) return;
+  container.style.setProperty('--fw-cols', String(fwTagsPerRow()));
+  const order = getTagOrder();
+  const q = searchQuery;
+  // Figure out which tags get columns: when searching, only show tags that have matches;
+  // otherwise show all tags (active tab filter if set).
+  let visible;
+  if (q) {
+    const matchTags = new Set(fwFilteredFittings().map(f => normTag(f.tag)));
+    visible = order.filter(tag => matchTags.has(tag));
+  } else if (fwActiveTab !== null) {
+    visible = [fwActiveTab];
+  } else {
+    visible = order;
+  }
+  container.innerHTML = visible.map(fwColumnHTML).join('')
+    || `<div class="fw-empty-global">${t('empty.noresults')}</div>`;
+  renderFwTabs();
+  renderFwSidebar();
+  renderFwFooter();
   updateRowSelection();
+}
+
+function fwSwitchTab(tag) {
+  fwActiveTab = (fwActiveTab === tag) ? null : tag;
+  searchQuery = '';
+  const search = document.getElementById('fw-search-input');
+  if (search) search.value = '';
+  renderFittings();
+}
+
+function fwShowMore(tag, total) {
+  const current = fwShownCount[tag] != null ? fwShownCount[tag] : Math.min(total, FW_PAGE);
+  fwShownCount[tag] = Math.min(total, current + FW_PAGE);
+  renderFittings();
+}
+
+function sortFittings(field) {
+  const sortDir = sortFittingsDir && sortFittingsDir[field] === 'asc' ? 'desc' : 'asc';
+  if (!sortFittingsDir) sortFittingsDir = {};
+  sortFittingsDir[field] = sortDir;
+  const list = db.fittings || [];
+  list.sort((a, b) => {
+    let va = a[field], vb = b[field];
+    if (field === 'count') { va = a.count || 0; vb = b.count || 0; return sortDir === 'asc' ? va - vb : vb - va; }
+    va = String(va || '').toLowerCase();
+    vb = String(vb || '').toLowerCase();
+    const cmp = va < vb ? -1 : (va > vb ? 1 : 0);
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+  saveDB();
+}
+let sortFittingsDir = null;
+
+function saveFwChanges() {
+  saveDB();
+}
+
+function editFittingFromCard(id) {
+  const f = fitById(id);
+  if (!f) return;
+  fwEditingId = id;
+  const nameEl = document.getElementById('fw-add-name');
+  const codeEl = document.getElementById('fw-add-code');
+  const countEl = document.getElementById('fw-add-count');
+  const tagEl = document.getElementById('fw-add-tag');
+  const supEl = document.getElementById('fw-add-supplier');
+  if (nameEl) nameEl.value = f.name || '';
+  if (codeEl) codeEl.value = f.code || '';
+  if (countEl) countEl.value = f.count || 1;
+  if (tagEl) tagEl.value = f.tag || 'Загальна фурнітура';
+  if (supEl) supEl.value = f.supplier || '';
+  fwAddTagDefault = f.tag || 'Загальна фурнітура';
+  updateFwFormTitle();
+  if (nameEl) nameEl.focus();
+}
+
+function updateFwFormTitle() {
+  const title = document.querySelector('.fw-sidebar-title');
+  if (title) title.textContent = fwEditingId != null ? t('fw.sidebar.edit') : t('fw.sidebar.title');
+  const addBtn = document.querySelector('.fw-add-btn');
+  if (addBtn) addBtn.textContent = fwEditingId != null ? t('fw.edit.btn') : t('fw.add.btn');
+}
+
+function addFittingFromSidebar() {
+  const nameEl = document.getElementById('fw-add-name');
+  const codeEl = document.getElementById('fw-add-code');
+  const countEl = document.getElementById('fw-add-count');
+  const tagEl = document.getElementById('fw-add-tag');
+  const supEl = document.getElementById('fw-add-supplier');
+  const name = nameEl ? nameEl.value.trim() : '';
+  const code = codeEl ? codeEl.value.trim() : '';
+  const count = parseInt((countEl && countEl.value) || '1', 10);
+  const tag = tagEl ? tagEl.value : 'Загальна фурнітура';
+  const supplier = supEl ? supEl.value : '';
+  if (!name) { alert(t('alert.enter.name')); return; }
+  if (!count || count < 1) { alert(t('alert.enter.count')); return; }
+  if (fwEditingId != null) {
+    const f = fitById(fwEditingId);
+    if (f) {
+      f.name = name;
+      f.code = code;
+      f.count = count;
+      f.tag = tag;
+      f.supplier = supplier;
+      if (f.code) fitRules.tags[f.code] = tag;
+      if (f.name) fitRules.tagsByName[f.name] = tag;
+      saveFitRules();
+    }
+    fwEditingId = null;
+  } else {
+    if (!db.fittings) db.fittings = [];
+    db.fittings.push({ id: db.fitIdCounter++, name, code, count, tag, supplier });
+    fwAddTagDefault = tag;
+  }
+  if (nameEl) nameEl.value = '';
+  if (codeEl) codeEl.value = '';
+  if (countEl) countEl.value = '1';
+  if (supEl) supEl.value = '';
+  updateFwFormTitle();
+  ensureTagOrder();
+  saveDB();
+}
+
+function clearFwForm() {
+  const nameEl = document.getElementById('fw-add-name');
+  const codeEl = document.getElementById('fw-add-code');
+  const countEl = document.getElementById('fw-add-count');
+  const supEl = document.getElementById('fw-add-supplier');
+  if (nameEl) nameEl.value = '';
+  if (codeEl) codeEl.value = '';
+  if (countEl) countEl.value = '1';
+  if (supEl) supEl.value = '';
+  fwEditingId = null;
+  updateFwFormTitle();
 }
 
 function bindFittingsEvents() {
@@ -821,6 +1119,7 @@ function bindFittingsEvents() {
     if (e.key === 'Escape' && !e.target.closest('input, select')) {
       selectedFitIds.clear();
       updateRowSelection();
+      renderFwFooter();
       return;
     }
     if ((e.key === 'Delete' || e.key === 'Backspace') && selectedFitIds.size && !e.target.closest('input, select, textarea')) {
@@ -834,12 +1133,16 @@ function bindFittingsEvents() {
       if (e.key === 'Enter') { e.preventDefault(); addTag(); }
     });
   }
+  const addTagSel = document.getElementById('fw-add-tag');
+  if (addTagSel) {
+    addTagSel.addEventListener('change', () => { fwAddTagDefault = addTagSel.value; });
+  }
 }
 
 function fittingsMouseDown(e) {
   if (e.button !== 0) return;
-  if (e.target.closest('input, select, button')) return;
-  const row = e.target.closest('.fit-row');
+  if (e.target.closest('input, select, button, .fw-check')) return;
+  const row = e.target.closest('.fw-card');
   if (row) {
     const id = parseInt(row.dataset.id, 10);
     if (e.ctrlKey || e.metaKey) {
@@ -848,6 +1151,7 @@ function fittingsMouseDown(e) {
       selectedFitIds = new Set([id]);
     }
     updateRowSelection();
+    renderFwFooter();
     return;
   }
   startMarquee(e);
@@ -887,7 +1191,7 @@ function onMarqueeMove(e) {
 
 function updateMarqueeSelection(x0, y0, x1, y1) {
   const ids = [];
-  document.querySelectorAll('.fit-column .fit-row').forEach(r => {
+  document.querySelectorAll('.fw-column .fw-card').forEach(r => {
     const rc = r.getBoundingClientRect();
     if (rc.right >= x0 && rc.left <= x1 && rc.bottom >= y0 && rc.top <= y1) {
       ids.push(parseInt(r.dataset.id, 10));
@@ -895,6 +1199,7 @@ function updateMarqueeSelection(x0, y0, x1, y1) {
   });
   selectedFitIds = new Set(ids);
   updateRowSelection();
+  renderFwFooter();
 }
 
 function onMarqueeEnd() {
@@ -908,8 +1213,9 @@ function onMarqueeEnd() {
 }
 
 function updateRowSelection() {
-  document.querySelectorAll('.fit-column .fit-row').forEach(r => {
-    r.classList.toggle('selected', selectedFitIds.has(parseInt(r.dataset.id, 10)));
+  document.querySelectorAll('.fw-column .fw-card').forEach(r => {
+    const checked = selectedFitIds.has(parseInt(r.dataset.id, 10));
+    r.classList.toggle('selected', checked);
   });
 }
 
@@ -919,16 +1225,17 @@ function fittingsClick(e) {
   if (delBtn) { deleteTag(delBtn.getAttribute('data-tag')); return; }
   const renBtn = e.target.closest('.btn-tag-rename');
   if (renBtn) { startRenameTag(renBtn.getAttribute('data-tag')); return; }
-  if (!e.target.closest('.fit-row')) {
+  if (!e.target.closest('.fw-card')) {
     selectedFitIds.clear();
     updateRowSelection();
+    renderFwFooter();
   }
 }
 
 function fittingsDragStart(e) {
   if (e.target.closest('input, select, button')) { e.preventDefault(); return; }
   cancelMarquee();
-  const row = e.target.closest('.fit-row');
+  const row = e.target.closest('.fw-card');
   if (row) {
     let ids = new Set(selectedFitIds);
     const rowId = parseInt(row.dataset.id, 10);
@@ -941,7 +1248,7 @@ function fittingsDragStart(e) {
     requestAnimationFrame(() => row.classList.add('dragging'));
     return;
   }
-  const col = e.target.closest('.fit-column');
+  const col = e.target.closest('.fw-column');
   if (col) {
     const tag = col.getAttribute('data-tag');
     if (!tag) return;
@@ -956,16 +1263,16 @@ function selectOnlyFit(id) {
 }
 
 function fittingsDragEnd(e) {
-  const row = e.target.closest('.fit-row');
+  const row = e.target.closest('.fw-card');
   if (row) row.classList.remove('dragging');
-  const col = e.target.closest('.fit-column');
+  const col = e.target.closest('.fw-column');
   if (col) col.classList.remove('drag-src');
   clearDropStyles();
 }
 
 function fittingsDragOver(e) {
   e.preventDefault();
-  const col = e.target.closest('.fit-column');
+  const col = e.target.closest('.fw-column');
   if (col) col.classList.add('drag-over');
 }
 
@@ -979,7 +1286,7 @@ function dropTypes(e) {
 function fittingsDrop(e) {
   e.preventDefault();
   clearDropStyles();
-  const col = e.target.closest('.fit-column');
+  const col = e.target.closest('.fw-column');
   if (!col) return;
   const tag = col.getAttribute('data-tag');
   if (!tag) return;
@@ -1002,17 +1309,18 @@ function fittingsDrop(e) {
   ids = ids.map(Number).filter(id => Number.isFinite(id));
   if (!ids.length) return;
 
-  const body = col.querySelector('.fit-column-body');
+  const body = col.querySelector('.fw-col-body');
   const beforeId = body ? findBeforeRowId(body, e.clientY) : null;
   applyFitMove(ids, tag, beforeId);
 
   selectedFitIds.clear();
   updateRowSelection();
+  renderFwFooter();
   saveDB();
 }
 
 function findBeforeRowId(body, y) {
-  const rows = Array.from(body.querySelectorAll('.fit-row'));
+  const rows = Array.from(body.querySelectorAll('.fw-card'));
   for (const r of rows) {
     const rc = r.getBoundingClientRect();
     if (y < rc.top + rc.height / 2) return parseInt(r.dataset.id, 10);
@@ -1060,15 +1368,15 @@ function reorderTag(dragTag, targetTag) {
 }
 
 function clearDropStyles() {
-  document.querySelectorAll('.fit-column').forEach(c => c.classList.remove('drag-over'));
+  document.querySelectorAll('.fw-column').forEach(c => c.classList.remove('drag-over'));
 }
 
 function startRenameTag(tag) {
   const container = document.getElementById('fittings-columns');
-  const col = Array.from(container.querySelectorAll('.fit-column'))
+  const col = Array.from(container.querySelectorAll('.fw-column'))
     .find(c => c.getAttribute('data-tag') === tag);
   if (!col) return;
-  const title = col.querySelector('.fit-column-title');
+  const title = col.querySelector('.fw-col-title');
   if (!title) return;
   const input = document.createElement('input');
   input.className = 'fit-tag-rename-input';
@@ -1108,21 +1416,19 @@ function saveFitExport(id, checked) {
   const f = fitById(id);
   if (!f) return;
   f.export = checked;
-  const bl = fitRules.blacklist;
-  const blByName = fitRules.blacklistByName || [];
-  if (f.code) {
-    const arr = bl;
-    const key = f.code;
-    if (!checked) { if (arr.indexOf(key) === -1) arr.push(key); }
-    else { const idx = arr.indexOf(key); if (idx !== -1) arr.splice(idx, 1); }
-  } else if (f.name) {
-    const arr = blByName;
-    const key = f.name;
-    if (!checked) { if (arr.indexOf(key) === -1) arr.push(key); }
-    else { const idx = arr.indexOf(key); if (idx !== -1) arr.splice(idx, 1); }
-  }
+  toggleBlacklist(fitRules.blacklist, fitRules.blacklistByName || [], f, checked);
   saveFitRules();
   saveDB();
+}
+
+function toggleBlacklist(byCode, byName, item, checked) {
+  if (item.code) {
+    if (!checked) { if (byCode.indexOf(item.code) === -1) byCode.push(item.code); }
+    else { const idx = byCode.indexOf(item.code); if (idx !== -1) byCode.splice(idx, 1); }
+  } else if (item.name) {
+    if (!checked) { if (byName.indexOf(item.name) === -1) byName.push(item.name); }
+    else { const idx = byName.indexOf(item.name); if (idx !== -1) byName.splice(idx, 1); }
+  }
 }
 
 function applyFitRules() {
@@ -1130,11 +1436,29 @@ function applyFitRules() {
   const tagsByName = fitRules.tagsByName || {};
   const bl = fitRules.blacklist;
   const blByName = fitRules.blacklistByName || [];
+  const suppliers = fitRules.suppliers || {};
+  const suppliersByName = fitRules.suppliersByName || {};
+  const matBl = fitRules.matBlacklist || [];
+  const matBlByName = fitRules.matBlacklistByName || [];
+  const profBl = fitRules.profBlacklist || [];
+  const profBlByName = fitRules.profBlacklistByName || [];
   (db.fittings || []).forEach(f => {
     if (f.code && tags[f.code]) f.tag = tags[f.code];
     else if (f.name && tagsByName[f.name]) f.tag = tagsByName[f.name];
+    if (f.code && suppliers[f.code]) f.supplier = suppliers[f.code];
+    else if (f.name && suppliersByName[f.name]) f.supplier = suppliersByName[f.name];
     const inBl = (f.code && bl.indexOf(f.code) !== -1) || (f.name && blByName.indexOf(f.name) !== -1) || (f.name && bl.indexOf(f.name) !== -1);
     if (inBl) f.export = false;
+  });
+  (db.materials || []).forEach(m => {
+    const inBl = (m.code && matBl.indexOf(m.code) !== -1) || (m.name && matBlByName.indexOf(m.name) !== -1) || (m.name && matBl.indexOf(m.name) !== -1);
+    if (inBl) m.export = false;
+  });
+  (db.profiles || []).forEach(p => {
+    if (p.code && suppliers[p.code]) p.supplier = suppliers[p.code];
+    else if (p.name && suppliersByName[p.name]) p.supplier = suppliersByName[p.name];
+    const inBl = (p.code && profBl.indexOf(p.code) !== -1) || (p.name && profBlByName.indexOf(p.name) !== -1) || (p.name && profBl.indexOf(p.name) !== -1);
+    if (inBl) p.export = false;
   });
 }
 
@@ -1176,6 +1500,40 @@ function saveFitCount(id, value) {
   saveDB();
 }
 
+function saveFitSupplier(id, value) {
+  const f = fitById(id);
+  if (!f) return;
+  f.supplier = value || '';
+  const suppliers = fitRules.suppliers || {};
+  const suppliersByName = fitRules.suppliersByName || {};
+  if (f.supplier) {
+    if (f.code) suppliers[f.code] = f.supplier;
+    if (f.name) suppliersByName[f.name] = f.supplier;
+  } else {
+    if (f.code) delete suppliers[f.code];
+    if (f.name) delete suppliersByName[f.name];
+  }
+  saveFitRules();
+  saveDB();
+}
+
+function saveProfileSupplier(i, value) {
+  const p = db.profiles[i];
+  if (!p) return;
+  p.supplier = value || '';
+  const suppliers = fitRules.suppliers || {};
+  const suppliersByName = fitRules.suppliersByName || {};
+  if (p.supplier) {
+    if (p.code) suppliers[p.code] = p.supplier;
+    if (p.name) suppliersByName[p.name] = p.supplier;
+  } else {
+    if (p.code) delete suppliers[p.code];
+    if (p.name) delete suppliersByName[p.name];
+  }
+  saveFitRules();
+  saveDB();
+}
+
 function saveDB() {
   ensureTagOrder();
   const toSave = Object.assign({}, db, { fitRules: fitRules });
@@ -1183,27 +1541,6 @@ function saveDB() {
     if (!(res && res.success)) alert(t('alert.save.fail'));
     else renderAll();
   });
-}
-
-function addFitting() {
-  const nameEl = document.getElementById('fit-name');
-  const codeEl = document.getElementById('fit-code');
-  const countEl = document.getElementById('fit-count');
-  const tagEl = document.getElementById('fit-tag');
-  const name = nameEl.value.trim();
-  const code = codeEl.value.trim();
-  const count = parseInt(countEl.value, 10);
-  if (!name) { alert(t('alert.enter.name')); return; }
-  if (!count || count < 1) { alert(t('alert.enter.count')); return; }
-  const tag = tagEl ? tagEl.value : 'Загальна фурнітура';
-  if (!db.fittings) db.fittings = [];
-  db.fittings.push({ id: db.fitIdCounter++, name: name, code: code, count: count, tag: tag });
-  nameEl.value = '';
-  codeEl.value = '';
-  countEl.value = '';
-  if (tagEl) tagEl.value = 'Загальна фурнітура';
-  ensureTagOrder();
-  saveDB();
 }
 
 function deleteFitting(id) {
@@ -1302,6 +1639,8 @@ function saveMatExport(i, checked) {
   const m = db.materials[i];
   if (!m) return;
   m.export = checked;
+  toggleBlacklist(fitRules.matBlacklist, fitRules.matBlacklistByName || [], m, checked);
+  saveFitRules();
   saveDB();
 }
 
@@ -1309,11 +1648,14 @@ function saveProfExport(i, checked) {
   const p = db.profiles[i];
   if (!p) return;
   p.export = checked;
+  toggleBlacklist(fitRules.profBlacklist, fitRules.profBlacklistByName || [], p, checked);
+  saveFitRules();
   saveDB();
 }
 
 // ============ SETTINGS ============
 function bindSettingsEvents() {
+  bindCalcEvents();
   const openBtn = document.getElementById('settings-btn');
   if (openBtn) openBtn.addEventListener('click', openSettings);
   const modal = document.getElementById('settings-modal');
@@ -1339,6 +1681,16 @@ function bindSettingsEvents() {
   const autoUpd = document.getElementById('settings-updates-auto');
   if (autoUpd) autoUpd.addEventListener('change', () => {
     config.autoUpdate = autoUpd.checked;
+    saveConfig();
+  });
+
+  const tpr = document.getElementById('settings-tags-per-row');
+  if (tpr) tpr.addEventListener('change', () => {
+    let n = parseInt(tpr.value, 10);
+    if (isNaN(n) || n < 1) n = 1;
+    if (n > 6) n = 6;
+    tpr.value = n;
+    config.tagsPerRow = n;
     saveConfig();
   });
 
@@ -1369,9 +1721,11 @@ function openSettings() {
   const themeDark = document.getElementById('settings-theme-dark');
   const langRu = document.getElementById('settings-lang-ru');
   const autoUpd = document.getElementById('settings-updates-auto');
+  const tpr = document.getElementById('settings-tags-per-row');
   if (themeDark) themeDark.checked = config.theme === 'dark';
   if (langRu) langRu.checked = config.language === 'ru';
   if (autoUpd) autoUpd.checked = !!config.autoUpdate;
+  if (tpr) tpr.value = fwTagsPerRow();
   renderSettingsMeta();
   modal.classList.add('open');
 }
@@ -1385,6 +1739,105 @@ function closeSettings() {
 
 function openFitRulesWindow() {
   window.api.openFitRulesWindow();
+}
+
+let calcWorkbookPath = '';
+let calcRoomAuto = true;
+
+function defaultCalcRoomName() {
+  if (db && db.orderName && String(db.orderName).trim()) return String(db.orderName).trim();
+  if (db && db.name && String(db.name).trim()) return String(db.name).trim();
+  return '';
+}
+
+async function openCalcModal() {
+  const modal = document.getElementById('calc-modal');
+  if (!modal) return;
+  const cfg = await window.api.getCalcWorkbookConfig();
+  calcWorkbookPath = cfg.workbookPath || '';
+  const nameEl = document.getElementById('calc-file-name');
+  if (nameEl) nameEl.textContent = calcWorkbookPath ? calcWorkbookPath : t('calc.file.none');
+  const hint = document.getElementById('calc-room-hint');
+  const roomInput = document.getElementById('calc-room-input');
+  calcRoomAuto = true;
+  if (roomInput) roomInput.value = '';
+  if (hint) {
+    const def = defaultCalcRoomName();
+    hint.textContent = def ? t('calc.room.used', { name: def }) : '';
+  }
+  modal.classList.add('open');
+}
+
+function closeCalcModal() {
+  const modal = document.getElementById('calc-modal');
+  if (modal) modal.classList.remove('open');
+  const hiddenInput = document.activeElement;
+  if (hiddenInput && hiddenInput.blur) hiddenInput.blur();
+}
+
+async function chooseCalcWorkbook() {
+  const res = await window.api.chooseCalcWorkbook();
+  if (res.success) {
+    calcWorkbookPath = res.workbookPath;
+    const el = document.getElementById('calc-file-name');
+    if (el) el.textContent = res.workbookPath;
+  }
+}
+
+function setCalcRoomAuto() {
+  calcRoomAuto = true;
+  const roomInput = document.getElementById('calc-room-input');
+  if (roomInput) roomInput.value = '';
+  const hint = document.getElementById('calc-room-hint');
+  if (hint) {
+    const def = defaultCalcRoomName();
+    hint.textContent = def ? t('calc.room.used', { name: def }) : '';
+  }
+}
+
+function onCalcRoomInput() {
+  calcRoomAuto = false;
+  const hint = document.getElementById('calc-room-hint');
+  if (hint) hint.textContent = '';
+}
+
+async function writeCalcWorkbook() {
+  if (!calcWorkbookPath) { alert(t('calc.err.no.file')); return; }
+  let room = '';
+  const roomInput = document.getElementById('calc-room-input');
+  if (!calcRoomAuto && roomInput && String(roomInput.value).trim()) {
+    room = String(roomInput.value).trim();
+  } else {
+    room = defaultCalcRoomName();
+  }
+  if (!room) { alert(t('calc.err.no.room')); return; }
+  const result = await window.api.writeCalcWorkbook(db, room);
+  if (!result.success) {
+    alert(t('calc.err', { error: result.error || 'unknown' }));
+    return;
+  }
+  if (!result.result || result.result.rows === 0) {
+    alert(t('calc.no.rows'));
+    return;
+  }
+  const sheetsInfo = result.result.sheets.map(s => s.sheet + ': ' + s.rows).join(', ');
+  alert(t('calc.written', { sheets: sheetsInfo }));
+}
+
+function bindCalcEvents() {
+  const modal = document.getElementById('calc-modal');
+  if (modal) {
+    modal.addEventListener('click', e => {
+      if (e.target === modal) closeCalcModal();
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && modal.classList.contains('open')) closeCalcModal();
+    });
+    const closeBtn = document.getElementById('calc-modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeCalcModal);
+  }
+  const roomInput = document.getElementById('calc-room-input');
+  if (roomInput) roomInput.addEventListener('input', onCalcRoomInput);
 }
 
 function renderSettingsMeta() {

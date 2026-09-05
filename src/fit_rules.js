@@ -5,16 +5,20 @@ async function load() {
   try {
     data = await window.api.getFitRulesData();
   } catch (e) {
-    data = { rules: { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [] }, fittings: [], tagOrder: [] };
+    data = { rules: { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [] }, fittings: [], materials: [], profiles: [], tagOrder: [] };
   }
   render();
 }
 
 function render() {
   if (currentTab === 'tags') renderTags();
-  else renderBlacklist();
+  else if (currentTab === 'blacklist') renderBlacklist('fit');
+  else if (currentTab === 'matbl') renderBlacklist('mat');
+  else renderBlacklist('prof');
   document.getElementById('tab-tags').classList.toggle('active', currentTab === 'tags');
   document.getElementById('tab-blacklist').classList.toggle('active', currentTab === 'blacklist');
+  document.getElementById('tab-matbl').classList.toggle('active', currentTab === 'matbl');
+  document.getElementById('tab-profbl').classList.toggle('active', currentTab === 'profbl');
 }
 
 function renderTags() {
@@ -70,19 +74,24 @@ function renderTags() {
   });
 }
 
-function renderBlacklist() {
+function blacklistArrays(kind) {
+  const rules = data.rules || {};
+  if (kind === 'mat') return { byCode: rules.matBlacklist || [], byName: rules.matBlacklistByName || [], lookup: data.materials || [] };
+  if (kind === 'prof') return { byCode: rules.profBlacklist || [], byName: rules.profBlacklistByName || [], lookup: data.profiles || [] };
+  return { byCode: rules.blacklist || [], byName: rules.blacklistByName || [], lookup: data.fittings || [] };
+}
+
+function renderBlacklist(kind) {
   const body = document.getElementById('fr-body');
   body.innerHTML = '';
-  const rules = data.rules || {};
-  const bl = rules.blacklist || [];
-  const blByName = rules.blacklistByName || [];
+  const { byCode, byName, lookup } = blacklistArrays(kind);
 
   const items = [];
-  bl.forEach(code => {
-    const f = (data.fittings || []).find(x => x.code === code);
+  byCode.forEach(code => {
+    const f = lookup.find(x => x.code === code);
     items.push({ name: f ? f.name : code, key: code, byName: false });
   });
-  blByName.forEach(name => {
+  byName.forEach(name => {
     if (!items.some(it => it.name === name)) {
       items.push({ name, key: name, byName: true });
     }
@@ -99,21 +108,22 @@ function renderBlacklist() {
     row.className = 'fr-item';
     row.innerHTML = `<span class="fr-item-name">${escapeHtml(it.name)}</span>` +
       `<span class="fr-badge bl">не експортується</span>` +
-      `<button class="fr-rem" title="Прибрати з чорного списку" onclick="removeItem('${escapeAttr(it.key)}', ${it.byName})">✕</button>`;
+      `<button class="fr-rem" title="Прибрати з чорного списку" onclick="removeItem('${kind}', '${escapeAttr(it.key)}', ${it.byName})">✕</button>`;
     body.appendChild(row);
   });
 }
 
-async function removeItem(key, byName) {
+async function removeItem(kind, key, byName) {
   const rules = data.rules;
+  const pair = kind === 'mat' ? ['matBlacklist', 'matBlacklistByName'] : (kind === 'prof' ? ['profBlacklist', 'profBlacklistByName'] : ['blacklist', 'blacklistByName']);
+  const byCodeArr = rules[pair[0]] || [];
+  const byNameArr = rules[pair[1]] || [];
   if (byName) {
-    const arr = rules.blacklistByName || [];
-    const idx = arr.indexOf(key);
-    if (idx !== -1) arr.splice(idx, 1);
+    const idx = byNameArr.indexOf(key);
+    if (idx !== -1) byNameArr.splice(idx, 1);
   } else {
-    const arr = rules.blacklist || [];
-    const idx = arr.indexOf(key);
-    if (idx !== -1) arr.splice(idx, 1);
+    const idx = byCodeArr.indexOf(key);
+    if (idx !== -1) byCodeArr.splice(idx, 1);
   }
   const db = await window.api.getDB();
   db.fitRules = rules;
@@ -131,5 +141,7 @@ function escapeAttr(str) {
 
 document.getElementById('tab-tags').addEventListener('click', () => { currentTab = 'tags'; render(); });
 document.getElementById('tab-blacklist').addEventListener('click', () => { currentTab = 'blacklist'; render(); });
+document.getElementById('tab-matbl').addEventListener('click', () => { currentTab = 'matbl'; render(); });
+document.getElementById('tab-profbl').addEventListener('click', () => { currentTab = 'profbl'; render(); });
 
 load();

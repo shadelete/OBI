@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { exportToXLSXBuffer } = require('./src/export');
 const updater = require('./src/updater');
+const calcWorkbook = require('./src/workbook');
 
 let mainWindow;
 let fitRulesWindow;
@@ -78,7 +79,7 @@ function configPath() {
 const APP_URL = 'https://github.com/shadelete/OBI';
 const APP_AUTHOR = 'Alexander Bondarenko';
 
-const DEFAULT_CONFIG = Object.freeze({ theme: 'dark', language: 'uk', autoUpdate: false });
+const DEFAULT_CONFIG = Object.freeze({ theme: 'dark', language: 'uk', autoUpdate: false, workbookPath: '' });
 
 function readConfig() {
   try {
@@ -88,7 +89,8 @@ function readConfig() {
     return {
       theme: data.theme === 'dark' ? 'dark' : 'light',
       language: data.language === 'ru' ? 'ru' : 'uk',
-      autoUpdate: !!data.autoUpdate
+      autoUpdate: !!data.autoUpdate,
+      workbookPath: typeof data.workbookPath === 'string' ? data.workbookPath : ''
     };
   } catch (e) {
     return { ...DEFAULT_CONFIG };
@@ -105,20 +107,26 @@ function fitRulesPath() {
   return path.join(dataDir(), 'data', 'fit_rules.json');
 }
 
-const DEFAULT_FIT_RULES = Object.freeze({ tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [] });
+const DEFAULT_FIT_RULES = Object.freeze({ tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [] });
 
 function readFitRules() {  try {
     const p = fitRulesPath();
-    if (!fs.existsSync(p)) return { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [] };
+    if (!fs.existsSync(p)) return { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [] };
     const data = JSON.parse(fs.readFileSync(p, 'utf-8'));
     return {
       tags: (data.tags && typeof data.tags === 'object') ? data.tags : {},
       tagsByName: (data.tagsByName && typeof data.tagsByName === 'object') ? data.tagsByName : {},
       blacklist: Array.isArray(data.blacklist) ? data.blacklist : [],
-      blacklistByName: Array.isArray(data.blacklistByName) ? data.blacklistByName : []
+      blacklistByName: Array.isArray(data.blacklistByName) ? data.blacklistByName : [],
+      suppliers: (data.suppliers && typeof data.suppliers === 'object') ? data.suppliers : {},
+      suppliersByName: (data.suppliersByName && typeof data.suppliersByName === 'object') ? data.suppliersByName : {},
+      matBlacklist: Array.isArray(data.matBlacklist) ? data.matBlacklist : [],
+      matBlacklistByName: Array.isArray(data.matBlacklistByName) ? data.matBlacklistByName : [],
+      profBlacklist: Array.isArray(data.profBlacklist) ? data.profBlacklist : [],
+      profBlacklistByName: Array.isArray(data.profBlacklistByName) ? data.profBlacklistByName : []
     };
   } catch (e) {
-    return { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [] };
+    return { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [] };
   }
 }
 
@@ -154,6 +162,7 @@ function createWindow() {
   });
 
   mainWindow.setMenu(null);
+  mainWindow.maximize();
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
   mainWindow.webContents.on('did-finish-load', () => {
     autoCheckUpdates();
@@ -284,8 +293,41 @@ ipcMain.handle('get-project-name', () => {
 ipcMain.handle('get-config', () => readConfig());
 
 ipcMain.handle('save-config', (event, config) => {
-  saveConfig(config);
+  const merged = { ...readConfig(), ...(config || {}) };
+  saveConfig(merged);
   return { success: true };
+});
+
+ipcMain.handle('get-calc-workbook-config', () => {
+  const cfg = readConfig();
+  return { workbookPath: cfg.workbookPath || '' };
+});
+
+ipcMain.handle('choose-calc-workbook', async () => {
+  const sel = await dialog.showOpenDialog(mainWindow, {
+    title: 'Обрати файл «Розрахунок фурнітури»',
+    properties: ['openFile'],
+    filters: [{ name: 'Excel з макросами', extensions: ['xlsm'] }]
+  });
+  if (!sel.canceled && sel.filePaths.length) {
+    const wp = sel.filePaths[0];
+    saveConfig({ ...readConfig(), workbookPath: wp });
+    return { success: true, workbookPath: wp };
+  }
+  return { success: false, workbookPath: '' };
+});
+
+ipcMain.handle('write-calc-workbook', (event, payload) => {
+  try {
+    const cfg = readConfig();
+    if (!cfg.workbookPath || !fs.existsSync(cfg.workbookPath)) {
+      return { success: false, error: 'no-workbook' };
+    }
+    const res = calcWorkbook.writeCalcWorkbook(cfg.workbookPath, payload.db || readDB(), payload.roomName || '');
+    return { success: true, result: res };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
 });
 
 ipcMain.handle('get-fit-rules', () => readFitRules());
@@ -293,7 +335,7 @@ ipcMain.handle('get-fit-rules', () => readFitRules());
 ipcMain.handle('get-fit-rules-data', () => {
   const rules = readFitRules();
   const db = readDB();
-  return { rules, fittings: db.fittings || [], tagOrder: db.tagOrder || [] };
+  return { rules, fittings: db.fittings || [], materials: db.materials || [], profiles: db.profiles || [], tagOrder: db.tagOrder || [] };
 });
 
 ipcMain.handle('open-fit-rules-window', () => {
@@ -411,9 +453,11 @@ ipcMain.handle('export-xlsx', async () => {
   try {
     const data = readDB();
     const buffer = await exportToXLSXBuffer(data);
+    const base = path.basename(activeProjectPath || dbPath(), '.json');
+    const fileName = ((base && base !== 'db') ? base : 'mebel-export') + '.xlsx';
     const filePath = await dialog.showSaveDialog(mainWindow, {
       title: 'Зберегти експорт',
-      defaultPath: 'mebel-export.xlsx',
+      defaultPath: fileName,
       filters: [{ name: 'Excel', extensions: ['xlsx'] }]
     });
     if (!filePath.canceled && filePath.filePath) {
