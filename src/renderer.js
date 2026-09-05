@@ -29,7 +29,7 @@ const I18N = {
     'fit.name.placeholder':'Найменування','fit.article.placeholder':'Артикул','fit.drag.title':'Перетягнути',
     'fit.export.title':'Включити в експорт','fit.category':'Категорія','fit.delete.title':'Видалити',
     'fit.tag.rename':'Перейменувати тег','fit.tag.delete':'Видалити тег','fit.empty':'Порожньо',
-    'confirm.delete.pos':'Видалити позицію?','confirm.delete.selected':'Видалити вибрані позиції ({n})?','alert.cannot.delete.std':'Стандартний тег не можна видалити',
+    'confirm.delete.pos':'Видалити позицію?','confirm.delete.selected':'Видалити вибрані позиції ({n})?','alert.cannot.delete.std':'Базовий тег «Загальна фурнітура» не можна видалити',
     'confirm.delete.tag':'Видалити тег "{tag}"? Фурнітура буде перенесена до "Загальна фурнітура".',
     'alert.tag.exists':'Такий тег уже існує','alert.enter.name':'Введіть найменування','alert.enter.count':'Введіть кількість','alert.enter.tagname':'Введіть назву тега',
     'settings':'Налаштування','settings.title':'Налаштування','settings.theme':'Тема','settings.theme.light':'Світла','settings.theme.dark':'Темна',
@@ -87,7 +87,7 @@ const I18N = {
     'fit.name.placeholder':'Наименование','fit.article.placeholder':'Артикул','fit.drag.title':'Перетащить',
     'fit.export.title':'Включить в экспорт','fit.category':'Категория','fit.delete.title':'Удалить',
     'fit.tag.rename':'Переименовать тег','fit.tag.delete':'Удалить тег','fit.empty':'Пусто',
-    'confirm.delete.pos':'Удалить позицию?','confirm.delete.selected':'Удалить выбранные позиции ({n})?','alert.cannot.delete.std':'Стандартный тег нельзя удалить',
+    'confirm.delete.pos':'Удалить позицию?','confirm.delete.selected':'Удалить выбранные позиции ({n})?','alert.cannot.delete.std':'Базовый тег «Загальная фурнитура» нельзя удалить',
     'confirm.delete.tag':'Удалить тег "{tag}"? Фурнитура будет перенесена в "Загальная фурнитура".',
     'alert.tag.exists':'Такой тег уже существует','alert.enter.name':'Введите наименование','alert.enter.count':'Введите количество','alert.enter.tagname':'Введите название тега',
     'settings':'Настройки','settings.title':'Настройки','settings.theme':'Тема','settings.theme.light':'Светлая','settings.theme.dark':'Тёмная',
@@ -162,7 +162,9 @@ function ensureTagOrder() {
   const needsTag = {};
   (db.fittings || []).forEach(f => { needsTag[normTag(f.tag)] = true; });
   const order = getTagOrder();
-  DEFAULT_TAGS.forEach(t => { if (order.indexOf(t) === -1) order.push(t); });
+  if (!Array.isArray(db.tagOrder)) {
+    DEFAULT_TAGS.forEach(t => { if (order.indexOf(t) === -1) order.push(t); });
+  }
   Object.keys(needsTag).forEach(t => { if (order.indexOf(t) === -1) order.push(t); });
   db.tagOrder = order;
 }
@@ -1576,7 +1578,7 @@ function addTag() {
 
 function deleteTag(tag) {
   const order = getTagOrder();
-  if (DEFAULT_TAGS.indexOf(tag) !== -1) {
+  if (tag === 'Загальна фурнітура') {
     alert(t('alert.cannot.delete.std'));
     return;
   }
