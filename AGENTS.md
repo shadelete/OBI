@@ -36,7 +36,7 @@
 - Писать **украинской** мовой. Формат — Keep a Changelog: раздел `[Невидане]` (для наработок к следующей версии) при релизе превращается в финальный `[0.X.Y] — дата` раздел.
 - При релизе новые изменения переносятся в финальный раздел, версия в `package.json` поднимается.
 
-## Релизный процесс (актуальный тег — v0.2.0-beta.1, планується v0.2.0)
+## Релизный процесс (актуальный тег — v0.2.0-beta.2)
 - 1) поднять `version` в `package.json`, 2) `npm run build` (`dist\OBI.exe`), 3) собрать `release\OBI-<ver>.zip` = `dist\OBI.exe` + `release\OBI.js` (cp1251) + `release\icon.bmp` (см. ниже), 4) коммит + тег `v<ver>` + `push origin main --tags`, 5) `gh release create v<ver> release\OBI-<ver>.zip -R shadelete/OBI --title "OBI <ver>" --notes "<описание>"` (единственный ассет — zip; отдельно `OBI.js` на релиз НЕ кладём, он уже внутри архива).
 - **Описание релиза**: писать продающее описание для пользователя (что изменилось, топ фич), а не технический changelog. Черновик лежит в `release_description.txt` в корне (если менялся текст — отредактировать `gh release edit v<ver> --notes "$(Get-Content release_description.txt -Raw -Encoding UTF8)"`). В `gh release create` можно передать `--notes-file release_description.txt` вместо `--notes`.
 - **Пре-релизы** (beta/rc): `gh release create v<ver> ... --prerelease` (SKIP tota caches). Важно: пре-релизы НЕ попадают в `releases/latest` (GitHub игнорирует их там), а наш апдейтер ходит в `releases?per_page=30` и сам выбирает новейшую семантически новую версию — тому для теста обновления достаточно выложить `v0.2.0-beta.1` соответствующий ассет `OBI-0.2.0-beta.1.zip`.
@@ -73,7 +73,7 @@
   - `fitRowHTML(f)` (238): драг-хендл `.fit-drag-handle`, чекбокс экспорта `.exp-check`, инлайн-редактируемые name (`fit-edit-name`), тег (`select.fit-tag`), code/count, кнопка удаления.
   - Мульти-выбор (мышью-marquee + Ctrl/Shift-клик): `selectedFitIds` (Set id), `fitById()`, `fittingsMouseDown` (312), `startMarquee`/`onMarqueeMove`/`onMarqueeEnd` (329-381), `updateMarqueeSelection`, `updateRowSelection` (383), `.fit-marquee` (наложение-рамка).
   - Drag&drop строк между тегами: `fittingsDragStart` (401), `fittingsDragOver` (439), `fittingsDrop` (452), данные через `application/x-obi-fits` (JSON массива id); перетаскивание колонок = реордер тегов `reorderTag` (485), тип `application/x-obi-tag`.
-  - Теги: `addTag()` (614), `deleteTag()` (626, стандартные нельзя), `startRenameTag`/`commitRenameTag` (503/531), `tagOptions()` для select'ов.
+  - Теги: `addTag()` (1565), `deleteTag()` (1577, захищений лише базовий тег «Загальна фурнітура» — catch-all), `startRenameTag`/`commitRenameTag` (1374/1402), `tagOptions()` для select'ов.
   - Сохранение правок: `saveFitExport/Name/Tag/Code/Count` (539-575), каждая вызывает `saveDB()`.
   - `saveDB()` (577): `ensureTagOrder()` → `window.api.saveDB(db)` → по успеху `renderAll()`.
   - Форма добавления: `addFitting()` (585). `deleteFitting()` (606, с confirm).

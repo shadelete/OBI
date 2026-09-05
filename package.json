@@ -1,6 +1,6 @@
 {
   "name": "output-bazis-info",
-  "version": "0.2.0-dev",
+  "version": "0.2.0-beta.2",
   "description": "Output Bazis Info",
   "main": "main.js",
   "scripts": {
