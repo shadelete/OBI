@@ -219,6 +219,7 @@ function writeCalcWorkbook(file, db, roomName) {
   }
 
   let appendedRows = 0;
+  let modified = false;
   const result = [];
   for (const plan of SHEET_KEYS) {
     const sheetFile = sheetFiles[plan.sheet];
@@ -284,7 +285,9 @@ function writeCalcWorkbook(file, db, roomName) {
       const profs = (db.profiles || []).filter(p => p.export !== false && (!p.supplier || supplierMatch(p.supplier, 'Viyar')));
       profs.forEach(p => {
         const details = (p.details && p.details.length) ? p.details : [{ length: p.length, count: p.count }];
-        details.forEach(d => inputRows.push({ name: displayName(p.name || p.material, p.code), article: p.code || '', qty: d.count || 0, length: d.length }));
+        const prName = p.material || p.name || '';
+        const prCode = p.materialCode || p.code || '';
+        details.forEach(d => inputRows.push({ name: displayName(prName, prCode), article: prCode, qty: d.count || 0, length: d.length }));
       });
       inputRows = fits.concat(inputRows);
     } else {
@@ -294,29 +297,52 @@ function writeCalcWorkbook(file, db, roomName) {
       const profRows = [];
       profs.forEach(p => {
         const details = (p.details && p.details.length) ? p.details : [{ length: p.length, count: p.count }];
-        details.forEach(d => profRows.push({ name: displayName(p.name || p.material, p.code), article: p.code || '', qty: d.count || 0, length: d.length }));
+        const prName = p.material || p.name || '';
+        const prCode = p.materialCode || p.code || '';
+        details.forEach(d => profRows.push({ name: displayName(prName, prCode), article: prCode, qty: d.count || 0, length: d.length }));
       });
       inputRows = fits.concat(profRows);
     }
 
-    if (!inputRows.length) continue;
+    if (!inputRows.length && !roomName) continue;
 
-    let roomExists = false;
+    const tableCol2 = range.col2;
+
+    function cellAString(rowInner, rn, sharedStrings) {
+      const ac = new RegExp('<c r="A' + rn + '"[^>]*t="s"[^>]*><v>(\\d+)<\\/v>').exec(rowInner);
+      if (!ac) return '';
+      const idx = parseInt(ac[1], 10);
+      return (sharedStrings[idx] != null) ? String(sharedStrings[idx]).trim() : '';
+    }
+    function clearTableCells(rowXml, tableCol2) {
+      const m = /^<row([^>]*)>/.exec(rowXml);
+      const attrs = m ? m[1] : '';
+      const keep = [];
+      for (const c of splitRowCells(rowXml)) {
+        if (colNum(c.col) > tableCol2) keep.push(c.xml);
+      }
+      return '<row' + attrs + '>' + keep.join('') + '</row>';
+    }
+
+    const clearRows = new Set();
     if (roomName) {
+      const want = String(roomName).trim();
       const rowRe = /<row r="(\d+)"[^>]*>([\s\S]*?)<\/row>/g;
       let mm;
+      let inBlock = false;
       while ((mm = rowRe.exec(sheetXml)) !== null) {
         const rn = parseInt(mm[1], 10);
         if (rn < startRow || rn > lastRow) continue;
-        const ac = new RegExp('<c r="A' + rn + '"[^>]*t="s"[^>]*><v>(\\d+)<\\/v>').exec(mm[2]);
-        if (ac) {
-          const idx = parseInt(ac[1], 10);
-          if (sharedStrings[idx] != null && sharedStrings[idx].trim() === String(roomName).trim()) { roomExists = true; break; }
+        const aStr = cellAString(mm[2], rn, sharedStrings);
+        if (!inBlock) {
+          if (aStr === want) { inBlock = true; clearRows.add(rn); }
+          continue;
         }
+        if (aStr !== '' || !rowHasData(mm[0])) break;
+        clearRows.add(rn);
       }
     }
-
-    const tableCol2 = range.col2;
+    if (clearRows.size) modified = true;
 
     function splitRowCells(rowXml) {
       const cells = [];
@@ -379,16 +405,17 @@ function writeCalcWorkbook(file, db, roomName) {
     let ri = 0;
     for (const er of kept) {
       if (er.num < startRow) { finalRows.push(er.xml); continue; }
-      if (ri < inputRows.length && !roomExists && !rowHasData(er.xml)) {
-        finalRows.push(makeRow(er.num, inputRows[ri], ri === 0, outTableCells(er.xml)));
+      const rowXml = clearRows.has(er.num) ? clearTableCells(er.xml, tableCol2) : er.xml;
+      if (ri < inputRows.length && !rowHasData(rowXml)) {
+        finalRows.push(makeRow(er.num, inputRows[ri], ri === 0, outTableCells(rowXml)));
         ri++;
       } else {
-        finalRows.push(er.xml);
+        finalRows.push(rowXml);
       }
     }
     let seq = lastRow + 1;
     while (ri < inputRows.length) {
-      finalRows.push(makeRow(seq, inputRows[ri], ri === 0 && !roomExists, null));
+      finalRows.push(makeRow(seq, inputRows[ri], ri === 0, null));
       ri++;
       seq++;
     }
@@ -420,7 +447,7 @@ function writeCalcWorkbook(file, db, roomName) {
     result.push({ sheet: plan.sheet, rows: inputRows.length, room: roomName });
   }
 
-  if (appendedRows === 0) {
+  if (appendedRows === 0 && !modified) {
     return { rows: 0, sheets: [] };
   }
 
