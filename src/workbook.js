@@ -1,4 +1,4 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
@@ -277,12 +277,12 @@ function writeCalcWorkbook(file, db, roomName) {
 
     let inputRows = [];
     if (plan.key === 'materials') {
-      inputRows = (db.materials || []).filter(m => m.export !== false).map(mt => ({
+      inputRows = (db.materials || []).filter(m => m.book !== false).map(mt => ({
         name: displayName(mt.name || '', mt.code), article: mt.code || '', qty: (mt.details || []).length, length: null
       }));
     } else if (plan.key === 'viyar') {
-      const fits = (db.fittings || []).filter(f => f.export !== false && supplierMatch(f.supplier, 'Viyar')).map(f => ({ name: displayName(f.name, f.code), article: f.code || '', qty: f.count || 0, length: null }));
-      const profs = (db.profiles || []).filter(p => p.export !== false && (!p.supplier || supplierMatch(p.supplier, 'Viyar')));
+      const fits = (db.fittings || []).filter(f => f.book !== false && supplierMatch(f.supplier, 'Viyar')).map(f => ({ name: displayName(f.name, f.code), article: f.code || '', qty: f.count || 0, length: null }));
+      const profs = (db.profiles || []).filter(p => p.book !== false && (!p.supplier || supplierMatch(p.supplier, 'Viyar')));
       profs.forEach(p => {
         const details = (p.details && p.details.length) ? p.details : [{ length: p.length, count: p.count }];
         const prName = p.material || p.name || '';
@@ -292,8 +292,8 @@ function writeCalcWorkbook(file, db, roomName) {
       inputRows = fits.concat(inputRows);
     } else {
       const supplier = (plan.key === 'owwa') ? 'Owwa' : 'Blum';
-      const fits = (db.fittings || []).filter(f => f.export !== false && supplierMatch(f.supplier, supplier)).map(f => ({ name: displayName(f.name, f.code), article: f.code || '', qty: f.count || 0, length: null }));
-      const profs = (db.profiles || []).filter(p => p.export !== false && p.supplier && supplierMatch(p.supplier, supplier));
+      const fits = (db.fittings || []).filter(f => f.book !== false && supplierMatch(f.supplier, supplier)).map(f => ({ name: displayName(f.name, f.code), article: f.code || '', qty: f.count || 0, length: null }));
+      const profs = (db.profiles || []).filter(p => p.book !== false && p.supplier && supplierMatch(p.supplier, supplier));
       const profRows = [];
       profs.forEach(p => {
         const details = (p.details && p.details.length) ? p.details : [{ length: p.length, count: p.count }];

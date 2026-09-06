@@ -20,7 +20,7 @@ const I18N = {
     'stat.materials':'Матеріалів','stat.profiles':'Профілів','stat.fittings':'Позицій фурнітури',
     'stat.total':'Всього позицій','stat.details':'Деталей','stat.edges':'Кромки','stat.thickness':'Товщина','stat.inreport':'Включено в звіт',
     'stat.article':'Артикул','stat.sizes':'Розмірів','stat.material':'Матеріал','stat.cut':'Пазів',
-    'edge.title':'Кромка','edge.none':'Без кромки','export':'Експорт','to.report':'До звіту',
+    'edge.title':'Кромка','edge.none':'Без кромки','export':'Експорт','to.report':'До звіту','to.book':'У книгу',
     'cut':'{n} паз','cut.plural':'{n} пазів',
     'detail.article':'Артикул','detail.count':'Деталей','detail.parts':'Деталі', 'pcs':'шт','profiles.sizes':'Розміри',
     'search.placeholder':'Пошук...','empty.list':'Список порожній','empty.noresults':'Нічого не знайдено',
@@ -61,6 +61,7 @@ const I18N = {
     'fw.sidebar.edit':'Редагування позиції','fw.edit.btn':'Зберегти зміни',
     'fw.tabs.all':'Всі',
     'fw.export.toggle':'Включити/вимкнути позицію в експорті',
+    'fw.book.toggle':'Включити/вимкнути перенос у книгу розрахунку',
     'settings.tags.per.row':'Кількість тегів у ряду',
     'calc.button':'Розрахунок','calc.title':'Розрахунок фурнітури',
     'calc.file.label':'Файл-книга','calc.file.choose':'Обрати файл','calc.file.none':'Файл не обрано',
@@ -78,7 +79,7 @@ const I18N = {
     'stat.materials':'Материалов','stat.profiles':'Профилей','stat.fittings':'Позиций фурнитуры',
     'stat.total':'Всего позиций','stat.details':'Деталей','stat.edges':'Кромки','stat.thickness':'Толщина','stat.inreport':'Включено в отчет',
     'stat.article':'Артикул','stat.sizes':'Размеров','stat.material':'Материал','stat.cut':'Пазов',
-    'edge.title':'Кромка','edge.none':'Без кромки','export':'Экспорт','to.report':'В отчет',
+    'edge.title':'Кромка','edge.none':'Без кромки','export':'Экспорт','to.report':'В отчет','to.book':'В книгу',
     'cut':'{n} паз','cut.plural':'{n} пазов',
     'detail.article':'Артикул','detail.count':'Деталей','detail.parts':'Детали', 'pcs':'шт','profiles.sizes':'Размеры',
     'search.placeholder':'Поиск...','empty.list':'Список пуст','empty.noresults':'Ничего не найдено',
@@ -119,6 +120,7 @@ const I18N = {
     'fw.sidebar.edit':'Редактирование позиции','fw.edit.btn':'Сохранить изменения',
     'fw.tabs.all':'Все',
     'fw.export.toggle':'Включить/выключить позицию в экспорте',
+    'fw.book.toggle':'Включить/выключить перенос в расчетную книгу',
     'settings.tags.per.row':'Количество тегов в ряду',
     'calc.button':'Расчёт','calc.title':'Расчёт фурнитуры',
     'calc.file.label':'Файл-книга','calc.file.choose':'Выбрать файл','calc.file.none':'Файл не выбран',
@@ -144,6 +146,10 @@ function t(key, params) {
 
 function isExported(item) {
   return item.export !== false;
+}
+
+function isBooked(item) {
+  return item.book !== false;
 }
 
 function normTag(tag) {
@@ -460,6 +466,9 @@ function matCardHTML(m, i) {
           <label class="lc-check" title="${t('fw.export.toggle')}" onclick="event.stopPropagation()">
             <input type="checkbox" ${isExported(m) ? 'checked' : ''} onchange="saveMatExport(${i}, this.checked)">
           </label>
+          <label class="lc-check lc-check-book" title="${t('fw.book.toggle')}" onclick="event.stopPropagation()">
+            <input type="checkbox" ${isBooked(m) ? 'checked' : ''} onchange="saveMatBook(${i}, this.checked)">
+          </label>
         </div>
       </div>
       <div class="lc-name">${nameHtml}</div>
@@ -488,6 +497,9 @@ function profCardHTML(p, i) {
           <span class="lc-drag-handle" title="${t('fit.drag.title')}">⠿</span>
           <label class="lc-check" title="${t('fw.export.toggle')}" onclick="event.stopPropagation()">
             <input type="checkbox" ${isExported(p) ? 'checked' : ''} onchange="saveProfExport(${i}, this.checked)">
+          </label>
+          <label class="lc-check lc-check-book" title="${t('fw.book.toggle')}" onclick="event.stopPropagation()">
+            <input type="checkbox" ${isBooked(p) ? 'checked' : ''} onchange="saveProfBook(${i}, this.checked)">
           </label>
         </div>
       </div>
@@ -656,6 +668,10 @@ function detailHeader(sel, badgeClass, badgeHtml) {
           <input type="checkbox" ${sel.exported ? 'checked' : ''} onchange="${sel.onExport}">
           <span>${t('to.report')}</span>
         </label>
+        <label class="exp-label exp-label-book" title="${t('to.book')}">
+          <input type="checkbox" ${sel.booked ? 'checked' : ''} onchange="${sel.onBook}">
+          <span>${t('to.book')}</span>
+        </label>
         <button class="btn btn-secondary" onclick="${sel.onExcel}">${t('export')}</button>
       </div>
     </div>
@@ -693,6 +709,8 @@ function renderMatDetail(header, tabs, content, stats) {
     title: m.name || '',
     exported: isExported(m),
     onExport: `saveMatExport(${selId != null ? selId : '0'}, this.checked)`,
+    booked: isBooked(m),
+    onBook: `saveMatBook(${selId != null ? selId : '0'}, this.checked)`,
     onExcel: 'exportExcel()',
     sub: [
       { label: t('detail.article') + ':', value: fmtCode(m.code) },
@@ -780,6 +798,8 @@ function renderProfDetail(header, tabs, content, stats) {
     title: p.material || p.name || '',
     exported: isExported(p),
     onExport: `saveProfExport(${selId != null ? selId : '0'}, this.checked)`,
+    booked: isBooked(p),
+    onBook: `saveProfBook(${selId != null ? selId : '0'}, this.checked)`,
     onExcel: 'exportExcel()',
     sub: [
       { label: t('detail.article') + ':', value: fmtCode(p.materialCode || p.code) }
@@ -958,6 +978,10 @@ function fwCardHTML(f) {
       <label class="fw-check" title="${t('fw.export.toggle')}" onclick="event.stopPropagation()">
         <input type="checkbox" class="fw-check-input" ${f.export === false ? '' : 'checked'}
           onchange="saveFitExport(${f.id}, this.checked)">
+      </label>
+      <label class="fw-check fw-check-book" title="${t('fw.book.toggle')}" onclick="event.stopPropagation()">
+        <input type="checkbox" class="fw-check-input" ${f.book === false ? '' : 'checked'}
+          onchange="saveFitBook(${f.id}, this.checked)">
       </label>
       <div class="fw-card-main">
         <div class="fw-card-editor">
@@ -1524,6 +1548,13 @@ function saveFitExport(id, checked) {
   saveDB();
 }
 
+function saveFitBook(id, checked) {
+  const f = fitById(id);
+  if (!f) return;
+  f.book = checked;
+  saveDB();
+}
+
 function toggleBlacklist(byCode, byName, item, checked) {
   if (item.code) {
     if (!checked) { if (byCode.indexOf(item.code) === -1) byCode.push(item.code); }
@@ -1770,12 +1801,26 @@ function saveMatExport(i, checked) {
   saveDB();
 }
 
+function saveMatBook(i, checked) {
+  const m = db.materials[i];
+  if (!m) return;
+  m.book = checked;
+  saveDB();
+}
+
 function saveProfExport(i, checked) {
   const p = db.profiles[i];
   if (!p) return;
   p.export = checked;
   toggleBlacklist(fitRules.profBlacklist, fitRules.profBlacklistByName || [], p, checked);
   saveFitRules();
+  saveDB();
+}
+
+function saveProfBook(i, checked) {
+  const p = db.profiles[i];
+  if (!p) return;
+  p.book = checked;
   saveDB();
 }
 

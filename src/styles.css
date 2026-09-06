@@ -305,6 +305,8 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .lc-drag-handle { color: var(--text-placeholder); cursor: grab; font-size: 13px; user-select: none; line-height: 1; }
 .lc-check { display: inline-flex; align-items: center; cursor: pointer; flex: 0 0 auto; }
 .lc-check input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+.lc-check-book input { accent-color: var(--orange); }
+.lc-acts { gap: 6px; }
 .list-card.dragging { opacity: 0.4; }
 .list-card.drag-over { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59,130,246,0.25); background: var(--bg-hover); }
 .list-card.no-export { opacity: 0.55; }
@@ -338,6 +340,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .dh-actions { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
 .exp-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); cursor: pointer; user-select: none; }
 .exp-label input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+.exp-label-book input { accent-color: var(--orange); }
 .dh-sub { display: flex; gap: 20px; margin-top: 6px; font-size: 13px; }
 .dh-sub-item { color: var(--text-muted); }
 .dh-sub-item b { color: var(--text-strong); font-weight: 600; }
@@ -607,6 +610,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
   border: 1px solid var(--border-strong);
   border-radius: 4px;
 }
+.fw-check-book .fw-check-input { accent-color: var(--orange); margin-left: 2px; }
 .fw-drag-handle { color: var(--text-placeholder); cursor: grab; font-size: 13px; user-select: none; flex: 0 0 auto; padding-top: 4px; }
 .fw-card-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; user-select: text; }
 .fw-card-editor { display: flex; align-items: center; gap: 5px; min-width: 0; }
