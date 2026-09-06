@@ -22,6 +22,16 @@ function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function displayName(name, code) {
+  const c = code == null ? '' : String(code).trim();
+  if (c) return ((name == null ? '' : name) + ' (Артикул ' + c + ')').trim();
+  return name == null ? '' : String(name);
+}
+
+function profName(p) {
+  return p ? displayName(p.material || p.name || '', p.materialCode || p.code) : '';
+}
+
 function cellValue(item, h) {
   let v = item[h];
   if (Array.isArray(v)) {
@@ -284,7 +294,7 @@ function profilesSheet(wb, profiles) {
     details.forEach(d => {
       const posArr = (d.positions || []).filter((v, i) => d.positions.indexOf(v) === i);
       const profilPos = posArr.length ? posArr.join(', ') : (poz || '');
-      profileDataRow(ws, row + 2 + (poz - 1), profilPos, p.name, d.count || 0, d.length || '');
+      profileDataRow(ws, row + 2 + (poz - 1), profilPos, profName(p), d.count || 0, d.length || '');
       poz++;
     });
     row = row + 2 + details.length + (i < list.length - 1 ? 1 : 0);
@@ -397,7 +407,7 @@ function profilePdfTable(p) {
   const rows = details.map((d, i) => {
     const posArr = (d.positions || []).filter((v, j) => d.positions.indexOf(v) === j);
     const pos = posArr.length ? posArr.join(', ') : (i + 1);
-    return `<tr><td class="c">${esc(pos)}</td><td class="l">${esc(p.name)}</td><td class="c">${d.count || 0}</td><td class="c">${d.length != null ? d.length : ''}</td></tr>`;
+    return `<tr><td class="c">${esc(pos)}</td><td class="l">${esc(profName(p))}</td><td class="c">${d.count || 0}</td><td class="c">${d.length != null ? d.length : ''}</td></tr>`;
   }).join('');
   return `<div class="gwrap"><table class="grp"><colgroup>${PROF_COLS}</colgroup>
   <thead>
@@ -474,4 +484,4 @@ async function exportToXLSXBuffer(data) {
   return buffer;
 }
 
-module.exports = { exportToJSON, exportToXLSXBuffer, buildPdfHtml };
+module.exports = { exportToJSON, exportToXLSXBuffer, buildPdfHtml, profName };

@@ -225,6 +225,12 @@ function scanObject(obj) {
             var pName = obj.Name || "Profile";
             var pInfo = splitName(pName);
 
+            // Material of the profile: name and its articul (after "\r"). The articul for
+            // a profile is the material's articul - everything else works with it.
+            var pMatInfo = splitName(obj.MaterialName);
+            var pMat = (pMatInfo && pMatInfo.name) || "";
+            var pMatCode = (pMatInfo && pMatInfo.code) || "";
+
             // Extract articul embedded as "(articul NNN)" in the profile name and strip it from the name.
             var pCode = pInfo.code;
             var ART_PAT = /\(\s*[\u0410\u0430]\u0440\u0442\u0438\u043A\u0443\u043B\s+(\d+)\s*\)/;
@@ -233,16 +239,13 @@ function scanObject(obj) {
                 if (!pCode) pCode = mArticul[1];
                 pInfo.name = pInfo.name.replace(ART_PAT, "").replace(/\s{2,}/g, " ").trim();
             }
-            pInfo.code = pCode;
-            var pMatInfo = splitName(obj.MaterialName);
-            var pMat = (pMatInfo && pMatInfo.name) || "";
-            var pMatCode = (pMatInfo && pMatInfo.code) || pCode || "";
+            var profileCode = pMatCode || pCode;
 
             var pKey = pInfo.name + "|" + pMat;
             if (!profiles[pKey]) {
                 profiles[pKey] = {
                     name: pInfo.name,
-                    code: pInfo.code,
+                    code: profileCode,
                     material: pMat,
                     materialCode: pMatCode,
                     details: {}

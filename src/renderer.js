@@ -476,7 +476,8 @@ function profCardHTML(p, i) {
   const total = details.reduce((s, d) => s + (d.count || 0), 0);
   const q = searchQuery;
   const nameHtml = q ? highlight(p.material || p.name || '', q) : escapeHtml(p.material || p.name || '');
-  const code = (p.code || '').toLowerCase();
+  const pCode = p.materialCode || p.code || '';
+  const code = pCode.toLowerCase();
   const matchCode = q && code.indexOf(q) !== -1;
   const noEx = p.export === false ? ' no-export' : '';
   return `
@@ -492,7 +493,7 @@ function profCardHTML(p, i) {
       </div>
       <div class="lc-sub">${details.length} ${t('profiles.sizes').toLowerCase()}</div>
       <div class="lc-meta">
-        <span>${t('detail.article')}: <b>${matchCode ? highlight(p.code || '', q) : escapeHtml(p.code || '—')}</b></span>
+        <span>${t('detail.article')}: <b>${matchCode ? highlight(pCode, q) : escapeHtml(pCode || '—')}</b></span>
         <span>${t('detail.count')}: <b>${total}</b></span>
       </div>
       <div class="lc-supplier" onclick="event.stopPropagation()">
@@ -526,7 +527,7 @@ function renderList() {
       .map((p, i) => ({ p, i }))
       .filter(({ p }) => {
         if (!searchQuery) return true;
-        const c = ((p.code || '') + ' ' + (p.material || p.name || '')).toLowerCase();
+        const c = ((p.materialCode || p.code || '') + ' ' + (p.material || p.name || '')).toLowerCase();
         return c.indexOf(searchQuery) !== -1;
       });
     body.innerHTML = list.length
@@ -781,7 +782,7 @@ function renderProfDetail(header, tabs, content, stats) {
     onExport: `saveProfExport(${selId != null ? selId : '0'}, this.checked)`,
     onExcel: 'exportExcel()',
     sub: [
-      { label: t('detail.article') + ':', value: fmtCode(p.code) }
+      { label: t('detail.article') + ':', value: fmtCode(p.materialCode || p.code) }
     ]
   }, 'badge-profile', `${total} ${t('pcs')}`);
 
@@ -793,7 +794,7 @@ function renderProfDetail(header, tabs, content, stats) {
   if (selTab === 'info') {
     content.innerHTML = `
       <div class="info-grid">
-        ${infoItem(t('detail.article'), fmtCode(p.code))}
+        ${infoItem(t('detail.article'), fmtCode(p.materialCode || p.code))}
         ${infoItem(t('stat.material'), escapeHtml(p.material || p.name || ''))}
         ${infoItem(t('detail.count'), total)}
         ${infoItem(t('stat.sizes'), details.length)}
