@@ -212,6 +212,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   applyFitRules();
   ensureTagOrder();
   bindSearch();
+  bindListEvents();
   bindFittingsEvents();
   bindSettingsEvents();
   if (db.materials && db.materials.length) selId = 0;
@@ -448,11 +449,19 @@ function matCardHTML(m, i) {
   const q = searchQuery;
   const nameHtml = q ? highlight(m.name || '', q) : escapeHtml(m.name || '');
   const code = (m.code || '').toLowerCase();
-  const nameLower = (m.name || '').toLowerCase();
   const matchCode = q && code.indexOf(q) !== -1;
+  const noEx = m.export === false ? ' no-export' : '';
   return `
-    <div class="list-card ${i === selId ? 'selected' : ''}" onclick="selectMat(${i})">
-      <div class="lc-thickness">${thickness} мм</div>
+    <div class="list-card ${i === selId ? 'selected' : ''}${noEx}" draggable="true" data-idx="${i}" onclick="selectMat(${i})">
+      <div class="lc-top">
+        <div class="lc-thickness">${thickness} мм</div>
+        <div class="lc-acts">
+          <span class="lc-drag-handle" title="${t('fit.drag.title')}">⠿</span>
+          <label class="lc-check" title="${t('fw.export.toggle')}" onclick="event.stopPropagation()">
+            <input type="checkbox" ${isExported(m) ? 'checked' : ''} onchange="saveMatExport(${i}, this.checked)">
+          </label>
+        </div>
+      </div>
       <div class="lc-name">${nameHtml}</div>
       <div class="lc-meta">
         <span>${t('detail.article')}: <b>${matchCode ? highlight(m.code || '', q) : escapeHtml(m.code || '—')}</b></span>
@@ -468,11 +477,19 @@ function profCardHTML(p, i) {
   const q = searchQuery;
   const nameHtml = q ? highlight(p.material || p.name || '', q) : escapeHtml(p.material || p.name || '');
   const code = (p.code || '').toLowerCase();
-  const nameLower = (p.material || p.name || '').toLowerCase();
   const matchCode = q && code.indexOf(q) !== -1;
+  const noEx = p.export === false ? ' no-export' : '';
   return `
-    <div class="list-card ${i === selId ? 'selected' : ''}" onclick="selectProf(${i})">
-      <div class="lc-name">${nameHtml}</div>
+    <div class="list-card ${i === selId ? 'selected' : ''}${noEx}" draggable="true" data-idx="${i}" onclick="selectProf(${i})">
+      <div class="lc-top">
+        <div class="lc-name">${nameHtml}</div>
+        <div class="lc-acts">
+          <span class="lc-drag-handle" title="${t('fit.drag.title')}">⠿</span>
+          <label class="lc-check" title="${t('fw.export.toggle')}" onclick="event.stopPropagation()">
+            <input type="checkbox" ${isExported(p) ? 'checked' : ''} onchange="saveProfExport(${i}, this.checked)">
+          </label>
+        </div>
+      </div>
       <div class="lc-sub">${details.length} ${t('profiles.sizes').toLowerCase()}</div>
       <div class="lc-meta">
         <span>${t('detail.article')}: <b>${matchCode ? highlight(p.code || '', q) : escapeHtml(p.code || '—')}</b></span>
@@ -518,6 +535,87 @@ function renderList() {
   }
 }
 
+// ============ LIST (materials / profiles): drag&drop reorder ============
+let suppressListClick = false;
+
+function bindListEvents() {
+  const body = document.getElementById('list-body');
+  if (!body) return;
+  body.addEventListener('dragstart', listDragStart);
+  body.addEventListener('dragend', listDragEnd);
+  body.addEventListener('dragover', listDragOver);
+  body.addEventListener('drop', listDrop);
+}
+
+function listDragStart(e) {
+  if (e.target.closest('input, select, button, .lc-check')) { e.preventDefault(); return; }
+  const card = e.target.closest('.list-card');
+  if (!card) return;
+  const idx = parseInt(card.dataset.idx, 10);
+  if (!Number.isFinite(idx)) return;
+  e.dataTransfer.setData('application/x-obi-list', String(idx));
+  e.dataTransfer.setData('text/plain', String(idx));
+  e.dataTransfer.effectAllowed = 'move';
+  requestAnimationFrame(() => card.classList.add('dragging'));
+}
+
+function listDragEnd(e) {
+  const card = e.target.closest('.list-card');
+  if (card) card.classList.remove('dragging');
+  clearListDropStyles();
+}
+
+function listDragOver(e) {
+  e.preventDefault();
+  clearListDropStyles();
+  const card = e.target.closest('.list-card');
+  if (card) card.classList.add('drag-over');
+}
+
+function listDrop(e) {
+  e.preventDefault();
+  clearListDropStyles();
+  if (selCat !== 'materials' && selCat !== 'profiles') return;
+  const list = selCat === 'materials' ? (db.materials || []) : (db.profiles || []);
+  const raw = e.dataTransfer.getData('application/x-obi-list') || e.dataTransfer.getData('text/plain');
+  const fromIdx = parseInt(raw, 10);
+  if (!Number.isFinite(fromIdx) || fromIdx < 0 || fromIdx >= list.length) return;
+
+  const card = e.target.closest('.list-card');
+  let insertAt = list.length;
+  if (card) {
+    const toIdx = parseInt(card.dataset.idx, 10);
+    if (Number.isFinite(toIdx)) {
+      const rc = card.getBoundingClientRect();
+      insertAt = (e.clientY > rc.top + rc.height / 2) ? toIdx + 1 : toIdx;
+    }
+  }
+  if (fromIdx === insertAt || fromIdx === insertAt - 1) return;
+
+  const prevSel = (selId != null && selId < list.length) ? list[selId] : null;
+  reorderListItem(list, fromIdx, insertAt);
+  if (prevSel) {
+    const newIdx = list.indexOf(prevSel);
+    selId = (newIdx !== -1) ? newIdx : null;
+  }
+  suppressListClick = true;
+  setTimeout(() => { suppressListClick = false; }, 300);
+  saveDB();
+}
+
+function reorderListItem(arr, from, insertAt) {
+  const item = arr.splice(from, 1)[0];
+  let dest = insertAt;
+  if (from < insertAt) dest--;
+  if (dest < 0) dest = 0;
+  if (dest > arr.length) dest = arr.length;
+  arr.splice(dest, 0, item);
+}
+
+function clearListDropStyles() {
+  document.querySelectorAll('#list-body .list-card').forEach(c => c.classList.remove('drag-over'));
+}
+
 function highlight(text, q) {
   const esc = escapeHtml(text);
   if (!q) return esc;
@@ -528,6 +626,7 @@ function highlight(text, q) {
 }
 
 function selectMat(i) {
+  if (suppressListClick) { suppressListClick = false; return; }
   selId = i;
   selTab = 'edges';
   renderList();
@@ -535,6 +634,7 @@ function selectMat(i) {
 }
 
 function selectProf(i) {
+  if (suppressListClick) { suppressListClick = false; return; }
   selId = i;
   selTab = 'sizes';
   renderList();

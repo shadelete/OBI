@@ -298,6 +298,17 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 }
 .lc-supplier select:focus { outline: none; border-color: var(--accent); }
 
+.lc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.lc-top .lc-thickness { margin-bottom: 0; }
+.lc-top .lc-name { margin-bottom: 0; }
+.lc-acts { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.lc-drag-handle { color: var(--text-placeholder); cursor: grab; font-size: 13px; user-select: none; line-height: 1; }
+.lc-check { display: inline-flex; align-items: center; cursor: pointer; flex: 0 0 auto; }
+.lc-check input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+.list-card.dragging { opacity: 0.4; }
+.list-card.drag-over { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59,130,246,0.25); background: var(--bg-hover); }
+.list-card.no-export { opacity: 0.55; }
+
 .list-empty, .list-noresults { padding: 30px 12px; text-align: center; color: var(--text-faint); font-size: 13px; }
 
 /* ============ DETAIL PANEL ============ */
