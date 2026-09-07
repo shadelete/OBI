@@ -229,7 +229,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindSettingsEvents();
   if (db.materials && db.materials.length) selId = 0;
   renderAll();
+  hideBootSplash();
 });
+
+function hideBootSplash() {
+  const el = document.getElementById('boot-splash');
+  if (!el) return;
+  setTimeout(() => {
+    el.classList.add('hiding');
+    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 400);
+  }, 40);
+}
 
 async function renderProjectName() {
   const el = document.getElementById('project-name');

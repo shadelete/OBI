@@ -389,7 +389,7 @@ for (var ci = 0; ci < compKeys.length; ci++) {
     }
 }
 
-alert("\u041E\u0422\u0421\u041A\u0410\u041D\u0418\u0420\u041E\u0412\u0410\u041D\u041E\n\u0414\u0435\u0442\u0430\u043B\u0435\u0439: " + panelsCount + "\n\u041F\u0440\u043E\u0444\u0438\u043B\u0435\u0439: " + profilesCount + "\n\u0424\u0443\u0440\u043D\u0438\u0442\u0443\u0440\u044B: " + fastenersCount + "\u00A0(\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432 \u0441\u043E\u0441\u0442\u0430\u0432\u0430: " + compKeys.length + ")\n\u0421 \u0441\u043E\u0441\u0442\u0430\u0432\u043E\u043C: " + compositeCount + "\n\u041F/\u0444 \u0437\u0430\u0433\u043E\u0442\u043E\u0432\u043E\u043A: " + draftsCount);
+// Otpokano, launching OBI.exe silently
 
 function getOrderShortName() {
     if (typeof Article !== "undefined" && Article && Article.OrderName) {
@@ -562,15 +562,14 @@ if (!EXE_PATH) {
     }
 
     try {
-        var exec = require('child_process').exec;
-        exec('start "" "' + EXE_PATH + '"', function(error) {
-            if (error) {
-                alert("\u041E\u0428\u0418\u0411\u041A\u0410 \u0417\u0410\u041F\u0423\u0421\u041A\u0410: " + error.message);
-            }
-            Action.Finish();
+        var cps = require('child_process');
+        var child = cps.spawn(EXE_PATH, [], { detached: true, stdio: 'ignore', windowsHide: true });
+        child.on('error', function (err) {
+            alert("\u041E\u0428\u0418\u0411\u041A\u0410 \u0417\u0410\u041F\u0423\u0421\u041A\u0410: " + (err.message || err));
         });
+        if (child.unref) child.unref();
     } catch (e) {
         alert("\u041E\u0428\u0418\u0411\u041A\u0410 \u0417\u0410\u041F\u0423\u0421\u041A\u0410: " + e.message);
-        Action.Finish();
     }
+    Action.Finish();
 }

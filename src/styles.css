@@ -75,6 +75,49 @@ body.theme-light {
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; }
 body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; overflow: hidden; }
+
+/* ============ BOOT SPLASH ============ */
+.boot-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  transition: opacity 0.35s ease;
+}
+.boot-splash.hiding { opacity: 0; pointer-events: none; }
+.boot-splash-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.boot-logo {
+  background: linear-gradient(135deg, #2f6fe0, #4d8df0);
+  color: #fff;
+  font-weight: 800;
+  font-size: 34px;
+  letter-spacing: 3px;
+  padding: 18px 30px;
+  border-radius: 14px;
+  box-shadow: 0 8px 26px rgba(43,109,224,0.4);
+  animation: bootPulse 1.4s ease-in-out infinite;
+}
+@keyframes bootPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 8px 26px rgba(43,109,224,0.4); }
+  50% { transform: scale(1.06); box-shadow: 0 10px 40px rgba(43,109,224,0.55); }
+}
+.boot-spinner {
+  margin-top: 30px;
+  width: 34px;
+  height: 34px;
+  border: 3px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: bootSpin 0.8s linear infinite;
+}
+@keyframes bootSpin { to { transform: rotate(360deg); } }
 .app { display: flex; flex-direction: column; height: 100vh; }
 
 /* ============ TOP BAR ============ */
