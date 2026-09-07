@@ -1,6 +1,6 @@
 let db = null;
 let config = { theme: 'dark', language: 'uk' };
-let fitRules = { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [] };
+let fitRules = { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [], bookBlacklist: [], bookBlacklistByName: [], matBookBlacklist: [], matBookBlacklistByName: [], profBookBlacklist: [], profBookBlacklistByName: [] };
 let appInfo = { version: '', url: '', author: '' };
 
 let selCat = 'materials';
@@ -198,7 +198,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   fitRules = null;
   try { fitRules = await window.api.getFitRules(); } catch (e) {}
   if (!fitRules || !fitRules.tags) {
-    fitRules = (db && db.fitRules) ? db.fitRules : { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [] };
+    fitRules = (db && db.fitRules) ? db.fitRules : { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [], bookBlacklist: [], bookBlacklistByName: [], matBookBlacklist: [], matBookBlacklistByName: [], profBookBlacklist: [], profBookBlacklistByName: [] };
   }
   if (!fitRules.tags) fitRules.tags = {};
   if (!fitRules.tagsByName) fitRules.tagsByName = {};
@@ -210,6 +210,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!fitRules.matBlacklistByName) fitRules.matBlacklistByName = [];
   if (!fitRules.profBlacklist) fitRules.profBlacklist = [];
   if (!fitRules.profBlacklistByName) fitRules.profBlacklistByName = [];
+  if (!fitRules.bookBlacklist) fitRules.bookBlacklist = [];
+  if (!fitRules.bookBlacklistByName) fitRules.bookBlacklistByName = [];
+  if (!fitRules.matBookBlacklist) fitRules.matBookBlacklist = [];
+  if (!fitRules.matBookBlacklistByName) fitRules.matBookBlacklistByName = [];
+  if (!fitRules.profBookBlacklist) fitRules.profBookBlacklist = [];
+  if (!fitRules.profBookBlacklistByName) fitRules.profBookBlacklistByName = [];
   if (db) delete db.fitRules;
   try { appInfo = (await window.api.getAppInfo()) || appInfo; } catch (e) {}
   applyTheme();
@@ -1552,6 +1558,8 @@ function saveFitBook(id, checked) {
   const f = fitById(id);
   if (!f) return;
   f.book = checked;
+  toggleBlacklist(fitRules.bookBlacklist, fitRules.bookBlacklistByName || [], f, checked);
+  saveFitRules();
   saveDB();
 }
 
@@ -1570,12 +1578,18 @@ function applyFitRules() {
   const tagsByName = fitRules.tagsByName || {};
   const bl = fitRules.blacklist;
   const blByName = fitRules.blacklistByName || [];
+  const bookBl = fitRules.bookBlacklist || [];
+  const bookBlByName = fitRules.bookBlacklistByName || [];
   const suppliers = fitRules.suppliers || {};
   const suppliersByName = fitRules.suppliersByName || {};
   const matBl = fitRules.matBlacklist || [];
   const matBlByName = fitRules.matBlacklistByName || [];
+  const matBookBl = fitRules.matBookBlacklist || [];
+  const matBookBlByName = fitRules.matBookBlacklistByName || [];
   const profBl = fitRules.profBlacklist || [];
   const profBlByName = fitRules.profBlacklistByName || [];
+  const profBookBl = fitRules.profBookBlacklist || [];
+  const profBookBlByName = fitRules.profBookBlacklistByName || [];
   (db.fittings || []).forEach(f => {
     if (f.code && tags[f.code]) f.tag = tags[f.code];
     else if (f.name && tagsByName[f.name]) f.tag = tagsByName[f.name];
@@ -1583,16 +1597,22 @@ function applyFitRules() {
     else if (f.name && suppliersByName[f.name]) f.supplier = suppliersByName[f.name];
     const inBl = (f.code && bl.indexOf(f.code) !== -1) || (f.name && blByName.indexOf(f.name) !== -1) || (f.name && bl.indexOf(f.name) !== -1);
     if (inBl) f.export = false;
+    const inBookBl = (f.code && bookBl.indexOf(f.code) !== -1) || (f.name && bookBlByName.indexOf(f.name) !== -1) || (f.name && bookBl.indexOf(f.name) !== -1);
+    if (inBookBl) f.book = false;
   });
   (db.materials || []).forEach(m => {
     const inBl = (m.code && matBl.indexOf(m.code) !== -1) || (m.name && matBlByName.indexOf(m.name) !== -1) || (m.name && matBl.indexOf(m.name) !== -1);
     if (inBl) m.export = false;
+    const inBookBl = (m.code && matBookBl.indexOf(m.code) !== -1) || (m.name && matBookBlByName.indexOf(m.name) !== -1) || (m.name && matBookBl.indexOf(m.name) !== -1);
+    if (inBookBl) m.book = false;
   });
   (db.profiles || []).forEach(p => {
     if (p.code && suppliers[p.code]) p.supplier = suppliers[p.code];
     else if (p.name && suppliersByName[p.name]) p.supplier = suppliersByName[p.name];
     const inBl = (p.code && profBl.indexOf(p.code) !== -1) || (p.name && profBlByName.indexOf(p.name) !== -1) || (p.name && profBl.indexOf(p.name) !== -1);
     if (inBl) p.export = false;
+    const inBookBl = (p.code && profBookBl.indexOf(p.code) !== -1) || (p.name && profBookBlByName.indexOf(p.name) !== -1) || (p.name && profBookBl.indexOf(p.name) !== -1);
+    if (inBookBl) p.book = false;
   });
 }
 
@@ -1805,6 +1825,8 @@ function saveMatBook(i, checked) {
   const m = db.materials[i];
   if (!m) return;
   m.book = checked;
+  toggleBlacklist(fitRules.matBookBlacklist, fitRules.matBookBlacklistByName || [], m, checked);
+  saveFitRules();
   saveDB();
 }
 
@@ -1821,6 +1843,8 @@ function saveProfBook(i, checked) {
   const p = db.profiles[i];
   if (!p) return;
   p.book = checked;
+  toggleBlacklist(fitRules.profBookBlacklist, fitRules.profBookBlacklistByName || [], p, checked);
+  saveFitRules();
   saveDB();
 }
 

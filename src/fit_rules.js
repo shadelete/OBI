@@ -5,7 +5,7 @@ async function load() {
   try {
     data = await window.api.getFitRulesData();
   } catch (e) {
-    data = { rules: { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [] }, fittings: [], materials: [], profiles: [], tagOrder: [] };
+    data = { rules: { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [], bookBlacklist: [], bookBlacklistByName: [], matBookBlacklist: [], matBookBlacklistByName: [], profBookBlacklist: [], profBookBlacklistByName: [] }, fittings: [], materials: [], profiles: [], tagOrder: [] };
   }
   render();
 }
@@ -14,11 +14,13 @@ function render() {
   if (currentTab === 'tags') renderTags();
   else if (currentTab === 'blacklist') renderBlacklist('fit');
   else if (currentTab === 'matbl') renderBlacklist('mat');
-  else renderBlacklist('prof');
-  document.getElementById('tab-tags').classList.toggle('active', currentTab === 'tags');
-  document.getElementById('tab-blacklist').classList.toggle('active', currentTab === 'blacklist');
-  document.getElementById('tab-matbl').classList.toggle('active', currentTab === 'matbl');
-  document.getElementById('tab-profbl').classList.toggle('active', currentTab === 'profbl');
+  else if (currentTab === 'profbl') renderBlacklist('prof');
+  else if (currentTab === 'fitbook') renderBlacklist('fitbook');
+  else if (currentTab === 'matbook') renderBlacklist('matbook');
+  else renderBlacklist('profbook');
+  ['tags', 'blacklist', 'matbl', 'profbl', 'fitbook', 'matbook', 'profbook'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', currentTab === t);
+  });
 }
 
 function renderTags() {
@@ -78,6 +80,9 @@ function blacklistArrays(kind) {
   const rules = data.rules || {};
   if (kind === 'mat') return { byCode: rules.matBlacklist || [], byName: rules.matBlacklistByName || [], lookup: data.materials || [] };
   if (kind === 'prof') return { byCode: rules.profBlacklist || [], byName: rules.profBlacklistByName || [], lookup: data.profiles || [] };
+  if (kind === 'fitbook') return { byCode: rules.bookBlacklist || [], byName: rules.bookBlacklistByName || [], lookup: data.fittings || [] };
+  if (kind === 'matbook') return { byCode: rules.matBookBlacklist || [], byName: rules.matBookBlacklistByName || [], lookup: data.materials || [] };
+  if (kind === 'profbook') return { byCode: rules.profBookBlacklist || [], byName: rules.profBookBlacklistByName || [], lookup: data.profiles || [] };
   return { byCode: rules.blacklist || [], byName: rules.blacklistByName || [], lookup: data.fittings || [] };
 }
 
@@ -85,6 +90,7 @@ function renderBlacklist(kind) {
   const body = document.getElementById('fr-body');
   body.innerHTML = '';
   const { byCode, byName, lookup } = blacklistArrays(kind);
+  const badge = (kind === 'fitbook' || kind === 'matbook' || kind === 'profbook') ? 'не переноситься у книгу' : 'не експортується';
 
   const items = [];
   byCode.forEach(code => {
@@ -107,7 +113,7 @@ function renderBlacklist(kind) {
     const row = document.createElement('div');
     row.className = 'fr-item';
     row.innerHTML = `<span class="fr-item-name">${escapeHtml(it.name)}</span>` +
-      `<span class="fr-badge bl">не експортується</span>` +
+      `<span class="fr-badge bl">${badge}</span>` +
       `<button class="fr-rem" title="Прибрати з чорного списку" onclick="removeItem('${kind}', '${escapeAttr(it.key)}', ${it.byName})">✕</button>`;
     body.appendChild(row);
   });
@@ -115,7 +121,13 @@ function renderBlacklist(kind) {
 
 async function removeItem(kind, key, byName) {
   const rules = data.rules;
-  const pair = kind === 'mat' ? ['matBlacklist', 'matBlacklistByName'] : (kind === 'prof' ? ['profBlacklist', 'profBlacklistByName'] : ['blacklist', 'blacklistByName']);
+  let pair;
+  if (kind === 'mat') pair = ['matBlacklist', 'matBlacklistByName'];
+  else if (kind === 'prof') pair = ['profBlacklist', 'profBlacklistByName'];
+  else if (kind === 'fitbook') pair = ['bookBlacklist', 'bookBlacklistByName'];
+  else if (kind === 'matbook') pair = ['matBookBlacklist', 'matBookBlacklistByName'];
+  else if (kind === 'profbook') pair = ['profBookBlacklist', 'profBookBlacklistByName'];
+  else pair = ['blacklist', 'blacklistByName'];
   const byCodeArr = rules[pair[0]] || [];
   const byNameArr = rules[pair[1]] || [];
   if (byName) {
@@ -143,5 +155,8 @@ document.getElementById('tab-tags').addEventListener('click', () => { currentTab
 document.getElementById('tab-blacklist').addEventListener('click', () => { currentTab = 'blacklist'; render(); });
 document.getElementById('tab-matbl').addEventListener('click', () => { currentTab = 'matbl'; render(); });
 document.getElementById('tab-profbl').addEventListener('click', () => { currentTab = 'profbl'; render(); });
+document.getElementById('tab-fitbook').addEventListener('click', () => { currentTab = 'fitbook'; render(); });
+document.getElementById('tab-matbook').addEventListener('click', () => { currentTab = 'matbook'; render(); });
+document.getElementById('tab-profbook').addEventListener('click', () => { currentTab = 'profbook'; render(); });
 
 load();

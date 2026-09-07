@@ -108,11 +108,11 @@ function fitRulesPath() {
   return path.join(dataDir(), 'data', 'fit_rules.json');
 }
 
-const DEFAULT_FIT_RULES = Object.freeze({ tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [] });
+const DEFAULT_FIT_RULES = Object.freeze({ tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [], bookBlacklist: [], bookBlacklistByName: [], matBookBlacklist: [], matBookBlacklistByName: [], profBookBlacklist: [], profBookBlacklistByName: [] });
 
 function readFitRules() {  try {
     const p = fitRulesPath();
-    if (!fs.existsSync(p)) return { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [] };
+    if (!fs.existsSync(p)) return { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [], bookBlacklist: [], bookBlacklistByName: [], matBookBlacklist: [], matBookBlacklistByName: [], profBookBlacklist: [], profBookBlacklistByName: [] };
     const data = JSON.parse(fs.readFileSync(p, 'utf-8'));
     return {
       tags: (data.tags && typeof data.tags === 'object') ? data.tags : {},
@@ -124,10 +124,16 @@ function readFitRules() {  try {
       matBlacklist: Array.isArray(data.matBlacklist) ? data.matBlacklist : [],
       matBlacklistByName: Array.isArray(data.matBlacklistByName) ? data.matBlacklistByName : [],
       profBlacklist: Array.isArray(data.profBlacklist) ? data.profBlacklist : [],
-      profBlacklistByName: Array.isArray(data.profBlacklistByName) ? data.profBlacklistByName : []
+      profBlacklistByName: Array.isArray(data.profBlacklistByName) ? data.profBlacklistByName : [],
+      bookBlacklist: Array.isArray(data.bookBlacklist) ? data.bookBlacklist : [],
+      bookBlacklistByName: Array.isArray(data.bookBlacklistByName) ? data.bookBlacklistByName : [],
+      matBookBlacklist: Array.isArray(data.matBookBlacklist) ? data.matBookBlacklist : [],
+      matBookBlacklistByName: Array.isArray(data.matBookBlacklistByName) ? data.matBookBlacklistByName : [],
+      profBookBlacklist: Array.isArray(data.profBookBlacklist) ? data.profBookBlacklist : [],
+      profBookBlacklistByName: Array.isArray(data.profBookBlacklistByName) ? data.profBookBlacklistByName : []
     };
   } catch (e) {
-    return { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [] };
+    return { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [], bookBlacklist: [], bookBlacklistByName: [], matBookBlacklist: [], matBookBlacklistByName: [], profBookBlacklist: [], profBookBlacklistByName: [] };
   }
 }
 
