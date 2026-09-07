@@ -375,11 +375,11 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 
 /* Details list */
 .dparts { display: flex; flex-direction: column; }
-.dpart-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 4px 0; font-size: 13px; border-bottom: 1px solid var(--border-soft); }
+.dpart-row { display: grid; grid-template-columns: 30px 30px 1fr auto; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; border-bottom: 1px solid var(--border-soft); }
 .dpart-row:last-child { border-bottom: none; }
-.dpart-name { color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dpart-pos { color: var(--green); font-weight: 700; margin-right: 6px; }
-.dpart-count { color: var(--text-strong); font-weight: 600; margin-right: 8px; }
+.dpart-name { color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dpart-pos { color: var(--green); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dpart-count { color: var(--orange); font-weight: 700; text-align: center; }
 .dpart-dim { color: var(--accent); font-weight: 600; white-space: nowrap; text-align: right; min-width: 90px; }
 
 /* Additional info */

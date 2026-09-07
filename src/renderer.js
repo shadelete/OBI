@@ -756,10 +756,10 @@ function renderMatDetail(header, tabs, content, stats) {
       <div class="dparts">
         ${grouped.map(d => {
           const cuts = detailCuts(d);
-          const posHtml = d.position ? `<span class="dpart-pos">${escapeHtml(d.position)}</span>` : '';
-          const countHtml = (d.count || 1) > 1 ? `<span class="dpart-count">×${d.count}</span>` : '';
+          const posHtml = `<span class="dpart-pos">${d.position ? escapeHtml(d.position) : ''}</span>`;
+          const countHtml = `<span class="dpart-count">${d.count || 1}</span>`;
           const cutHtml = cuts ? ` · <span style="color:var(--orange)">${escapeHtml(cuts.text)}</span>` : '';
-          return `<div class="dpart-row"><span class="dpart-name">${posHtml}${countHtml}${escapeHtml(d.name)}${cutHtml}</span><span class="dpart-dim">${d.width}×${d.height} мм</span></div>`;
+          return `<div class="dpart-row">${posHtml}${countHtml}<span class="dpart-name">${escapeHtml(d.name)}${cutHtml}</span><span class="dpart-dim">${d.width}×${d.height} мм</span></div>`;
         }).join('')}
       </div>`;
 
