@@ -387,7 +387,7 @@ const PDF_CSS = `
   h1 { margin: 0 0 2px; font-size: 20px; }
   .meta { color: #8a94a6; font-size: 11px; margin-bottom: 10px; }
   .part { margin-top: 22px; }
-  .part-title { background: #c64e24; color: #fff; font-weight: 700; font-size: 15px; padding: 5px 10px; border-radius: 3px; margin-bottom: 4px; }
+  .part-title { background: #c64e24; color: #fff; font-weight: 700; font-size: 15px; padding: 5px 10px; border-radius: 3px; margin-bottom: 22px; }
   .gwrap { }
   .gwrap + .gwrap { margin-top: 20px; }
   .split { break-before: page; page-break-before: always; }
