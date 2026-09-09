@@ -147,6 +147,8 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
   cursor: pointer;
 }
 .topbar-light .project-name { color: #2b3440; border-left-color: #d5dbe4; }
+.project-name.model-name { color: #4d8df0; cursor: default; }
+.topbar-light .project-name.model-name { color: #2b6de0; }
 .brand { display: flex; align-items: center; }
 .brand-logo {
   background: linear-gradient(135deg, #2f6fe0, #4d8df0);

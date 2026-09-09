@@ -5,6 +5,7 @@ const os = require('os');
 const { exportToXLSXBuffer, buildPdfHtml } = require('./src/export');
 const updater = require('./src/updater');
 const calcWorkbook = require('./src/workbook');
+const b3dParser = require('./src/b3d_parser');
 
 let mainWindow;
 let fitRulesWindow;
@@ -454,6 +455,47 @@ ipcMain.handle('rename-project', (event, newName) => {
   fs.renameSync(old, newPath);
   activeProjectPath = newPath;
   return { success: true, name: clean, path: newPath };
+});
+
+ipcMain.handle('open-b3d-dialog', async () => {
+  const sel = await dialog.showOpenDialog(mainWindow, {
+    title: 'Відкрити модель Базіс',
+    properties: ['openFile'],
+    filters: [{ name: 'Модель Базіс (*.b3d)', extensions: ['b3d'] }]
+  });
+  if (!sel.canceled && sel.filePaths.length) return { success: true, path: sel.filePaths[0] };
+  return { success: false, path: '' };
+});
+
+ipcMain.handle('parse-b3d', (_e, filePath) => {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) return { success: false, error: 'Файл не знайдено' };
+    const res = b3dParser.parseB3D(filePath);
+    if (!res.ok) return { success: false, error: res.error || 'Не вдалося розібрати модель' };
+    return { success: true, db: res.db, meta: res.meta };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('save-b3d-db', (_e, data) => {
+  try {
+    ensureProjectsDir();
+    let base = String((data && data.name) || 'Модель').trim();
+    if (!base) base = 'Модель';
+    let p = path.join(projectsDir(), sanitizeFileName(base) + '.json');
+    let i = 2;
+    while (fs.existsSync(p)) {
+      p = path.join(projectsDir(), sanitizeFileName(base) + ' (' + i + ').json');
+      i++;
+    }
+    const out = { ...data, name: path.basename(p, '.json'), _source: 'b3d-model' };
+    delete out._meta;
+    fs.writeFileSync(p, JSON.stringify(out, null, 2), 'utf-8');
+    return { success: true, path: p, name: path.basename(p, '.json') };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
 });
 
 ipcMain.handle('export-xlsx', async (_e, data) => {

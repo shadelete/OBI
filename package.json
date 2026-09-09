@@ -6,7 +6,8 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win",
-    "dist": "electron-builder --win --dir"
+    "dist": "electron-builder --win --dir",
+    "build:b3d": "electron-builder --win -c b3d-builder.json"
   },
   "build": {
     "appId": "com.mebel.outputbazisinfo",

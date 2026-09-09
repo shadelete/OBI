@@ -7,13 +7,14 @@ let selCat = 'materials';
 let selId = null;
 let selTab = 'edges';
 let searchQuery = '';
+let modelMode = false;
 
 const DEFAULT_TAGS = ['Загальна фурнітура', 'Петлі', 'Напрямні', 'Метизна фурнітура'];
 const LEGACY_TAGS = { 'Петли': 'Петлі', 'Направляющие': 'Напрямні', 'Метизная фурнитура': 'Метизна фурнітура', 'Общая фурнитура': 'Загальна фурнітура' };
 
 const I18N = {
   uk: {
-    'brand':'OBI','open.project':'Відкрити замовлення','save.project':'Зберегти замовлення',
+    'brand':'OBI','open.project':'Відкрити замовлення','save.project':'Зберегти замовлення','model.open':'Відкрити модель','model.saved':'Модель збережено: {name}',
     'export.excel':'Експорт Excel','export.pdf':'Експорт у PDF','tab.materials':'Матеріали та кромка','tab.profiles':'Профілі','tab.fittings':'Фурнітура',
     'fit.placeholder.name':'Найменування фурнітури','fit.placeholder.code':'Артикул','fit.placeholder.count':'К-сть','btn.add':'Додати',
     'tags.manage':'Управління тегами:','tags.new.placeholder':'Новий тег','tags.add':'Додати тег',
@@ -72,7 +73,7 @@ const I18N = {
     'calc.err':'Помилка запису: {error}','calc.no.rows':'Немає даних для запису'
   },
   ru: {
-    'brand':'OBI','open.project':'Открыть заказ','save.project':'Сохранить заказ',
+    'brand':'OBI','open.project':'Открыть заказ','save.project':'Сохранить заказ','model.open':'Открыть модель','model.saved':'Модель сохранена: {name}',
     'export.excel':'Экспорт Excel','export.pdf':'Экспорт в PDF','tab.materials':'Материалы и кромка','tab.profiles':'Профили','tab.fittings':'Фурнитура',
     'fit.placeholder.name':'Наименование фурнитуры','fit.placeholder.code':'Артикул','fit.placeholder.count':'Кол-во','btn.add':'Добавить',
     'tags.manage':'Управление тегами:','tags.new.placeholder':'Новый тег','tags.add':'Добавить тег',
@@ -244,6 +245,12 @@ function hideBootSplash() {
 async function renderProjectName() {
   const el = document.getElementById('project-name');
   if (!el) return;
+  if (modelMode) {
+    el.textContent = (db && db.name) ? db.name : '';
+    el.classList.add('model-name');
+    return;
+  }
+  el.classList.remove('model-name');
   try {
     const name = await window.api.getProjectName();
     el.textContent = name || '';
@@ -253,6 +260,7 @@ async function renderProjectName() {
 }
 
 async function startRenameProject() {
+  if (modelMode) return;
   const el = document.getElementById('project-name');
   if (!el) return;
   const current = el.textContent.trim();
@@ -329,6 +337,7 @@ async function renderProjectPicker() {
       if (!db.fittings) db.fittings = [];
       if (!db.materials) db.materials = [];
       if (!db.profiles) db.profiles = [];
+      modelMode = false;
       ensureTagOrder();
       ensureFitIds();
       renderAll();
@@ -1700,6 +1709,14 @@ function saveProfileSupplier(i, value) {
 
 function saveDB() {
   ensureTagOrder();
+  if (modelMode) {
+    const toSave = Object.assign({}, db, { fitRules: fitRules });
+    window.api.saveB3dDB(toSave).then(res => {
+      if (!(res && res.success)) alert(t('alert.save.fail'));
+      else renderAll();
+    });
+    return;
+  }
   const toSave = Object.assign({}, db, { fitRules: fitRules });
   window.api.saveDB(toSave).then(res => {
     if (!(res && res.success)) alert(t('alert.save.fail'));
@@ -1769,7 +1786,41 @@ async function openProject() {
   openProjectPicker();
 }
 
+async function openModel() {
+  let pick;
+  try { pick = await window.api.openB3dDialog(); } catch (e) {}
+  if (!pick || !pick.success) return;
+  let parsed;
+  try { parsed = await window.api.parseB3D(pick.path); } catch (e) {}
+  if (!parsed || !parsed.success) {
+    alert(parsed && parsed.error ? parsed.error : t('alert.open.fail'));
+    return;
+  }
+  modelMode = true;
+  db = parsed.db;
+  if (!db.fittings) db.fittings = [];
+  if (!db.materials) db.materials = [];
+  if (!db.profiles) db.profiles = [];
+  ensureFitIds();
+  applyFitRules();
+  ensureTagOrder();
+  renderAll();
+  renderProjectName();
+}
+
 async function saveProject() {
+  if (modelMode) {
+    const toSave = Object.assign({}, db, { fitRules: fitRules });
+    const res = await window.api.saveB3dDB(toSave);
+    if (res && res.success) {
+      db.name = res.name;
+      alert(t('model.saved', { name: res.name }));
+      renderProjectName();
+    } else {
+      alert(t('alert.saveProject.fail'));
+    }
+    return;
+  }
   const res = await window.api.saveProject(db);
   if (res.success) {
     const name = await window.api.getProjectName();

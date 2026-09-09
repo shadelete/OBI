@@ -1,5 +1,6 @@
 node_modules/
 dist/
+b3d-dist/
 data/
 config/
 release/
