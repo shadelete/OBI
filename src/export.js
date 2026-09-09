@@ -389,11 +389,12 @@ const PDF_CSS = `
   .part { margin-top: 22px; }
   .part-title { background: #c64e24; color: #fff; font-weight: 700; font-size: 15px; padding: 5px 10px; border-radius: 3px; margin-bottom: 4px; }
   .gwrap { }
+  .gwrap + .gwrap { margin-top: 20px; }
   .split { break-before: page; page-break-before: always; }
-  table.grp { border-collapse: collapse; width: 100%; table-layout: fixed; }
-  table.grp th, table.grp td { border: 1px solid #783c1e; padding: 3px 6px; overflow-wrap: anywhere; }
+  table.grp { border-collapse: collapse; width: calc(100% - 4px); margin-left: auto; margin-right: auto; table-layout: fixed; }
+  table.grp th, table.grp td { border: 1px solid #783c1e; padding: 3px 6px; overflow-wrap: anywhere; vertical-align: middle; }
   table.grp .st-title th { background: #c64e24; color: #fff; font-weight: 700; font-size: 12.5px; text-align: left; }
-  table.grp .st-head th { background: #ffe6d2; font-weight: 600; }
+  table.grp .st-head th { background: #ffe6d2; font-weight: 600; text-align: center; }
   th, td.l { text-align: left; } td.c, th.c { text-align: center; }
   tr { break-inside: avoid; page-break-inside: avoid; }
 `;
