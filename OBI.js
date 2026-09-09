@@ -352,6 +352,7 @@ function scanObject(obj) {
     } catch (e) {}
 
     try {
+        if (obj instanceof TDraftBlock) return; // полуфабрикат: только сам, без вмісту
         if (obj.List) {
             var childList = obj.AsList();
             if (childList) {

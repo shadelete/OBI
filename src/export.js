@@ -213,6 +213,23 @@ function materialDataRow(ws, r, poz, name, qty, width, height, cuts) {
   ws.getRow(r).height = 15.75;
 }
 
+function posNum(p) {
+  if (p == null || p === '') return null;
+  const n = Number(p);
+  return isNaN(n) ? null : n;
+}
+
+function compareByPos(a, b) {
+  const na = posNum(a), nb = posNum(b);
+  if (na != null && nb != null) return na - nb;
+  if (na != null) return -1;
+  if (nb != null) return 1;
+  if (a === b) return 0;
+  if (a == null || a === '') return 1;
+  if (b == null || b === '') return -1;
+  return String(a).localeCompare(String(b));
+}
+
 // Group material details by position, keeping a count. Details without a
 // position are kept separate (count 1 each).
 function groupByPosition(details) {
@@ -232,6 +249,7 @@ function groupByPosition(details) {
       if (d.cuts && d.cuts.length) target.cuts = uniqueCuts((target.cuts || []).concat(d.cuts));
     }
   });
+  result.sort((x, y) => compareByPos(x.position, y.position));
   return result;
 }
 
@@ -289,7 +307,9 @@ function profilesSheet(wb, profiles) {
   list.forEach((p, i) => {
     titleRow(ws, row, p.material || p.name || 'Профіль', 4);
     profilesHeader(ws, row + 1);
-    const details = (p.details && p.details.length) ? p.details : [{ width: p.width, thickness: p.thickness, length: p.length, count: p.count }];
+    const details = (p.details && p.details.length)
+      ? p.details.slice().sort((a, b) => compareByPos(((a.positions || [])[0]), ((b.positions || [])[0])))
+      : [{ width: p.width, thickness: p.thickness, length: p.length, count: p.count }];
     let poz = 1;
     details.forEach(d => {
       const posArr = (d.positions || []).filter((v, i) => d.positions.indexOf(v) === i);
@@ -403,7 +423,9 @@ function materialPdfTable(m) {
 }
 
 function profilePdfTable(p) {
-  const details = (p.details && p.details.length) ? p.details : [{ width: p.width, thickness: p.thickness, length: p.length, count: p.count, positions: [] }];
+  const details = (p.details && p.details.length)
+    ? p.details.slice().sort((a, b) => compareByPos(((a.positions || [])[0]), ((b.positions || [])[0])))
+    : [{ width: p.width, thickness: p.thickness, length: p.length, count: p.count, positions: [] }];
   const rows = details.map((d, i) => {
     const posArr = (d.positions || []).filter((v, j) => d.positions.indexOf(v) === j);
     const pos = posArr.length ? posArr.join(', ') : (i + 1);

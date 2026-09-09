@@ -56,7 +56,8 @@ const I18N = {
     'fw.field.code':'Артикул','fw.field.supplier':'Постачальник','fw.field.count':'К-сть',
     'fw.field.name.placeholder':'Введіть назву','fw.field.code.placeholder':'Введіть артикул',
     'fw.add.btn':'Додати позицію','fw.clear.btn':'Очистити форму',
-    'fw.add.column':'+ Додати позицію','fw.show.more':'Показати ще {n} ↓','fw.empty':'Немає позицій',
+    'fw.add.column':'+ Додати позицію','fw.show.more':'Показати всі ({n}) ↓','fw.empty':'Немає позицій',
+    'fw.resize':'Розтягнути колонку',
     'fw.selected.count':'Вибрано позицій: {n}','fw.delete.selected':'Видалити вибрані ({n})',
     'fw.total.count':'Загальна кількість: {n}','fw.quantity':'К-сть','fw.tab.count':'{tag} ({n})',
     'fw.sidebar.edit':'Редагування позиції','fw.edit.btn':'Зберегти зміни',
@@ -115,7 +116,8 @@ const I18N = {
     'fw.field.code':'Артикул','fw.field.supplier':'Поставщик','fw.field.count':'К-сть',
     'fw.field.name.placeholder':'Введите название','fw.field.code.placeholder':'Введите артикул',
     'fw.add.btn':'Добавить позицию','fw.clear.btn':'Очистить форму',
-    'fw.add.column':'+ Добавить позицию','fw.show.more':'Показать ещё {n} ↓','fw.empty':'Нет позиций',
+    'fw.add.column':'+ Добавить позицию','fw.show.more':'Показать все ({n}) ↓','fw.empty':'Нет позиций',
+    'fw.resize':'Растянуть колонку',
     'fw.selected.count':'Выбрано позиций: {n}','fw.delete.selected':'Удалить выбранные ({n})',
     'fw.total.count':'Общее количество: {n}','fw.quantity':'К-сть','fw.tab.count':'{tag} ({n})',
     'fw.sidebar.edit':'Редактирование позиции','fw.edit.btn':'Сохранить изменения',
@@ -196,6 +198,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   db = await window.api.getDB();
   renderProjectName();
   try { config = (await window.api.getConfig()) || config; } catch (e) {}
+  if (config.colWidths && typeof config.colWidths === 'object') fwColWidths = Object.assign({}, config.colWidths);
   fitRules = null;
   try { fitRules = await window.api.getFitRules(); } catch (e) {}
   if (!fitRules || !fitRules.tags) {
@@ -439,6 +442,8 @@ function switchCat(cat) {
   selCat = cat;
   selId = null;
   selTab = 'edges';
+  selectedListItems.clear();
+  listAnchorItem = null;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.cat === cat));
   const search = document.getElementById('search-input');
   if (search) search.value = '';
@@ -482,8 +487,9 @@ function matCardHTML(m, i) {
   const code = (m.code || '').toLowerCase();
   const matchCode = q && code.indexOf(q) !== -1;
   const noEx = m.export === false ? ' no-export' : '';
+  const isSel = selectedListItems.has(m);
   return `
-    <div class="list-card ${i === selId ? 'selected' : ''}${noEx}" draggable="true" data-idx="${i}" onclick="selectMat(${i})">
+    <div class="list-card ${isSel || i === selId ? 'selected' : ''}${noEx}" draggable="true" data-idx="${i}" onclick="selectMat(${i}, event)">
       <div class="lc-top">
         <div class="lc-thickness">${thickness} мм</div>
         <div class="lc-acts">
@@ -514,8 +520,9 @@ function profCardHTML(p, i) {
   const code = pCode.toLowerCase();
   const matchCode = q && code.indexOf(q) !== -1;
   const noEx = p.export === false ? ' no-export' : '';
+  const isSel = selectedListItems.has(p);
   return `
-    <div class="list-card ${i === selId ? 'selected' : ''}${noEx}" draggable="true" data-idx="${i}" onclick="selectProf(${i})">
+    <div class="list-card ${isSel || i === selId ? 'selected' : ''}${noEx}" draggable="true" data-idx="${i}" onclick="selectProf(${i}, event)">
       <div class="lc-top">
         <div class="lc-name">${nameHtml}</div>
         <div class="lc-acts">
@@ -663,16 +670,59 @@ function highlight(text, q) {
   return escapeHtml(text.slice(0, idx)) + '<b style="color:var(--accent)">' + safe + '</b>' + escapeHtml(text.slice(idx + q.length));
 }
 
-function selectMat(i) {
+function visibleListItems() {
+  if (selCat === 'materials') {
+    const mats = db.materials || [];
+    if (!searchQuery) return mats;
+    return mats.filter(m => {
+      const c = ((m.code || '') + ' ' + (m.name || '')).toLowerCase();
+      return c.indexOf(searchQuery) !== -1;
+    });
+  }
+  const prf = db.profiles || [];
+  if (!searchQuery) return prf;
+  return prf.filter(p => {
+    const c = ((p.materialCode || p.code || '') + ' ' + (p.material || p.name || '')).toLowerCase();
+    return c.indexOf(searchQuery) !== -1;
+  });
+}
+
+function selectListItemRange(item, i, ctrl, shift) {
+  const list = visibleListItems();
+  const cur = list.indexOf(item);
+  if (shift) {
+    const anchor = listAnchorItem != null && list.indexOf(listAnchorItem) !== -1 ? listAnchorItem : item;
+    const a = list.indexOf(anchor);
+    const lo = Math.min(a, cur);
+    const hi = Math.max(a, cur);
+    const range = list.slice(lo, hi + 1);
+    if (ctrl) range.forEach(x => selectedListItems.add(x));
+    else selectedListItems = new Set(range);
+  } else if (ctrl) {
+    if (selectedListItems.has(item)) selectedListItems.delete(item);
+    else selectedListItems.add(item);
+  } else {
+    selectedListItems = new Set([item]);
+  }
+  listAnchorItem = item;
+}
+
+function selectMat(i, e) {
   if (suppressListClick) { suppressListClick = false; return; }
+  const m = (db.materials || [])[i];
+  if (!m) return;
+  selectListItemRange(m, i, e && (e.ctrlKey || e.metaKey), e && e.shiftKey);
   selId = i;
   selTab = 'edges';
   renderList();
   renderDetail();
 }
 
-function selectProf(i) {
+function selectProf(i, e) {
   if (suppressListClick) { suppressListClick = false; return; }
+  const p = (db.profiles || [])[i];
+  if (!p) return;
+  selectListItemRange(p, i, e && (e.ctrlKey || e.metaKey), e && e.shiftKey);
   selId = i;
   selTab = 'sizes';
   renderList();
@@ -730,11 +780,16 @@ function renderMatDetail(header, tabs, content, stats) {
   const edgeCount = (m.edges || []).length;
   const detCount = (m.details || []).length;
 
+  const multiSel = selectedListItems.size > 1 && selectedListItems.has(m);
+  const selItems = multiSel ? mats.filter(x => selectedListItems.has(x)) : [m];
+  const allExported = selItems.every(x => isExported(x));
+  const allBooked = selItems.every(x => isBooked(x));
+
   header.innerHTML = detailHeader({
-    title: m.name || '',
-    exported: isExported(m),
+    title: multiSel ? `${m.name || ''} +${selItems.length - 1}…` : (m.name || ''),
+    exported: allExported,
     onExport: `saveMatExport(${selId != null ? selId : '0'}, this.checked)`,
-    booked: isBooked(m),
+    booked: allBooked,
     onBook: `saveMatBook(${selId != null ? selId : '0'}, this.checked)`,
     onExcel: 'exportExcel()',
     sub: [
@@ -816,14 +871,21 @@ function renderProfDetail(header, tabs, content, stats) {
     if (stats) stats.innerHTML = '';
     return;
   }
-  const details = (p.details && p.details.length) ? p.details : [{ length: p.length, count: p.count }];
+  const details = (p.details && p.details.length)
+    ? p.details.slice().sort((a, b) => compareByPos(uniqPositions(a)[0], uniqPositions(b)[0]))
+    : [{ length: p.length, count: p.count }];
   const total = details.reduce((s, d) => s + (d.count || 0), 0);
 
+  const multiSel = selectedListItems.size > 1 && selectedListItems.has(p);
+  const selItems = multiSel ? prf.filter(x => selectedListItems.has(x)) : [p];
+  const allExported = selItems.every(x => isExported(x));
+  const allBooked = selItems.every(x => isBooked(x));
+
   header.innerHTML = detailHeader({
-    title: p.material || p.name || '',
-    exported: isExported(p),
+    title: multiSel ? `${p.material || p.name || ''} +${selItems.length - 1}…` : (p.material || p.name || ''),
+    exported: allExported,
     onExport: `saveProfExport(${selId != null ? selId : '0'}, this.checked)`,
-    booked: isBooked(p),
+    booked: allBooked,
     onBook: `saveProfBook(${selId != null ? selId : '0'}, this.checked)`,
     onExcel: 'exportExcel()',
     sub: [
@@ -933,6 +995,23 @@ function detailCuts(d) {
   };
 }
 
+function posNum(p) {
+  if (p == null || p === '') return null;
+  const n = Number(p);
+  return isNaN(n) ? null : n;
+}
+
+function compareByPos(a, b) {
+  const na = posNum(a), nb = posNum(b);
+  if (na != null && nb != null) return na - nb;
+  if (na != null) return -1;
+  if (nb != null) return 1;
+  if (a === b) return 0;
+  if (a == null || a === '') return 1;
+  if (b == null || b === '') return -1;
+  return String(a).localeCompare(String(b));
+}
+
 function groupByPosition(details) {
   const result = [];
   const map = {};
@@ -950,17 +1029,22 @@ function groupByPosition(details) {
       if (d.cuts && d.cuts.length) target.cuts = uniqueCuts((target.cuts || []).concat(d.cuts));
     }
   });
+  result.sort((x, y) => compareByPos(x.position, y.position));
   return result;
 }
 
 // ============ FITTINGS: multi-select, drag&drop, tags ============
 let selectedFitIds = new Set();
+let fitAnchorId = null;
 let marqueeEl = null;
 let marqueeActive = false;
 let mx0 = 0, my0 = 0;
 let suppressNextClick = false;
 let fwAddTagDefault = 'Загальна фурнітура';
 let fwEditingId = null;
+let selectedListItems = new Set();
+let listAnchorItem = null;
+let fwColWidths = {};
 
 function fitById(id) {
   return (db.fittings || []).find(f => f.id === id);
@@ -1035,8 +1119,10 @@ function fwColumnHTML(tag) {
   const shown = fwShownCount[tag] != null ? fwShownCount[tag] : Math.min(total, FW_PAGE);
   const visible = items.slice(0, shown);
   const remaining = total - visible.length;
+  const w = fwColWidths[tag];
+  const widthStyle = w ? ` style="width:${w}px"` : '';
   return `
-    <div class="fw-column" data-tag="${escapeAttr(tag)}">
+    <div class="fw-column" data-tag="${escapeAttr(tag)}"${widthStyle}>
       <div class="fw-col-header" draggable="true">
         <span class="fw-fit-tag-handle" title="${t('fit.drag.title')}">≡</span>
         <span class="fw-col-title">${escapeHtml(tag)}</span>
@@ -1053,6 +1139,7 @@ function fwColumnHTML(tag) {
       <div class="fw-col-footer">
         ${remaining > 0 ? `<button class="fw-show-more" onclick="fwShowMore('${escapeAttr(tag)}', ${total})">${t('fw.show.more', { n: remaining })}</button>` : ''}
       </div>
+      <div class="fw-col-resize" title="${t('fw.resize')}"></div>
     </div>
   `;
 }
@@ -1152,8 +1239,7 @@ function fwSwitchTab(tag) {
 }
 
 function fwShowMore(tag, total) {
-  const current = fwShownCount[tag] != null ? fwShownCount[tag] : Math.min(total, FW_PAGE);
-  fwShownCount[tag] = Math.min(total, current + FW_PAGE);
+  fwShownCount[tag] = total;
   renderFittings();
 }
 
@@ -1272,6 +1358,12 @@ function bindFittingsEvents() {
       selectedFitIds.clear();
       updateRowSelection();
       renderFwFooter();
+      if (selCat !== 'fittings') {
+        selectedListItems.clear();
+        listAnchorItem = null;
+        renderList();
+        renderDetail();
+      }
       return;
     }
     if ((e.key === 'Delete' || e.key === 'Backspace') && selectedFitIds.size && !e.target.closest('input, select, textarea')) {
@@ -1291,16 +1383,67 @@ function bindFittingsEvents() {
   }
 }
 
+function startColResize(e, handle) {
+  e.preventDefault();
+  const col = handle.closest('.fw-column');
+  if (!col) return;
+  const tag = col.getAttribute('data-tag');
+  const startX = e.clientX;
+  const startW = col.getBoundingClientRect().width;
+  const minW = 160;
+  const maxW = Math.min(1200, (document.getElementById('fittings-columns') || document.body).getBoundingClientRect().width);
+
+  const onMove = (ev) => {
+    const w = Math.max(minW, Math.min(maxW, startW + (ev.clientX - startX)));
+    col.style.width = w + 'px';
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.classList.remove('col-resizing');
+    const w = Math.round(col.getBoundingClientRect().width);
+    fwColWidths[tag] = w;
+    config.colWidths = Object.assign({}, fwColWidths);
+    saveConfig();
+  };
+
+  document.body.classList.add('col-resizing');
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
 function fittingsMouseDown(e) {
   if (e.button !== 0) return;
+  const resizeHandle = e.target.closest('.fw-col-resize');
+  if (resizeHandle) {
+    startColResize(e, resizeHandle);
+    return;
+  }
   if (e.target.closest('input, select, button, .fw-check')) return;
   const row = e.target.closest('.fw-card');
   if (row) {
     const id = parseInt(row.dataset.id, 10);
-    if (e.ctrlKey || e.metaKey) {
+    if (e.shiftKey) {
+      const visible = Array.from(document.querySelectorAll('.fw-column .fw-card')).map(r => parseInt(r.dataset.id, 10));
+      const anchor = fitAnchorId != null && visible.indexOf(fitAnchorId) !== -1 ? fitAnchorId : id;
+      const a = visible.indexOf(anchor);
+      const b = visible.indexOf(id);
+      if (a !== -1 && b !== -1) {
+        const lo = Math.min(a, b);
+        const hi = Math.max(a, b);
+        const range = visible.slice(lo, hi + 1);
+        if (e.ctrlKey || e.metaKey) range.forEach(x => selectedFitIds.add(x));
+        else selectedFitIds = new Set(range);
+      } else {
+        selectedFitIds = new Set([id]);
+      }
+      fitAnchorId = id;
+    } else if (e.ctrlKey || e.metaKey) {
       if (selectedFitIds.has(id)) selectedFitIds.delete(id); else selectedFitIds.add(id);
+      fitAnchorId = id;
     } else if (!selectedFitIds.has(id)) {
       selectedFitIds = new Set([id]);
+      fitAnchorId = id;
     }
     updateRowSelection();
     renderFwFooter();
@@ -1567,8 +1710,13 @@ function commitRenameTag(oldTag, newTag) {
 function saveFitExport(id, checked) {
   const f = fitById(id);
   if (!f) return;
-  f.export = checked;
-  toggleBlacklist(fitRules.blacklist, fitRules.blacklistByName || [], f, checked);
+  const targets = (selectedFitIds.size > 1 && selectedFitIds.has(id))
+    ? (db.fittings || []).filter(x => selectedFitIds.has(x.id))
+    : [f];
+  targets.forEach(t => {
+    t.export = checked;
+    toggleBlacklist(fitRules.blacklist, fitRules.blacklistByName || [], t, checked);
+  });
   saveFitRules();
   saveDB();
 }
@@ -1576,8 +1724,13 @@ function saveFitExport(id, checked) {
 function saveFitBook(id, checked) {
   const f = fitById(id);
   if (!f) return;
-  f.book = checked;
-  toggleBlacklist(fitRules.bookBlacklist, fitRules.bookBlacklistByName || [], f, checked);
+  const targets = (selectedFitIds.size > 1 && selectedFitIds.has(id))
+    ? (db.fittings || []).filter(x => selectedFitIds.has(x.id))
+    : [f];
+  targets.forEach(t => {
+    t.book = checked;
+    toggleBlacklist(fitRules.bookBlacklist, fitRules.bookBlacklistByName || [], t, checked);
+  });
   saveFitRules();
   saveDB();
 }
@@ -1876,8 +2029,13 @@ function windowClose() {
 function saveMatExport(i, checked) {
   const m = db.materials[i];
   if (!m) return;
-  m.export = checked;
-  toggleBlacklist(fitRules.matBlacklist, fitRules.matBlacklistByName || [], m, checked);
+  const targets = (selectedListItems.size > 1 && selectedListItems.has(m))
+    ? db.materials.filter(x => selectedListItems.has(x))
+    : [m];
+  targets.forEach(t => {
+    t.export = checked;
+    toggleBlacklist(fitRules.matBlacklist, fitRules.matBlacklistByName || [], t, checked);
+  });
   saveFitRules();
   saveDB();
 }
@@ -1885,8 +2043,13 @@ function saveMatExport(i, checked) {
 function saveMatBook(i, checked) {
   const m = db.materials[i];
   if (!m) return;
-  m.book = checked;
-  toggleBlacklist(fitRules.matBookBlacklist, fitRules.matBookBlacklistByName || [], m, checked);
+  const targets = (selectedListItems.size > 1 && selectedListItems.has(m))
+    ? db.materials.filter(x => selectedListItems.has(x))
+    : [m];
+  targets.forEach(t => {
+    t.book = checked;
+    toggleBlacklist(fitRules.matBookBlacklist, fitRules.matBookBlacklistByName || [], t, checked);
+  });
   saveFitRules();
   saveDB();
 }
@@ -1894,8 +2057,13 @@ function saveMatBook(i, checked) {
 function saveProfExport(i, checked) {
   const p = db.profiles[i];
   if (!p) return;
-  p.export = checked;
-  toggleBlacklist(fitRules.profBlacklist, fitRules.profBlacklistByName || [], p, checked);
+  const targets = (selectedListItems.size > 1 && selectedListItems.has(p))
+    ? db.profiles.filter(x => selectedListItems.has(x))
+    : [p];
+  targets.forEach(t => {
+    t.export = checked;
+    toggleBlacklist(fitRules.profBlacklist, fitRules.profBlacklistByName || [], t, checked);
+  });
   saveFitRules();
   saveDB();
 }
@@ -1903,8 +2071,13 @@ function saveProfExport(i, checked) {
 function saveProfBook(i, checked) {
   const p = db.profiles[i];
   if (!p) return;
-  p.book = checked;
-  toggleBlacklist(fitRules.profBookBlacklist, fitRules.profBookBlacklistByName || [], p, checked);
+  const targets = (selectedListItems.size > 1 && selectedListItems.has(p))
+    ? db.profiles.filter(x => selectedListItems.has(x))
+    : [p];
+  targets.forEach(t => {
+    t.book = checked;
+    toggleBlacklist(fitRules.profBookBlacklist, fitRules.profBookBlacklistByName || [], t, checked);
+  });
   saveFitRules();
   saveDB();
 }
