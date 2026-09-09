@@ -135,6 +135,13 @@ function isSameAsParent(e, parentName, parentCode) {
 
 function scanObject(obj) {
     if (!obj) return;
+
+    // Model flag "UseInDocs" ("Учитывать в документации", TObject3D.UseInDocs):
+    // if off, the object must not appear in the documentation (skip export).
+    try {
+        if (obj.UseInDocs === false) return;
+    } catch (e) {}
+
     totalObjects++;
 
     try {
