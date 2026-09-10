@@ -5,7 +5,7 @@ let appInfo = { version: '', url: '', author: '' };
 
 let selCat = 'materials';
 let selId = null;
-let selTab = 'edges';
+let selTab = 'details';
 let searchQuery = '';
 let modelMode = false;
 
@@ -26,7 +26,7 @@ const I18N = {
     'detail.article':'Артикул','detail.count':'Деталей','detail.parts':'Деталі', 'pcs':'шт','profiles.sizes':'Розміри',
     'search.placeholder':'Пошук...','empty.list':'Список порожній','empty.noresults':'Нічого не знайдено',
     'mat.add':'+ Додати матеріал','prof.add':'+ Додати профіль','fit.add':'+ Додати фурнітуру',
-    'tab.edges':'Кромка','tab.details':'Деталі ({n})','tab.sizes':'Розміри ({n})','tab.info':'Додаткова інформація',
+    'tab.materials':'Матеріали та кромка','tab.profiles':'Профілі','tab.fittings':'Фурнітура','tab.sizes':'Розміри ({n})','tab.info':'Додаткова інформація',
     'fit.name.placeholder':'Найменування','fit.article.placeholder':'Артикул','fit.drag.title':'Перетягнути',
     'fit.export.title':'Включити в експорт','fit.category':'Категорія','fit.delete.title':'Видалити',
     'fit.tag.rename':'Перейменувати тег','fit.tag.delete':'Видалити тег','fit.empty':'Порожньо',
@@ -50,7 +50,7 @@ const I18N = {
     'update.error':'Помилка перевірки: {error}','update.applying':'Оновлення завантажено. Додаток перезапуститься...',
     'update.apply.error':'Не вдалося оновити: {error}',
     'fw.title':'Фурнітура','fw.subtitle':'Керування номенклатурою фурнітури в проєкті',
-    'fw.tags.manage':'Управління тегами','fw.sort.article':'Артикул','fw.sort.count':'К-сть','fw.save':'Зберегти',
+    'fw.tags.manage':'Управління тегами',
     'fw.search.placeholder':'Пошук по назві, артикулу або постачальнику...',
     'fw.sidebar.title':'Додавання позиції','fw.field.category':'Категорія','fw.field.name':'Назва',
     'fw.field.code':'Артикул','fw.field.supplier':'Постачальник','fw.field.count':'К-сть',
@@ -86,7 +86,7 @@ const I18N = {
     'detail.article':'Артикул','detail.count':'Деталей','detail.parts':'Детали', 'pcs':'шт','profiles.sizes':'Размеры',
     'search.placeholder':'Поиск...','empty.list':'Список пуст','empty.noresults':'Ничего не найдено',
     'mat.add':'+ Добавить материал','prof.add':'+ Добавить профиль','fit.add':'+ Добавить фурнитуру',
-    'tab.edges':'Кромка','tab.details':'Детали ({n})','tab.sizes':'Размеры ({n})','tab.info':'Дополнительная информация',
+    'tab.materials':'Материалы и кромка','tab.profiles':'Профили','tab.fittings':'Фурнитура','tab.sizes':'Размеры ({n})','tab.info':'Дополнительная информация',
     'fit.name.placeholder':'Наименование','fit.article.placeholder':'Артикул','fit.drag.title':'Перетащить',
     'fit.export.title':'Включить в экспорт','fit.category':'Категория','fit.delete.title':'Удалить',
     'fit.tag.rename':'Переименовать тег','fit.tag.delete':'Удалить тег','fit.empty':'Пусто',
@@ -110,7 +110,7 @@ const I18N = {
     'update.error':'Ошибка проверки: {error}','update.applying':'Обновление загружено. Приложение перезапустится...',
     'update.apply.error':'Не удалось обновить: {error}',
     'fw.title':'Фурнитура','fw.subtitle':'Управление номенклатурой фурнитуры в проекте',
-    'fw.tags.manage':'Управление тегами','fw.sort.article':'Артикул','fw.sort.count':'К-сть','fw.save':'Сохранить',
+    'fw.tags.manage':'Управление тегами',
     'fw.search.placeholder':'Поиск по названию, артикулу или поставщику...',
     'fw.sidebar.title':'Добавление позиции','fw.field.category':'Категория','fw.field.name':'Название',
     'fw.field.code':'Артикул','fw.field.supplier':'Поставщик','fw.field.count':'К-сть',
@@ -441,7 +441,7 @@ function renderSidebar() {
 function switchCat(cat) {
   selCat = cat;
   selId = null;
-  selTab = 'edges';
+  selTab = 'details';
   selectedListItems.clear();
   listAnchorItem = null;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.cat === cat));
@@ -713,7 +713,7 @@ function selectMat(i, e) {
   if (!m) return;
   selectListItemRange(m, i, e && (e.ctrlKey || e.metaKey), e && e.shiftKey);
   selId = i;
-  selTab = 'edges';
+  selTab = 'details';
   renderList();
   renderDetail();
 }
@@ -772,6 +772,7 @@ function renderMatDetail(header, tabs, content, stats) {
   if (!m) {
     header.innerHTML = '';
     tabs.innerHTML = '';
+    tabs.style.display = 'none';
     content.innerHTML = `<div class="list-empty">${t('empty.list')}</div>`;
     if (stats) stats.innerHTML = '';
     return;
@@ -798,51 +799,31 @@ function renderMatDetail(header, tabs, content, stats) {
     ]
   }, 'badge-material', `${thickness} мм`);
 
-  tabs.innerHTML = `
-    <div class="dtab ${selTab === 'edges' ? 'active' : ''}" onclick="setMatTab('edges')">${t('tab.edges')}</div>
-    <div class="dtab ${selTab === 'details' ? 'active' : ''}" onclick="setMatTab('details')">${t('tab.details', { n: detCount })}</div>
-    <div class="dtab ${selTab === 'info' ? 'active' : ''}" onclick="setMatTab('info')">${t('tab.info')}</div>
-  `;
+  tabs.innerHTML = '';
+  tabs.style.display = 'none';
 
-  if (selTab === 'info') {
-    const cutTotal = (m.details || []).reduce((s, d) => s + (d.cuts || []).length, 0);
-    content.innerHTML = `
-      <div class="info-grid">
-        ${infoItem(t('detail.article'), fmtCode(m.code))}
-        ${infoItem(t('stat.thickness'), thickness + ' мм')}
-        ${infoItem(t('detail.count'), m.count || 0)}
-        ${infoItem(t('stat.edges'), edgeCount)}
-        ${infoItem(t('stat.cut'), cutTotal)}
-      </div>
-    `;
-  } else {
-    const edgesBlock = (m.edges && m.edges.length) ? `
-      <div class="edge-block">
-        <div class="block-title">${t('edge.title')}</div>
-        ${m.edges.map(e => `
-          <div class="edge-row"><span class="edge-name">${escapeHtml(e.name)}</span><span class="edge-dim">${e.thickness} мм · арт. ${fmtCode(e.code)}</span></div>
-        `).join('')}
-      </div>` : `<div class="edge-none">${t('edge.none')}</div>`;
+  const edgesBlock = (m.edges && m.edges.length) ? `
+    <div class="edge-block">
+      <div class="block-title">${t('edge.title')}</div>
+      ${m.edges.map(e => `
+        <div class="edge-row"><span class="edge-name">${escapeHtml(e.name)}</span><span class="edge-dim">${e.thickness} мм · арт. ${fmtCode(e.code)}</span></div>
+      `).join('')}
+    </div>` : `<div class="edge-none">${t('edge.none')}</div>`;
 
-    const grouped = groupByPosition(m.details);
-    const detailsBlock = `
-      <div class="block-title">${t('detail.parts')} (${detCount})</div>
-      <div class="dparts">
-        ${grouped.map(d => {
-          const cuts = detailCuts(d);
-          const posHtml = `<span class="dpart-pos">${d.position ? escapeHtml(d.position) : ''}</span>`;
-          const countHtml = `<span class="dpart-count">${d.count || 1}</span>`;
-          const cutHtml = cuts ? ` · <span style="color:var(--orange)">${escapeHtml(cuts.text)}</span>` : '';
-          return `<div class="dpart-row">${posHtml}${countHtml}<span class="dpart-name">${escapeHtml(d.name)}${cutHtml}</span><span class="dpart-dim">${d.width}×${d.height} мм</span></div>`;
-        }).join('')}
-      </div>`;
+  const grouped = groupByPosition(m.details);
+  const detailsBlock = `
+    <div class="block-title">${t('detail.parts')} (${detCount})</div>
+    <div class="dparts">
+      ${grouped.map(d => {
+        const cuts = detailCuts(d);
+        const posHtml = `<span class="dpart-pos">${d.position ? escapeHtml(d.position) : ''}</span>`;
+        const countHtml = `<span class="dpart-count">${d.count || 1}</span>`;
+        const cutHtml = cuts ? ` · <span style="color:var(--orange)">${escapeHtml(cuts.text)}</span>` : '';
+        return `<div class="dpart-row">${posHtml}${countHtml}<span class="dpart-name">${escapeHtml(d.name)}${cutHtml}</span><span class="dpart-dim">${d.width}×${d.height} мм</span></div>`;
+      }).join('')}
+    </div>`;
 
-    if (selTab === 'edges') {
-      content.innerHTML = edgesBlock + `<div class="separator"></div>` + detailsBlock;
-    } else {
-      content.innerHTML = detailsBlock;
-    }
-  }
+  content.innerHTML = edgesBlock + `<div class="separator"></div>` + detailsBlock;
 
   stats.innerHTML = `
     <div class="dstat"><span class="ds-label">${t('stat.details')}</span><span class="ds-value">${m.count || 0}</span></div>
@@ -850,11 +831,6 @@ function renderMatDetail(header, tabs, content, stats) {
     <div class="dstat"><span class="ds-label">${t('stat.thickness')}</span><span class="ds-value">${thickness} ММ</span></div>
     <div class="dstat"><span class="ds-label">${t('stat.inreport')}</span><span class="ds-value ${isExported(m) ? 'green' : ''}">${isExported(m) ? '☑' : '☐'}</span></div>
   `;
-}
-
-function setMatTab(tab) {
-  selTab = tab;
-  renderDetail();
 }
 
 function infoItem(label, value) {
@@ -897,6 +873,7 @@ function renderProfDetail(header, tabs, content, stats) {
     <div class="dtab ${selTab === 'sizes' ? 'active' : ''}" onclick="setProfTab('sizes')">${t('tab.sizes', { n: details.length })}</div>
     <div class="dtab ${selTab === 'info' ? 'active' : ''}" onclick="setProfTab('info')">${t('tab.info')}</div>
   `;
+  tabs.style.display = '';
 
   if (selTab === 'info') {
     content.innerHTML = `
@@ -1241,27 +1218,6 @@ function fwSwitchTab(tag) {
 function fwShowMore(tag, total) {
   fwShownCount[tag] = total;
   renderFittings();
-}
-
-function sortFittings(field) {
-  const sortDir = sortFittingsDir && sortFittingsDir[field] === 'asc' ? 'desc' : 'asc';
-  if (!sortFittingsDir) sortFittingsDir = {};
-  sortFittingsDir[field] = sortDir;
-  const list = db.fittings || [];
-  list.sort((a, b) => {
-    let va = a[field], vb = b[field];
-    if (field === 'count') { va = a.count || 0; vb = b.count || 0; return sortDir === 'asc' ? va - vb : vb - va; }
-    va = String(va || '').toLowerCase();
-    vb = String(vb || '').toLowerCase();
-    const cmp = va < vb ? -1 : (va > vb ? 1 : 0);
-    return sortDir === 'asc' ? cmp : -cmp;
-  });
-  saveDB();
-}
-let sortFittingsDir = null;
-
-function saveFwChanges() {
-  saveDB();
 }
 
 function editFittingFromCard(id) {
