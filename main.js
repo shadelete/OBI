@@ -350,6 +350,57 @@ ipcMain.handle('open-fit-rules-window', () => {
   openFitRulesWindow();
 });
 
+ipcMain.handle('export-settings', async (_e, payload) => {
+  try {
+    const data = {
+      format: 'obi-settings',
+      version: 1,
+      app: 'Output Bazis Info',
+      exportedAt: new Date().toISOString(),
+      config: (payload && payload.config && typeof payload.config === 'object') ? payload.config : {},
+      fitRules: (payload && payload.fitRules && typeof payload.fitRules === 'object') ? payload.fitRules : {}
+    };
+    const filePath = await dialog.showSaveDialog(mainWindow, {
+      title: 'Експорт налаштувань',
+      defaultPath: 'OBI-settings.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    });
+    if (filePath.canceled || !filePath.filePath) return { success: false, canceled: true };
+    fs.writeFileSync(filePath.filePath, JSON.stringify(data, null, 2), 'utf-8');
+    return { success: true, path: filePath.filePath };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('import-settings', async () => {
+  try {
+    const sel = await dialog.showOpenDialog(mainWindow, {
+      title: 'Імпорт налаштувань',
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    });
+    if (sel.canceled || !sel.filePaths.length) return { success: false, canceled: true };
+    const raw = JSON.parse(fs.readFileSync(sel.filePaths[0], 'utf-8'));
+    if (!raw || typeof raw !== 'object') return { success: false, error: 'invalid' };
+    let config = null;
+    let fitRules = null;
+    if (raw.format === 'obi-settings' || (raw.config && raw.fitRules)) {
+      config = (raw.config && typeof raw.config === 'object') ? raw.config : null;
+      fitRules = (raw.fitRules && typeof raw.fitRules === 'object') ? raw.fitRules : null;
+    } else if ('theme' in raw || 'language' in raw) {
+      config = raw;
+    } else if (raw.tags && typeof raw.tags === 'object' || Array.isArray(raw.blacklist)) {
+      fitRules = raw;
+    } else {
+      return { success: false, error: 'invalid' };
+    }
+    return { success: true, path: sel.filePaths[0], config, fitRules };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
 ipcMain.handle('get-app-info', () => ({
   version: app.getVersion(),
   url: APP_URL,

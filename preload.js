@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('api', {
   getFitRules: () => ipcRenderer.invoke('get-fit-rules'),
   getFitRulesData: () => ipcRenderer.invoke('get-fit-rules-data'),
   openFitRulesWindow: () => ipcRenderer.invoke('open-fit-rules-window'),
+  exportSettings: (payload) => ipcRenderer.invoke('export-settings', payload),
+  importSettings: () => ipcRenderer.invoke('import-settings'),
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
   checkUpdate: () => ipcRenderer.invoke('check-update'),
   applyUpdate: (info) => ipcRenderer.invoke('apply-update', info),

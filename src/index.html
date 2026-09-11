@@ -255,6 +255,14 @@
             <input type="number" id="settings-tags-per-row" min="1" max="6" step="1">
           </div>
         </div>
+        <!-- SECTION: Export/Import settings -->
+        <div class="settings-section">
+          <div class="settings-label" data-i18n="settings.transfer"></div>
+          <div class="settings-actions" id="settings-transfer-actions">
+            <button class="btn btn-secondary" onclick="exportSettings()" data-i18n="settings.transfer.export">Експортувати</button>
+            <button class="btn btn-secondary" onclick="importSettings()" data-i18n="settings.transfer.import">Імпортувати</button>
+          </div>
+        </div>
         <div class="settings-section">
           <div class="settings-label" data-i18n="settings.updates"></div>
           <label class="settings-option settings-checkbox">

@@ -65,6 +65,10 @@ const I18N = {
     'fw.export.toggle':'Включити/вимкнути позицію в експорті',
     'fw.book.toggle':'Включити/вимкнути перенос у книгу розрахунку',
     'settings.tags.per.row':'Кількість тегів у ряду',
+    'settings.transfer':'Експорт та імпорт налаштувань','settings.transfer.export':'Експортувати','settings.transfer.import':'Імпортувати',
+    'settings.export.done':'Налаштування експортовано:\n{path}','settings.export.error':'Помилка експорту:\n{error}',
+    'settings.import.done':'Налаштування імпортовано','settings.import.error':'Помилка імпорту:\n{error}',
+    'settings.import.empty':'Файл не містить налаштувань для імпорту',
     'calc.button':'Розрахунок','calc.title':'Розрахунок фурнітури',
     'calc.file.label':'Файл-книга','calc.file.choose':'Обрати файл','calc.file.none':'Файл не обрано',
     'calc.room.label':'Приміщення','calc.room.placeholder':'Назва приміщення (із проекту)',
@@ -125,6 +129,10 @@ const I18N = {
     'fw.export.toggle':'Включить/выключить позицию в экспорте',
     'fw.book.toggle':'Включить/выключить перенос в расчетную книгу',
     'settings.tags.per.row':'Количество тегов в ряду',
+    'settings.transfer':'Экспорт и импорт настроек','settings.transfer.export':'Экспортировать','settings.transfer.import':'Импортировать',
+    'settings.export.done':'Настройки экспортированы:\n{path}','settings.export.error':'Ошибка экспорта:\n{error}',
+    'settings.import.done':'Настройки импортированы','settings.import.error':'Ошибка импорта:\n{error}',
+    'settings.import.empty':'Файл не содержит настроек для импорта',
     'calc.button':'Расчёт','calc.title':'Расчёт фурнитуры',
     'calc.file.label':'Файл-книга','calc.file.choose':'Выбрать файл','calc.file.none':'Файл не выбран',
     'calc.room.label':'Помещение','calc.room.placeholder':'Название помещения (из проекта)',
@@ -2124,6 +2132,64 @@ function closeSettings() {
 
 function openFitRulesWindow() {
   window.api.openFitRulesWindow();
+}
+
+async function exportSettings() {
+  const payload = {
+    config: Object.assign({}, config, { colWidths: fwColWidths }),
+    fitRules: fitRules
+  };
+  const result = await window.api.exportSettings(payload);
+  if (!result) return;
+  if (result.success) alert(t('settings.export.done', { path: result.path }));
+  else if (!result.canceled) alert(t('settings.export.error', { error: result.error || '' }));
+}
+
+async function importSettings() {
+  const result = await window.api.importSettings();
+  if (!result || result.canceled) return;
+  let applied = 0;
+  if (result.success) {
+    if (result.config && typeof result.config === 'object') {
+      config = Object.assign({}, config, result.config);
+      if (config.colWidths && typeof config.colWidths === 'object') fwColWidths = Object.assign({}, config.colWidths);
+      applyTheme();
+      applyLanguage();
+      saveConfig();
+      applied++;
+    }
+    if (result.fitRules && typeof result.fitRules === 'object') {
+      fitRules = result.fitRules;
+      if (!fitRules.tags) fitRules.tags = {};
+      if (!fitRules.tagsByName) fitRules.tagsByName = {};
+      if (!fitRules.blacklist) fitRules.blacklist = [];
+      if (!fitRules.blacklistByName) fitRules.blacklistByName = [];
+      if (!fitRules.suppliers) fitRules.suppliers = {};
+      if (!fitRules.suppliersByName) fitRules.suppliersByName = {};
+      if (!fitRules.matBlacklist) fitRules.matBlacklist = [];
+      if (!fitRules.matBlacklistByName) fitRules.matBlacklistByName = [];
+      if (!fitRules.profBlacklist) fitRules.profBlacklist = [];
+      if (!fitRules.profBlacklistByName) fitRules.profBlacklistByName = [];
+      if (!fitRules.bookBlacklist) fitRules.bookBlacklist = [];
+      if (!fitRules.bookBlacklistByName) fitRules.bookBlacklistByName = [];
+      if (!fitRules.matBookBlacklist) fitRules.matBookBlacklist = [];
+      if (!fitRules.matBookBlacklistByName) fitRules.matBookBlacklistByName = [];
+      if (!fitRules.profBookBlacklist) fitRules.profBookBlacklist = [];
+      if (!fitRules.profBookBlacklistByName) fitRules.profBookBlacklistByName = [];
+      applyFitRules();
+      ensureTagOrder();
+      saveDB();
+      applied++;
+    }
+  } else {
+    alert(t('settings.import.error', { error: result.error || '' }));
+    return;
+  }
+  if (!applied) {
+    alert(t('settings.import.empty'));
+    return;
+  }
+  alert(t('settings.import.done'));
 }
 
 let calcWorkbookPath = '';
