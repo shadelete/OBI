@@ -21,7 +21,7 @@ const RE_PANEL = /(дсп|лдсп|мдф|хдф|лхдф|двп|фанер|ма
 // Keyword hits inside descriptive texts ("…сложная к ДСП…") are not panels.
 const RE_PANEL_START = /^(дсп|лдсп|мдф|хдф|лхдф|двф|фанер|массив|масів|шпон|плит|стекл|скло|зеркал|акрил|петрог|ксіо|kronos|kronospan|едиг|egger|шовк|шёлк|мигдал|миндал|дуб|горіx|горіх|ореx|орех|ясен|ясінь|графіт|графит|бетон|соном|темн|світл|светл|бежев|кремов|жемчуж|перл|біл|бел|шліф|полир|лазерн|рифлен)/;
 const RE_SIZE_MM = /\d\s*мм/i;
-const RE_FITTING = /(петл|завіс|завис|петля|шкант|конфирмат|конфірмат|стяжк|стяг\b|ексцентрик|эксцентрик|ручк|направляющ|направляюч|газлифт|газліфт|довод|аморт|толкат|виштовхувач|пуш\b|пущ|сушилк|сушк|корзин|кошик|ролик|шарик|телескоп|висувн|выдвиж|підйом|подъем|ніжк|ножк|опор|приклей|утримувач|тримач|держатель|крюч|гачок|вішак|вешалк|стопор|фиксатор|фіксатор|замок|замк|магнит|магніт|близнюк|двойник|клипс|защёлк|защіп|blum|hettich|boyard|viyar|owwa|muller|фурнітур|фурнитур|стяжк|саморіз|саморез|шуруп|гвинт|винт\b|болт\b|гайк|шайб|заклепк|гвозд|заглушк|підвіс|подвес\b|навіс|навес\b|навісна|полкодержател|полкотримач)/;
+const RE_FITTING = /(петл|завіс|завис|петля|шкант|конфирмат|конфірмат|стяжк|стяг\b|ексцентрик|эксцентрик|ручк|направляющ|направляюч|газлифт|газліфт|довод|аморт|толкат|виштовхувач|пуш\b|пущ|сушилк|сушк|корзин|кошик|ролик|шарик|телескоп|висувн|выдвиж|підйом|подъем|ніжк|ножк|опор|приклей|утримувач|тримач|держатель|крюч|гачок|вішак|вешалк|стопор|фиксатор|фіксатор|замок|замк|магнит|магніт|близнюк|двойник|клипс|защёлк|защіп|blum|hettich|boyard|viyar|owwa|muller|фурнітур|фурнитур|стяжк|саморіз|саморез|шуруп|гвинт|винт\b|болт\b|гайк|шайб|заклепк|гвозд|заглушк|підвіс|подвес\b|навіс|навес\b|навісна|полкодержател|полкотримач|комплект креплен|комплект кріплен)/;
 const RE_PROFILE = /(^труб|труб\b|профил|профіль|профилі|уголок|кутик|штапик|штанга|карниз|шест\b|рейк|погон|плінтус|плинтус|алюмин|алюміні|направляюч.*алюм|направляющ.*алюм|профільн|профильн)/;
 const RE_DETAIL = /^(боковин|бічн|\bдно\d?$|^\d?\s*дно\b|полк|кришк|верх\b|низ\b|фасад|ящик|стін|стен\b|стеллаж|цоколь|цокол|панель|перегородк|перегородк|перемычк|перемичк|поріг|царг|фальш|декор)/;
 
@@ -36,7 +36,7 @@ const RE_JUNK_UNDERSCORE = /^__\d?-/;
 // Bazis bookkeeping strings: unnamed blocks, walls, layers, markup.
 const RE_JUNK_EXTRA = /^(стіна|стіни|стена|стены|елемент стіни|елементи стін|сло[йі]|примитив|замір|замер|размер|фаска|об[ь'єя])|^tline3d\s*\d+|^material_\d+$/i;
 
-const NOISE = /[<>{}\[\];:=\\]|\.fr3d|\.obj|\.mtl|\.3ds|\.png|\.dxf|:\/\//;
+const NOISE = /[<>{}\[\];:\\]|\.fr3d|\.obj|\.mtl|\.3ds|\.png|\.dxf|:\/\//;
 const RE_THICKNESS = /(\d+(?:[.,]\d+)?)\s*мм/i;
 const RE_EDGE_DIM = /([\d]+(?:[.,]\d+)?)\s*[\/хx×*]\s*([\d]+(?:[.,]\d+)?)/;
 const RE_NUM_TOKEN = /^(\d{1,6})\s+(?=[А-Яа-яЁёІіЇїЄєA-Za-z])/;
@@ -336,6 +336,104 @@ function findPartName(doc, a, b, matName) {
   return { name, position };
 }
 
+// Real profiles (TExtrusionBody objects, e.g. "Ш труба" / "Л подушка … мм")
+// are NOT plain length-prefixed strings in the model — they live in the main
+// doc stream as an AdvParamData record shaped like
+//   [object name][ArtPos number][material with \r article]
+// (the ArtPos number may be absent). Pure scheme strings ("Загальна рамка",
+// "Штанга (компл.)", scheme module names) never carry a material after them
+// and must not become profiles.
+function buildProfilesFromDoc(doc, items) {
+  const RE_PROFILEISH = /труб|профил|профіль|штанга|карниз|шест|рейк|кутик|плінтус|плинтус|алюмин|алюміні|штапик/i;
+  // Words that mark a string as part of a scheme/module rather than a real
+  // profile object or its material.
+  const SVC = /рамк|стіна|стена|Лінія ст|стик|перегородк|ящ|фасад|фальш|цокол|лишт|\bопровж|\bСП\b|компл|рефікс|рафікс|\bВ\b$/i;
+  // The real GSize of a profile object (width/thickness/length, e.g. "Ш труба"
+  // x15 y30 z984) is written near its material string as integer doubles. Best
+  // effort: the first integer double right after the material string is the
+  // length ("Труба скалка …" → 984, "Marino 02" → 60).
+  const profileLengthAfter = (off) => {
+    const L = doc.readUInt32LE(off + 1);
+    const end = L ? off + 5 + L * 2 : off + 20;
+    const lim = Math.min(end + 48, doc.length);
+    for (let q = end; q + 8 < lim; q++) {
+      if (doc[q] !== 5) continue;
+      const v = doc.readDoubleLE(q + 1);
+      if (v >= 3 && v <= 100000 && Math.abs(v - Math.round(v)) < 0.05) return Math.round(v);
+    }
+    return null;
+  };
+  // ArtPos of the profile object: a standalone numeric 0x06 record between the
+  // object name and its material (docItems drops bare digits).
+  const posBetween = (a, b) => {
+    const start = a + 5 + doc.readUInt32LE(a + 1) * 2;
+    const lim = Math.min(b, start + 900);
+    for (let p = start; p + 8 < lim; p++) {
+      if (doc[p] !== 0x06) continue;
+      const L = doc.readUInt32LE(p + 1);
+      if (L < 1 || L > 8 || p + 5 + L * 2 > lim) continue;
+      const s = doc.toString('utf16le', p + 5, p + 5 + L * 2);
+      if (/^\d{1,6}$/.test(s)) return s;
+      break;
+    }
+    return '';
+  };
+  const rows = new Map();
+  for (let i = 0; i < items.length; i++) {
+    const a = items[i];
+    if (a.code) continue;   // об'єкт профілю носить код лише через матеріал, не сам
+    if (a.cat !== 'detail' && a.cat !== 'profile' && !(a.cat === 'fitting' && /ручк/i.test(a.name) && a.name.length <= 30 && !/\d+\s*мм/i.test(a.name))) continue;
+    const aName = a.name.trim();
+    if (SVC.test(aName)) continue;
+    const nameOK = RE_PROFILEISH.test(aName) || /мм|^\d+\s*[хx*]\s*\d/.test(aName) || (/ручк/i.test(aName) && aName.length <= 30);
+    if (!nameOK) continue;
+    let b = null;
+    for (let j = i + 1; j < items.length; j++) {
+      const cand = items[j];
+      if (cand.off - a.off > 900) break;
+      if (cand.cat === 'panel' || cand.cat === 'edge') continue;
+      // another profile-ish object without an article ("Кутик монтажний з
+      // кембриком", "Профиль ручка") is not a material either
+      if (cand.cat === 'profile' && !cand.code) continue;
+      const bName = cand.name.trim();
+      if (bName === aName) continue;
+      if (SVC.test(bName)) continue;
+      if (!cand.code && RE_PROFILEISH.test(bName)) continue;
+      // material heuristics: has an article, a profile keyword, or a short
+      // coded name ("Marino 02"); scheme/module words are rejected above
+      if (!(cand.code || RE_PROFILEISH.test(bName) || (/\d/.test(bName) && bName.length <= 22))) continue;
+      b = cand;
+      break;
+    }
+    if (!b) continue;
+    const posNum = posBetween(a.off, b.off);
+    const key = aName + '\u0000' + b.name;
+    let rec = rows.get(key);
+    if (!rec) {
+      rec = {
+        name: aName,
+        code: b.code || '',
+        material: b.name,
+        materialCode: b.code || '',
+        export: true,
+        details: [{
+          width: null,
+          thickness: null,
+          length: profileLengthAfter(b.off),
+          count: 0,
+          positions: posNum ? [posNum] : []
+        }]
+      };
+      rows.set(key, rec);
+    }
+    const d = rec.details[0];
+    d.count++;
+    if (b.code && b.code.length > rec.code.length) { rec.code = b.code; rec.materialCode = b.code; }
+    if (posNum && d.positions.indexOf(posNum) === -1) d.positions.push(posNum);
+  }
+  return [...rows.values()];
+}
+
 function buildMaterialsFromDoc(doc) {
   const items = docItems(doc);
   const rows = new Map();   // name -> {row, edgeCounts, detailCounts}
@@ -427,9 +525,18 @@ function parseB3D(filePath) {
     const doc = findMainDoc(buf);
     if (!doc) return null;
     const r = buildMaterialsFromDoc(doc);
-    return r.materials && r.materials.length ? r : null;
+    return r.items && r.items.length ? { doc, items: r.items, materials: r.materials, restEdges: r.restEdges } : null;
   })();
   const useDoc = !!docRes;
+
+  // A profile lives in the model not as a plain length-prefixed string but as a
+  // 0x06-prefixed AdvParamData record inside the main document stream, so the
+  // extractStrings map misses it ("Труба скалка L = 3000мм … (Артикул 79789)").
+  // When the doc is in use, rebuild the profile list from the doc records:
+  // [object name][ArtPos number?][material with \r article]. Pure scheme/module
+  // strings ("Загальна рамка", "Штанга (компл.)", …) never have a material
+  // after them and are rejected by buildProfilesFromDoc.
+  const docProfiles = useDoc ? buildProfilesFromDoc(docRes.doc, docRes.items) : [];
 
   const meta = {
     fileName: path.basename(filePath),
@@ -451,12 +558,12 @@ function parseB3D(filePath) {
   const mats = useDoc ? docRes.materials : [];   // panel materials
   const edges = [];  // { name, code, width, thickness, count } — only for !useDoc
   const fittings = []; // { name, code, count, tag }
-  const profiles = [];
+  const profiles = useDoc ? docProfiles : [];   // only real TExtrusionBody records when the doc is in use
   const details = [];  // part names + counts
 
   for (const [s, e] of counts) {
     const cat = classify(s);
-    if (useDoc && (cat === 'panel' || cat === 'edge')) continue; // precise pass below
+    if (useDoc && (cat === 'panel' || cat === 'edge' || cat === 'profile')) continue; // precise passes below
     const c = e.count;
     // favourite source for an article is the \r-code embedded in the model
     // string itself; fallback for panels/edges is the material base lookup,
@@ -479,6 +586,7 @@ function parseB3D(filePath) {
       if (row) row.count += c;
       else edges.push({ name: s, code, width, thickness, count: c });
     } else if (cat === 'fitting') {
+      if (useDoc && profiles.some(p => p.name === s)) continue;   // вже є профіль-ручка з doc
       const row = fittings.find(f => f.name === s);
       if (row) row.count += c;
       else fittings.push({ name: s, code, count: c, tag: 'Загальна фурнітура' });
