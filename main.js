@@ -20,7 +20,28 @@ function projectsDir() {
   return path.join(dataDir(), 'data', 'projects');
 }
 
+function modelsDir() {
+  return path.join(dataDir(), 'data', 'models');
+}
+
 let activeProjectPath = null;
+let activeModelPath = null;
+
+function startupProjectPath() {
+  const idx = process.argv.indexOf('--project');
+  if (idx === -1 || !process.argv[idx + 1]) return '';
+  const p = path.resolve(process.argv[idx + 1]);
+  return fs.existsSync(p) ? p : '';
+}
+
+function isB3dProjectFile(filePath) {
+  try {
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    return /"_source"\s*:\s*"b3d-model"/.test(raw);
+  } catch (e) {
+    return false;
+  }
+}
 
 function listProjects() {
   const pd = projectsDir();
@@ -32,6 +53,7 @@ function listProjects() {
       path: path.join(pd, f),
       mtime: fs.statSync(path.join(pd, f)).mtimeMs
     }))
+    .filter(item => !isB3dProjectFile(item.path))
     .sort((a, b) => b.mtime - a.mtime);
 }
 
@@ -42,28 +64,7 @@ function findMostRecentProject() {
 
 function dbPath() {
   if (activeProjectPath && fs.existsSync(activeProjectPath)) return activeProjectPath;
-  const def = path.join(dataDir(), 'data', 'db.json');
-  try {
-    const activePath = path.join(dataDir(), 'data', 'current_project.txt');
-    if (fs.existsSync(activePath)) {
-      let saved = fs.readFileSync(activePath, 'utf-8').trim();
-      if (saved) {
-        if (!path.isAbsolute(saved)) saved = path.resolve(dataDir(), saved);
-        if (fs.existsSync(saved)) return saved;
-      }
-    }
-  } catch (e) {}
-  try {
-    const pd = projectsDir();
-    if (fs.existsSync(pd)) {
-      const files = fs.readdirSync(pd).filter(f => f.toLowerCase().endsWith('.json'));
-      if (files.length) {
-        files.sort((a, b) => fs.statSync(path.join(pd, b)).mtimeMs - fs.statSync(path.join(pd, a)).mtimeMs);
-        return path.join(pd, files[0]);
-      }
-    }
-  } catch (e) {}
-  return def;
+  return path.join(dataDir(), 'data', 'db.json');
 }
 
 function ensureProjectsDir() {
@@ -145,11 +146,10 @@ function saveFitRules(rules) {
 }
 
 function ensureDB() {
+  if (activeProjectPath) return;
   const p = dbPath();
   fs.mkdirSync(path.dirname(p), { recursive: true });
-  if (!fs.existsSync(p)) {
-    fs.writeFileSync(p, JSON.stringify({ date: new Date().toString(), materials: [], profiles: [], fittings: [] }, null, 2), 'utf-8');
-  }
+  fs.writeFileSync(p, JSON.stringify({ date: new Date().toString(), materials: [], profiles: [], fittings: [] }, null, 2), 'utf-8');
 }
 
 function createWindow() {
@@ -203,6 +203,7 @@ function openFitRulesWindow() {
 }
 
 app.whenReady().then(() => {
+  activeProjectPath = startupProjectPath() || null;
   if (process.env.OBI_TEST_UPDATE === '1') {
     autoTestUpdate();
     const hb = () => {
@@ -523,6 +524,7 @@ ipcMain.handle('parse-b3d', (_e, filePath) => {
     if (!filePath || !fs.existsSync(filePath)) return { success: false, error: 'Файл не знайдено' };
     const res = b3dParser.parseB3D(filePath);
     if (!res.ok) return { success: false, error: res.error || 'Не вдалося розібрати модель' };
+    activeModelPath = null;
     return { success: true, db: res.db, meta: res.meta };
   } catch (e) {
     return { success: false, error: e.message };
@@ -531,19 +533,22 @@ ipcMain.handle('parse-b3d', (_e, filePath) => {
 
 ipcMain.handle('save-b3d-db', (_e, data) => {
   try {
-    ensureProjectsDir();
-    let base = String((data && data.name) || 'Модель').trim();
-    if (!base) base = 'Модель';
-    let p = path.join(projectsDir(), sanitizeFileName(base) + '.json');
-    let i = 2;
-    while (fs.existsSync(p)) {
-      p = path.join(projectsDir(), sanitizeFileName(base) + ' (' + i + ').json');
-      i++;
+    if (!activeModelPath || !fs.existsSync(activeModelPath)) {
+      let base = String((data && data.name) || 'Модель').trim();
+      if (!base) base = 'Модель';
+      let p = path.join(modelsDir(), sanitizeFileName(base) + '.json');
+      let i = 2;
+      while (fs.existsSync(p)) {
+        p = path.join(modelsDir(), sanitizeFileName(base) + ' (' + i + ').json');
+        i++;
+      }
+      activeModelPath = p;
     }
-    const out = { ...data, name: path.basename(p, '.json'), _source: 'b3d-model' };
+    fs.mkdirSync(path.dirname(activeModelPath), { recursive: true });
+    const out = { ...data, name: path.basename(activeModelPath, '.json'), _source: 'b3d-model' };
     delete out._meta;
-    fs.writeFileSync(p, JSON.stringify(out, null, 2), 'utf-8');
-    return { success: true, path: p, name: path.basename(p, '.json') };
+    fs.writeFileSync(activeModelPath, JSON.stringify(out, null, 2), 'utf-8');
+    return { success: true, path: activeModelPath, name: path.basename(activeModelPath, '.json') };
   } catch (e) {
     return { success: false, error: e.message };
   }

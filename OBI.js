@@ -571,7 +571,12 @@ if (!EXE_PATH) {
 
     try {
         var cps = require('child_process');
-        var child = cps.spawn(EXE_PATH, [], { detached: true, stdio: 'ignore', windowsHide: true });
+        var spawnArgs = [];
+        try {
+            var pj = orderName ? (EXE_DATA_DIR + "\\projects\\" + baseName) : (EXE_DATA_DIR + "\\db.json");
+            if (pj && fs.existsSync(pj)) spawnArgs = ["--project", require('path').resolve(pj)];
+        } catch (e2) {}
+        var child = cps.spawn(EXE_PATH, spawnArgs, { detached: true, stdio: 'ignore', windowsHide: true });
         child.on('error', function (err) {
             alert("\u041E\u0428\u0418\u0411\u041A\u0410 \u0417\u0410\u041F\u0423\u0421\u041A\u0410: " + (err.message || err));
         });
