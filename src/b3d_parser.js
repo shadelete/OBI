@@ -285,6 +285,31 @@ function docItems(doc) {
   return items;
 }
 
+// History/journal gate: opening a model whose undo log ("журнал операцій")
+// survived into the save duplicates the whole scene and breaks every count.
+// A clean model keeps exactly one journal entry ("Новая модель"), so >1 means
+// the file still carries the operation history — refuse and tell the user to
+// re-save the model in Bazis (a plain save clears the journal).
+// The verb list is the set of operation names emitted by the journal; each is
+// a journal row so the count equals the number of operations.
+const RE_HISTORY_VERB = /^(?:новая модель|удаление|отмена \d|перемещение объектов|редактирование|создание вспомогательной|установка панели|установка крепежа|установка фурнитуры|вставка фрагмента|вставка из буфера|изменение структуры|замена материала|разгруппирование|копирование объектов|поворот объектов|вращение объектов|масштабирование объектов|вырезание объектов|расстановка фурнитуры|снятие фурнитуры)/i;
+
+function countHistory(doc) {
+  let n = 0;
+  for (let p = 0; p < doc.length - 8; p++) {
+    if (doc[p] !== 0x06) continue;
+    const s = decodeStrValue(doc, p);
+    if (!s) continue;
+    let letters = 0;
+    for (const ch of s) if (/[\w\u0400-\u04FF]/.test(ch)) letters++;
+    if (letters < 3) continue;
+    const cr = s.indexOf('\r');
+    const name = (cr === -1 ? s : s.slice(0, cr)).trim();
+    if (RE_HISTORY_VERB.test(name)) n++;
+  }
+  return n;
+}
+
 function thicknessAfter(doc, off, name) {
   const L = doc.readUInt32LE(off + 1);
   const end = L ? off + 5 + L * 2 : off + 20;
@@ -515,6 +540,22 @@ function parseB3D(filePath) {
     return { ok: false, error: 'Файл замалий або не є моделлю Базиса' };
   }
 
+  const doc = findMainDoc(buf);
+
+  // A model that was autosaved mid-work keeps the full operation journal in the
+  // main document stream; opening it duplicates the scene and inflates every
+  // count. Only accept files with an empty (or single bootstrap) journal.
+  const history = doc ? countHistory(doc) : 0;
+  if (history > 1) {
+    return {
+      ok: false,
+      code: 'model-has-history',
+      history,
+      error: 'Модель збережена з історією операцій (' + history + ' дій).' +
+        ' Відкрийте модель у Базисі та збережіть її заново (очистить журнал), потім спробуйте ще раз.'
+    };
+  }
+
   const counts = extractStrings(buf);
 
   // Panel materials and their edges are rebuilt from the main document stream
@@ -522,7 +563,6 @@ function parseB3D(filePath) {
   // the real panel count, real thickness and real edge lines (Obj+Size double
   // copies are halved). Falls back to the raw string counts otherwise.
   const docRes = (() => {
-    const doc = findMainDoc(buf);
     if (!doc) return null;
     const r = buildMaterialsFromDoc(doc);
     return r.items && r.items.length ? { doc, items: r.items, materials: r.materials, restEdges: r.restEdges } : null;
