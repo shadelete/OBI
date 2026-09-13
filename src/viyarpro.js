@@ -388,10 +388,8 @@ async function sendToViyar(filePath, creds, onProgress) {
   const title = fileName.replace(/\.project$/i, '') || fileName;
   const { ticket, constructorId } = await openConvertedProject(hash, title, sessionId, accessToken);
   const url = backendUrl(constructorId, ticket, hash);
-  // NOTE: was shell.openExternal(url) — but the user's default browser has no
-  // Keycloak session cookies, so the server redirected to /main ignoring
-  // direct_load=true. Now: open in a new BrowserWindow that reuses the same
-  // persist:viyarpro partition as the Keycloak login — cookies carry over.
+  // Open in a new BrowserWindow that reuses the same persist:viyarpro partition
+  // as the Keycloak login — cookies carry over.
   const win = new BrowserWindow({
     show: true,
     width: 1280,
@@ -402,6 +400,18 @@ async function sendToViyar(filePath, creds, onProgress) {
     },
     title: 'ViyarPro — проєкт'
   });
+  // Step 1: visit viyar.pro/main first to establish the server-side session
+  // cookie that the constructor expects. Without this step the server
+  // redirects /service/?direct_load=true → /main (empty page).
+  await new Promise((resolve) => {
+    let resolved = false;
+    const done = () => { if (!resolved) { resolved = true; resolve(); } };
+    win.webContents.once('did-finish-load', done);
+    win.webContents.once('did-fail-load', done);
+    win.loadURL(`${SERVICE_BASE}main`);
+    setTimeout(done, 8000); // safety timeout
+  });
+  // Step 2: navigate to the constructor URL with the project ticket.
   win.loadURL(url);
   return { success: true, url };
 }
