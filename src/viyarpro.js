@@ -2,8 +2,10 @@
 //  - Keycloak OIDC login (hidden BrowserWindow) with stored login/password,
 //  - vpSession bootstrap (GET service getVpSession),
 //  - .project upload (multipart convertProject),
-//  - openConvertedProject -> ticket + constructor, then shell.openExternal.
-const { BrowserWindow, shell } = require('electron');
+//  - openConvertedProject -> ticket + constructor, then open URL in a new
+//    BrowserWindow that reuses the same persist:viyarpro partition so the
+//    Keycloak session cookies carry over.
+const { BrowserWindow } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -386,7 +388,21 @@ async function sendToViyar(filePath, creds, onProgress) {
   const title = fileName.replace(/\.project$/i, '') || fileName;
   const { ticket, constructorId } = await openConvertedProject(hash, title, sessionId, accessToken);
   const url = backendUrl(constructorId, ticket, hash);
-  await shell.openExternal(url);
+  // NOTE: was shell.openExternal(url) — but the user's default browser has no
+  // Keycloak session cookies, so the server redirected to /main ignoring
+  // direct_load=true. Now: open in a new BrowserWindow that reuses the same
+  // persist:viyarpro partition as the Keycloak login — cookies carry over.
+  const win = new BrowserWindow({
+    show: true,
+    width: 1280,
+    height: 800,
+    webPreferences: {
+      partition: 'persist:viyarpro',
+      sandbox: true
+    },
+    title: 'ViyarPro — проєкт'
+  });
+  win.loadURL(url);
   return { success: true, url };
 }
 
