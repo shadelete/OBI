@@ -310,7 +310,8 @@ async function convertProject(filePath, sessionId, accessToken) {
   }
   const status = data && data.result && data.result.status;
   // Positive path first: hash present means the server accepted the file.
-  const group = status && status.convertedProjects && status.convertedProjects[0];
+  // NOTE: status.convertedProjects is an OBJECT {projects, errors, warnings}, not an array.
+  const group = status && status.convertedProjects;
   const proj = group && group.projects && group.projects[0];
   if (proj && proj.hash) {
     return { hash: proj.hash, fileName: proj.file_name || name };
