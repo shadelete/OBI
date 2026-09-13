@@ -309,20 +309,21 @@ async function convertProject(filePath, sessionId, accessToken) {
     throw new Error(`Завантаження не вдалося (HTTP ${resp.status}): ${text.slice(0, 500)}`);
   }
   const status = data && data.result && data.result.status;
-  if (status && status.error) {
-    // Surface the FULL status (not just status.error) so we can see the real
-    // server-side reason — error may be empty [] but other status fields carry info.
-    throw new Error('Сервер не прийняв файл. status: ' + JSON.stringify(status).slice(0, 800));
-  }
+  // Positive path first: hash present means the server accepted the file.
   const group = status && status.convertedProjects && status.convertedProjects[0];
   const proj = group && group.projects && group.projects[0];
-  if (!proj || !proj.hash) {
-    // Surface the real server response so we can see WHY the server didn't return a hash
-    // (session expired, invalid file, server-side parsing error, ...).
-    const full = data && data.result ? JSON.stringify(data.result).slice(0, 800) : '(no result)';
-    throw new Error(`Сервер не повернув hash (HTTP ${resp.status}). result: ${full}`);
+  if (proj && proj.hash) {
+    return { hash: proj.hash, fileName: proj.file_name || name };
   }
-  return { hash: proj.hash, fileName: proj.file_name || name };
+  // Real error: non-empty status.error. NOTE: status.error is [] on success,
+  // and [] is truthy in JS — so we must check the length, not just truthiness.
+  const err = status && status.error;
+  const hasError = Array.isArray(err) ? err.length > 0 : (err && Object.keys(err).length > 0);
+  if (hasError) {
+    throw new Error('Сервер не прийняв файл: ' + JSON.stringify(err).slice(0, 400));
+  }
+  // Fallback: hash missing for other reason — dump full result for debugging.
+  throw new Error(`Сервер не повернув hash (HTTP ${resp.status}). result: ${JSON.stringify(status || data).slice(0, 800)}`);
 }
 
 // POST openConvertedProject -> { ticket_hash, constructorId }
