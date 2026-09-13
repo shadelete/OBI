@@ -5,7 +5,7 @@
 //  - openConvertedProject -> ticket + constructor, then open URL in a new
 //    BrowserWindow that reuses the same persist:viyarpro partition so the
 //    Keycloak session cookies carry over.
-const { BrowserWindow } = require('electron');
+const { BrowserWindow, app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -21,6 +21,18 @@ const BAZIS_KEY = 'c928f7180e21ff8eae69f0b039d5279e90fa68607851d1a3835b8de2b739d
 
 const LOGIN_TIMEOUT_MS = 60000;
 const FORM_WAIT_MS = 25000;
+
+// File logger for ViyarPro debugging — writes to <userData>/viyarpro-debug.log
+// so the user can inspect the API response, URL, and full navigation chain
+// without needing DevTools open.
+function debugLog(msg) {
+  try {
+    const dir = app.getPath('userData');
+    fs.appendFileSync(path.join(dir, 'viyarpro-debug.log'),
+      `[${new Date().toISOString()}] ${msg}\n`);
+  } catch (e) {}
+  console.log(msg);
+}
 
 function b64u(buf) {
   return Buffer.from(buf).toString('base64')
@@ -392,8 +404,8 @@ async function sendToViyar(filePath, creds, onProgress) {
   const url = backendUrl(constructorId, ticket);
   // Diagnostic: dump the full openConvertedProject response so we see every
   // field the server returns (some might be a canonical URL we should use).
-  console.log('[ViyarPro] openConvertedProject response:', JSON.stringify(openRes));
-  console.log('[ViyarPro] opening URL:', url);
+  debugLog('openConvertedProject response: ' + JSON.stringify(openRes));
+  debugLog('opening URL: ' + url);
   // Open in a new BrowserWindow that reuses the same persist:viyarpro partition
   // as the Keycloak login — Keycloak session cookies carry over.
   const win = new BrowserWindow({
@@ -408,14 +420,24 @@ async function sendToViyar(filePath, creds, onProgress) {
   });
   // Diagnostic: log every navigation so we see the full redirect chain.
   win.webContents.on('did-navigate', (_e, navUrl) => {
-    console.log('[ViyarPro] did-navigate:', navUrl);
+    debugLog('did-navigate: ' + navUrl);
   });
   win.webContents.on('did-navigate-in-page', (_e, navUrl) => {
-    console.log('[ViyarPro] did-navigate-in-page:', navUrl);
+    debugLog('did-navigate-in-page: ' + navUrl);
   });
   win.webContents.on('did-fail-load', (_e, code, desc, navUrl) => {
-    console.log('[ViyarPro] did-fail-load:', code, desc, navUrl);
+    debugLog('did-fail-load: ' + code + ' ' + desc + ' ' + navUrl);
   });
+  // Capture the final URL after navigation settles — tells us exactly where
+  // the window ended up (in case many redirects stripped our params).
+  setTimeout(() => {
+    try {
+      const finalUrl = win.webContents.getURL();
+      debugLog('final URL after 5s: ' + finalUrl);
+    } catch (e) {
+      debugLog('final URL probe failed: ' + e.message);
+    }
+  }, 5000);
   win.loadURL(url);
   return { success: true, url };
 }
