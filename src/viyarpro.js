@@ -373,13 +373,31 @@ async function openConvertedProject(hash, title, sessionId, accessToken) {
   return { ticket, constructorId };
 }
 
-function backendUrl(constructorId, ticket) {
+function backendUrl(constructorId, ticket, hash) {
   // page=materials — direct materials page of the constructor (where the
   // loaded project actually displays). No redirect=1 (that stripped all
   // params → /service/ with empty project). direct_load=true on this page
-  // tells the server to render the converted project.
-  return `${SERVICE_BASE}?page=materials&constructor_id=${encodeURIComponent(constructorId)}`
+  // tells the server to render the converted project. hash included if known.
+  let url = `${SERVICE_BASE}?page=materials&constructor_id=${encodeURIComponent(constructorId)}`
     + `&ticket_session=${encodeURIComponent(ticket)}&direct_load=true`;
+  if (hash) url += `&hash=${encodeURIComponent(hash)}`;
+  return url;
+}
+
+// Variants to try when direct_load=true on page=materials doesn't work.
+// Each variant is tried after viyar.pro/main session is established.
+function backendUrlVariants(constructorId, ticket, hash) {
+  const v = (name, url) => ({ name, url });
+  const cid = encodeURIComponent(constructorId);
+  const t = encodeURIComponent(ticket);
+  const h = hash ? `&hash=${encodeURIComponent(hash)}` : '';
+  return [
+    v('materials', `${SERVICE_BASE}?page=materials&constructor_id=${cid}&ticket_session=${t}&direct_load=true${h}`),
+    v('materials+constructor_page', `${SERVICE_BASE}?page=materials&constructor_id=${cid}&constructor_page=materials&ticket_session=${t}&direct_load=true${h}`),
+    v('homepage_redirect', `${SERVICE_BASE}?page=homepage&redirect=1&constructor_id=${cid}&constructor_page=materials&ticket_session=${t}&direct_load=true${h}`),
+    v('constructor_materials', `${SERVICE_BASE}?page=constructor_materials&constructor_id=${cid}&ticket_session=${t}&direct_load=true${h}`),
+    v('editor', `${SERVICE_BASE}?page=editor&constructor_id=${cid}&ticket_session=${t}&direct_load=true${h}`)
+  ];
 }
 
 // Main orchestration: returns { success, url } or throws.
@@ -401,11 +419,13 @@ async function sendToViyar(filePath, creds, onProgress) {
   const openRes = await openConvertedProject(hash, title, sessionId, accessToken);
   const ticket = openRes.ticket;
   const constructorId = openRes.constructorId;
-  const url = backendUrl(constructorId, ticket);
+  const url = backendUrl(constructorId, ticket, hash);
+  const variants = backendUrlVariants(constructorId, ticket, hash);
   // Diagnostic: dump the full openConvertedProject response so we see every
   // field the server returns (some might be a canonical URL we should use).
   debugLog('openConvertedProject response: ' + JSON.stringify(openRes));
   debugLog('opening URL: ' + url);
+  debugLog('URL variants: ' + JSON.stringify(variants.map(v => v.name)));
   // Open in a new BrowserWindow that reuses the same persist:viyarpro partition
   // as the Keycloak login — Keycloak session cookies carry over.
   // NOTE: removed sandbox:true — with sandbox+custom partition combo the URL
@@ -473,25 +493,49 @@ async function sendToViyar(filePath, creds, onProgress) {
   } catch (e) {
     debugLog('/main visit threw: ' + (e && e.message ? e.message : String(e)));
   }
-  // Step 2: navigate to the constructor URL with the project ticket.
-  try {
-    debugLog('Step 2: calling win.loadURL(constructor)...');
-    await win.loadURL(url);
-    debugLog('Step 2: win.loadURL resolved');
-  } catch (e) {
-    debugLog('win.loadURL threw: ' + (e && e.message ? e.message : String(e)));
-    throw e;
-  }
-  // Capture the final URL after navigation settles — tells us exactly where
-  // the window ended up (in case many redirects stripped our params).
-  setTimeout(() => {
+  // Step 2: try each URL variant in turn — for each, load URL, wait for
+  // dom-ready, probe the page, log result. We pick the one whose body
+  // indicates the loaded project (vs empty constructor).
+  const variantResults = [];
+  for (let i = 0; i < variants.length; i++) {
+    const v = variants[i];
+    debugLog('Step 2.' + i + ' trying variant [' + v.name + ']: ' + v.url);
     try {
-      const finalUrl = win.webContents.getURL();
-      debugLog('final URL after 8s: ' + finalUrl);
+      await win.loadURL(v.url);
+      debugLog('Step 2.' + i + ' loadURL resolved');
     } catch (e) {
-      debugLog('final URL probe failed: ' + e.message);
+      debugLog('Step 2.' + i + ' loadURL threw: ' + (e && e.message ? e.message : String(e)));
+      variantResults.push({ name: v.name, error: String(e) });
+      continue;
     }
-  }, 8000);
+    // Give the page a moment for JS-driven content to settle, then probe.
+    await new Promise(resolve => setTimeout(resolve, 2500));
+    try {
+      const probe = await win.webContents.executeJavaScript(`
+        (() => {
+          try {
+            const text = (document.body && document.body.innerText || '').slice(0, 400);
+            return {
+              title: document.title || '',
+              href: location.href,
+              bodyText: text.replace(/\\s+/g, ' ').trim()
+            };
+          } catch (e) { return { error: String(e) }; }
+        })();
+      `);
+      debugLog('Step 2.' + i + ' [' + v.name + '] PROBE: ' + JSON.stringify(probe));
+      variantResults.push({ name: v.name, probe });
+    } catch (e) {
+      debugLog('Step 2.' + i + ' executeJavaScript failed: ' + e.message);
+      variantResults.push({ name: v.name, error: e.message });
+    }
+  }
+  debugLog('All variants done. Results: ' + JSON.stringify(variantResults.map(r => ({
+    name: r.name,
+    title: r.probe && r.probe.title,
+    bodySnippet: r.probe && r.probe.bodyText ? r.probe.bodyText.slice(0, 120) : r.error
+  }))));
+  // Stop on the last variant (window stays open).
   return { success: true, url };
 }
 
