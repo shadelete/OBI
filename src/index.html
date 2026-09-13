@@ -32,6 +32,14 @@
       </div>
       <div class="topbar-actions">
         <button class="btn btn-secondary" onclick="chooseProjectFolder()" data-i18n="explorer.open"></button>
+        <button class="btn btn-secondary" onclick="importSettings()" data-i18n="settings.transfer.import"></button>
+        <div class="export-dropdown" id="export-dropdown">
+          <button class="btn btn-secondary" onclick="toggleExportMenu(event)" data-i18n="settings.transfer.export"></button>
+          <div class="export-menu" id="export-menu">
+            <button class="export-menu-item" onclick="exportExcel()" data-i18n="export.excel"></button>
+            <button class="export-menu-item" onclick="exportPDF()" data-i18n="export.pdf"></button>
+          </div>
+        </div>
         <button class="btn btn-secondary" onclick="openCalcModal()" data-i18n="calc.button"></button>
         <button class="btn btn-icon settings-btn" id="settings-btn" title="Налаштування">⚙</button>
       </div>
@@ -172,23 +180,13 @@
       </section>
     </div>
 
-    <!-- GLOBAL APPBAR (footer with stats, transfer, totals) -->
+    <!-- GLOBAL APPBAR (footer with stats and totals) -->
     <footer class="appbar" id="appbar">
       <div class="appbar-stats" id="appbar-stats">
         <div class="appbar-stat"><span class="appbar-stat-label" data-i18n="appbar.total.positions"></span><span class="appbar-stat-value" id="appbar-positions">0</span></div>
         <div class="appbar-stat"><span class="appbar-stat-label" data-i18n="appbar.total.materials"></span><span class="appbar-stat-value" id="appbar-materials">0</span></div>
         <div class="appbar-stat"><span class="appbar-stat-label" data-i18n="appbar.total.profiles"></span><span class="appbar-stat-value" id="appbar-profiles">0</span></div>
         <div class="appbar-stat"><span class="appbar-stat-label" data-i18n="appbar.total.area"></span><span class="appbar-stat-value" id="appbar-area">0 м²</span></div>
-      </div>
-      <div class="appbar-transfer">
-        <button class="btn btn-secondary appbar-btn" onclick="importSettings()" data-i18n="appbar.import"></button>
-        <div class="export-dropdown appbar-export">
-          <button class="btn btn-secondary appbar-btn" onclick="toggleExportMenu(event)" data-i18n="appbar.export"></button>
-          <div class="export-menu" id="export-menu">
-            <button class="export-menu-item" onclick="exportExcel()" data-i18n="export.excel"></button>
-            <button class="export-menu-item" onclick="exportPDF()" data-i18n="export.pdf"></button>
-          </div>
-        </div>
       </div>
       <div class="appbar-actions">
         <span class="appbar-total-label" data-i18n="appbar.total.count"></span>

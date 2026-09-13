@@ -167,6 +167,28 @@ function scanObject(obj) {
             var m = materials[key];
             m.count++;
 
+            // Extract material texture/properties (Path, ColorUse, DiffuseColor, Tex* etc.).
+            // Set only once per material key (so the first panel of each material defines it).
+            try {
+                if (!m._propsRead) {
+                    var matObj = null;
+                    try { matObj = obj.Material; } catch (eMatObj) {}
+                    if (matObj) {
+                        try { if (matObj.Path) m.texturePath = String(matObj.Path); } catch (e) {}
+                        try { if (matObj.ColorUse !== undefined && matObj.ColorUse !== null) m.textureUseColor = matObj.ColorUse ? true : false; } catch (e) {}
+                        try { if (matObj.DiffuseColor !== undefined && matObj.DiffuseColor !== null) m.color = matObj.DiffuseColor; } catch (e) {}
+                        try { if (matObj.TexSX != null && !isNaN(Number(matObj.TexSX))) m.texStepX = Number(matObj.TexSX); } catch (e) {}
+                        try { if (matObj.TexSY != null && !isNaN(Number(matObj.TexSY))) m.texStepY = Number(matObj.TexSY); } catch (e) {}
+                        try { if (matObj.TexDX != null && !isNaN(Number(matObj.TexDX))) m.texOffsetX = Number(matObj.TexDX); } catch (e) {}
+                        try { if (matObj.TexDY != null && !isNaN(Number(matObj.TexDY))) m.texOffsetY = Number(matObj.TexDY); } catch (e) {}
+                        try { if (matObj.Angle != null && !isNaN(Number(matObj.Angle))) m.texAngle = Number(matObj.Angle); } catch (e) {}
+                        try { if (matObj.MirrorValue !== undefined && matObj.MirrorValue !== null) m.texMirror = matObj.MirrorValue ? true : false; } catch (e) {}
+                        try { if (matObj.Stretch !== undefined && matObj.Stretch !== null) m.texStretch = matObj.Stretch ? true : false; } catch (e) {}
+                        m._propsRead = true;
+                    }
+                }
+            } catch (eMatBlock) {}
+
             var w = obj.ContourWidth || 0;
             var h = obj.ContourHeight || 0;
 
@@ -443,6 +465,85 @@ function getModelBaseName() {
 var MODEL_DIR = getModelDir();
 var MODEL_BASE = getModelBaseName();
 
+// ============ TEXTURE EXTRACTION FROM BAZIS SETTINGS ============
+// Bazis stores texture directory in %APPDATA%\Bazis\Settings.xml (cp1251) under
+// <PathTEXTUR>C:\path\to\textures\</PathTEXTUR>. Material objects expose a relative
+// texture path via .Path (e.g. "Kashtan\ЛДСП\Дуб канюн крофт.jpg" or "#EGGER\F1861.jpg").
+// We read the file (PNG/JPG/BMP, cap 2 MB) and embed it as a base64 data URI in JSON.
+
+function getBazisTextureDir() {
+    try {
+        var appdata = process.env.APPDATA || "";
+        if (!appdata) return "";
+        var settingsPath = appdata + "\\Bazis\\Settings.xml";
+        var fs = require("fs");
+        var raw = fs.readFileSync(settingsPath, { encoding: "cp1251" });
+        // Try PathTEXTUR and PathTEXTURE (older Bazis variants)
+        var m = raw.match(/<Path(?:TEXTUR|TEXTURE)[^>]*>([^<]*)<\/Path(?:TEXTUR|TEXTURE)>/i);
+        if (m && m[1]) {
+            return m[1].replace(/&amp;/g, "&").replace(/[\\/]+$/, "").trim();
+        }
+    } catch (e) {}
+    return "";
+}
+
+function resolveTexturePath(relativePath, baseDir) {
+    if (!relativePath || !baseDir) return "";
+    var p = String(relativePath).replace(/\//g, "\\");
+    // Normalize backslashes; collapse leading ones (UNC paths) but keep absolute
+    while (p.indexOf("\\\\") !== -1) p = p.replace(/\\\\/g, "\\");
+    var full;
+    if (/^[A-Za-z]:\\/.test(p)) full = p;
+    else full = baseDir + "\\" + p;
+    try {
+        var fs = require("fs");
+        if (fs.existsSync(full)) return full;
+    } catch (e) {}
+    return "";
+}
+
+function encodeTextureAsDataUri(absPath) {
+    try {
+        var fs = require("fs");
+        var stat = fs.statSync(absPath);
+        var MAX_TEX_SIZE = 2 * 1024 * 1024;
+        if (stat.size > MAX_TEX_SIZE) return null;
+        var buf = fs.readFileSync(absPath);
+        var dotIdx = absPath.lastIndexOf(".");
+        var ext = (dotIdx >= 0) ? absPath.substring(dotIdx + 1).toLowerCase() : "";
+        var mime;
+        if (ext === "jpg" || ext === "jpeg") mime = "image/jpeg";
+        else if (ext === "png") mime = "image/png";
+        else if (ext === "bmp") mime = "image/bmp";
+        else mime = "application/octet-stream";
+        return "data:" + mime + ";base64," + buf.toString("base64");
+    } catch (e) {
+        return null;
+    }
+}
+
+function applyTexturesToMaterials(mats, baseDir) {
+    var stats = { embedded: 0, missing: 0, oversized: 0, skipped: 0 };
+    if (!baseDir) return stats;
+    var fs = require("fs");
+    var matsArr = Object.values(mats);
+    for (var i = 0; i < matsArr.length; i++) {
+        var m = matsArr[i];
+        if (!m.texturePath) continue;
+        if (m.textureUseColor === true) continue; // solid color, no texture
+        var abs = resolveTexturePath(m.texturePath, baseDir);
+        if (!abs) { stats.missing++; continue; }
+        var data = encodeTextureAsDataUri(abs);
+        if (data === null) { stats.oversized++; continue; }
+        m.textureData = data;
+        stats.embedded++;
+    }
+    return stats;
+}
+
+var TEX_BASE_DIR = getBazisTextureDir();
+var TEX_STATS = applyTexturesToMaterials(materials, TEX_BASE_DIR);
+
 var jsonData = {
     date: new Date().toString(),
     name: getOrderName(),
@@ -453,7 +554,7 @@ var jsonData = {
     profilesCount: profilesCount,
     fastenersCount: fastenersCount,
     materials: Object.values(materials).map(function (m) {
-        return {
+        var out = {
             name: m.name,
             code: m.code,
             thickness: m.thickness,
@@ -461,6 +562,18 @@ var jsonData = {
             edges: toEdgeArray(m.edges),
             details: m.details
         };
+        if (m.texturePath) out.texturePath = m.texturePath;
+        if (m.textureData) out.textureData = m.textureData;
+        if (m.textureUseColor !== undefined) out.textureUseColor = m.textureUseColor;
+        if (m.color !== undefined) out.color = m.color;
+        if (m.texStepX !== undefined) out.texStepX = m.texStepX;
+        if (m.texStepY !== undefined) out.texStepY = m.texStepY;
+        if (m.texOffsetX !== undefined) out.texOffsetX = m.texOffsetX;
+        if (m.texOffsetY !== undefined) out.texOffsetY = m.texOffsetY;
+        if (m.texAngle !== undefined) out.texAngle = m.texAngle;
+        if (m.texMirror !== undefined) out.texMirror = m.texMirror;
+        if (m.texStretch !== undefined) out.texStretch = m.texStretch;
+        return out;
     }),
     profiles: Object.values(profiles).map(function (p) {
         return {
@@ -474,6 +587,14 @@ var jsonData = {
 };
 
 var jsonString = JSON.stringify(jsonData, null, 2);
+
+// Texture extraction summary (logged to console; surfaces in Bazis journal).
+try {
+    console.log("OBI: textures embedded=" + TEX_STATS.embedded
+        + " missing=" + TEX_STATS.missing
+        + " oversized=" + TEX_STATS.oversized
+        + " baseDir=" + (TEX_BASE_DIR || "(none)"));
+} catch (eLog) {}
 
 // --- Paths / exe search ---
 var scriptDir = "";

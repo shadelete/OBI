@@ -415,7 +415,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .appbar {
   flex: 0 0 auto;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 16px;
   padding: 10px 20px;
@@ -446,11 +446,6 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
   color: var(--text-strong);
   font-weight: 700;
 }
-.appbar-transfer {
-  display: flex;
-  gap: 8px;
-  justify-self: center;
-}
 .appbar-actions {
   display: flex;
   align-items: center;
@@ -469,7 +464,6 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
   font-weight: 800;
   color: var(--text-strong);
 }
-.appbar-export { position: relative; }
 .appbar-add {
   padding: 8px 18px;
   font-size: 13px;
@@ -759,16 +753,6 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
   flex: 1;
   min-width: 0;
 }
-.dh-menu-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-size: 16px;
-  cursor: pointer;
-  padding: 2px 8px;
-  border-radius: 6px;
-}
-.dh-menu-btn:hover { background: var(--bg-hover); color: var(--text-strong); }
 .dh-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .dh-chip {
   display: inline-flex;

@@ -69,7 +69,14 @@ standalone-додатку, додаток знаходить усі **JSON-фа�
 - Матеріали: `{ name, code, thickness, count, edges[], details[] }`.
   `details[i]` — `{ name, position?, width, height, cuts[] }`, де `position` —
   артикул/позиція об'єкта з моделі (`obj.ArtPos`, ставиться скриптом або
-  вручну).
+  вручну). Додаткові поля (заповнюються `OBI.js` із `panel.Material`):
+  `texturePath` (відносний шлях до файлу текстури), `textureData`
+  (`data:image/png;base64,…` — вбудована base64 копія, до 2 МБ),
+  `textureUseColor` (bool: false=текстура, true=суцільний колір), `color`
+  (DiffuseColor як COLORREF), `texStepX/Y` (Шаг, мм), `texOffsetX/Y`
+  (Смещение), `texAngle` (Угол), `texMirror` (Зеркально), `texStretch`
+  (Растянуть). Renderer показує `textureData` у картці та header;
+  fallback — декоративний SVG якщо текстури немає.
 - Профілі: `{ name, code, material, materialCode?, supplier?, details[] }`,
   `details[i]` — `{ width, thickness, length, count, positions[]? }` (масив
   артикулів, бо профілі за позиціями не групуються).

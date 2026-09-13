@@ -1,59 +1,61 @@
 # SESSION.md — точка роботи (поточна сесія)
 
 ## Задача
-Редизайн UI матеріалів і профілів за референсом (3D-прев'ю, чипи, таблиці, футер).
-Фурнітура — лишається в поточному вигляді (`fittings-mode`, 3 колонки + `fittings-detail`).
+Редизайн UI матеріалів і профілів + виправлення дрібних багів + реальні текстури.
 
 ## Що зроблено в цій сесії
 
-### HTML (src/index.html)
-- Прибрано старі кнопки «Експорт» із topbar (дропдаун тепер тільки у футері).
-- Додано `.project-selector` у topbar з кнопкою «2. Проєкт ▾» і скритим `.project-dropdown`.
-- Замінено `.list-panel` на нову `.category-list` із заголовком категорії + пошуком (`.cat-body` для карток).
-- Додано глобальний `<footer class="appbar">` зі stats, Import/Export і «+ Додати позицію».
-- Прибрано стару кнопку «Відкрити папку проєкту» із topbar (дія доступна через дропдаун проєкту).
+### Правки UI (src/index.html, src/styles.css, src/renderer.js)
+- **Пункт 4 — прибрано колонку «Постачальник»** з таблиці деталей матеріалу/профілю (5 колонок замість 6).
+- **Пункт 5 — прибрано кнопку ⋯** у detail-header (не функціональна, висіла над кромкою).
+- **Пункт 1 — Import/Export перенесено з appbar у topbar**:
+  - topbar: додано `Імпорт` (button) і `Експорт ▾` (dropdown з Excel/PDF).
+  - appbar: залишились тільки stats (positions/materials/profiles/area), «Загальна кількість» і `+ Додати позицію».
+  - Сетка appbar: `grid-template-columns: 1fr auto` (2 колонки замість 3).
 
-### CSS (src/styles.css)
-- Сітка: `236px + 200px + 300px + 1fr` для materials/profiles, `236 + 200 + 1fr` для fittings-mode.
-- Стилі для `.appbar` (grid 1fr/auto/1fr), `.project-selector` + `.project-dropdown`, `.cat-card` (з SVG-прев'ю, чекбоксами, drag-handle), `.cat-search`, `.category-list`, `.detail-header-v2` (3D-прев'ю, чипи, кромки в куті), `.detail-table` (sticky-header, sortable, hover, .check-col/.num-col/.qty-col/.code-col).
-- Старі `.sidebar` (Матеріали/Профілі/Фурнітура) збережено — це перемикач категорій (тепер між Explorer і Category-list).
-- Старі `.list-panel`, `.list-card`, `.lc-*` стилі лишилися в CSS для зворотної сумісності (використовуються в `renderFitList()` для навігації фурнітури).
+### Реальні текстуры (OBI.js + src/renderer.js)
+- **OBI.js (cp1251)** — для кожного матеріалу тепер зчитуються властивості з `panel.Material`:
+  - `texturePath` — відносний шлях із `material.Path` (напр. `'Kashtan\\ЛДСП\\Дуб канюн крофт.jpg'`).
+  - `textureUseColor` — `material.ColorUse` (boolean).
+  - `color` — `material.DiffuseColor` (COLORREF).
+  - `texStepX/Y`, `texOffsetX/Y`, `texAngle`, `texMirror`, `texStretch` — Шаг/Смещение/Угол/Зеркально/Растянуть.
+- **OBI.js** — функції `getBazisTextureDir()`, `resolveTexturePath()`, `encodeTextureAsDataUri()`, `applyTexturesToMaterials()`:
+  - Читає `%APPDATA%\Bazis\Settings.xml` у cp1251 (regex для `<PathTEXTUR>` / `<PathTEXTURE>`).
+  - Резолвит відносний шлях, читає файл, base64-кодирує.
+  - Кап 2 МБ на текстуру.
+  - Пропускає матеріали з `textureUseColor === true` (суцільний колір, без текстури).
+- **JSON-схема** — у `materials[i]` додано нові поля (заповнюються лише якщо визначені):
+  - `texturePath`, `textureData` (data:image/png;base64,…), `textureUseColor`, `color`, `texStepX/Y`, `texOffsetX/Y`, `texAngle`, `texMirror`, `texStretch`.
+- **renderer.js** — `itemPreviewSVG()`:
+  - Якщо `it.textureData` є → `<img src="${textureData}">` (96×96, object-fit:cover).
+  - Інакше fallback на декоративний SVG (`plankSVG` для матеріалів, `profileSVG` для профілів).
 
-### Renderer (src/renderer.js)
-- Helpers: `materialTypeFromName()`, `hueFromString()`, `plankSVG()`, `profileSVG()`, `itemPreviewSVG()` — декоративні SVG-прев'ю.
-- `renderAppbar()` — заповнює stats і «Загальна кількість».
-- `renderCategoryList()` + `catCardHTML()` — картки в середній колонці з прев'ю, мета, чекбоксами.
-- `renderDetailTable()` + `renderDetailItemsTable()` — новий header/tabs/table.
-- `renderDetail()` тепер тонка обгортка над `renderDetailTable()`.
-- `setDetailTab()`, `setDetailSort()` — перемикач табів і сортування таблиці.
-- `bindTopbarDropdown()`, `renderProjectDropdown()`, `switchToProject()` — topbar dropdown проєкту.
-- `addMaterialInline()`, `addProfileInline()`, `appbarAddPosition()` — додавання через `prompt()` (можна замінити на повноцінний модал пізніше).
-- `bindListEvents` оновлено на `#cat-body` + `.cat-card` замість `.list-body` + `.list-card`.
-- `selectMat`/`selectProf` тепер викликають `renderCategoryList()` і `renderDetailTable()`.
-- `bindSearch` слухає `#cat-search-input` (раніше `#search-input`).
-- `applyLanguage` прибрано згадку про неіснуючий `#search-input`.
-- `clearListDropStyles` працює з `#cat-body .cat-card`.
-- I18N: додано ключі `appbar.*`, `cat.search.placeholder`, `tab.details/edges/cuts`, `col.*`, `project.*`, `detail.empty`, `add.mat/prof.title` (uk/ru).
+### Файли
+- `OBI.js` — основні правки текстур (cp1251).
+- `src/index.html`, `src/styles.css`, `src/renderer.js` — UI.
+- Після тестування в Базисі потрібно перегенерувати `release\OBI.js`:
+  ```ps
+  [System.IO.File]::WriteAllText('release\OBI.js', [System.IO.File]::ReadAllText('OBI.js', [System.Text.Encoding]::GetEncoding(1251)), (New-Object System.Text.UTF8Encoding $False))
+  ```
 
 ## Структура файлів
-- `OBI.js` — без змін.
-- `main.js`, `preload.js` — без змін (нова архітектура проєкт-папки стабільна).
-- `src/index.html`, `src/styles.css`, `src/renderer.js` — основні правки.
+- `OBI.js` — скрипт Базиса (cp1251-конвертується для релиза в `release\OBI.js`).
+- `main.js`, `preload.js` — без змін.
+- `src/index.html`, `src/styles.css`, `src/renderer.js` — основные правки UI.
+- `src/fit_rules.html`, `src/fit_rules.js` — без змін.
 
-## Команди
+## Команды
 - Dev: `npm start`.
 - Збірка portable: `npm run build` (EBUSY-обхід: `npx electron-builder --win --config.directories.output="<temp>\obibuildN"`).
-- Перевірка синтаксису: `node --check src/renderer.js`.
+- Перевірка синтаксису: `node --check src/renderer.js`; `node --check OBI.js` (працює і на cp1251).
 
 ## Що залишилось / пріоритети
-1. **Повноцінний модал додавання** матеріалів/профілів/фурнітури замість `prompt()`.
-2. **Реальні фото/3D** матеріалів — зараз декоративний SVG. Потрібен pipeline (з Базиса → JSON → кеш).
-3. **Сортування таблиці** зараз тимчасове в пам'яті (змінна `detailSort`). Можна персистити в overlay.
-4. **Крос-перевірка overlay.edits** для fitting-полів (edit/count).
-5. **`fit_rules` у fit_rules window** — фільтрувати до поточного проєкту (зараз глобальний).
-6. **Чищення** `data\models\`, `b3d-dist\` — сміття від минулого b3d-експерименту (не git).
-7. **Реліз** `0.3.0` — підняти версію з `0.3.0-dev` і зібрати `release\OBI-0.3.0.zip`.
+1. **Перевірити в Базисі** — відкрити модель з реальною текстурою, запустити скрипт, перевірити JSON на наявність `textureData`.
+2. **Перегенерувати `release\OBI.js`** в cp1251.
+3. **`fit_rules` у fit_rules window** — фільтрувати до поточного проєкту (зараз глобальний).
+4. **Чищення** `data\models\`, `b3d-dist\` — сміття від минулого b3d-експерименту (не git).
+5. **Реліз** `0.3.0` — підняти версію з `0.3.0-dev` і зібрати `release\OBI-0.3.0.zip`.
 
 ## Версія
 - `package.json`: `0.3.0-dev` (dev-суфікс блокує авто-оновлення).
-- Гілка: `main`. Тег наступного релізу: `v0.3.0` (без dev).
+- Гілка: `main`. Тег наступного релизу: `v0.3.0` (без dev).

@@ -867,7 +867,12 @@ function profileSVG(code, size) {
 
 function itemPreviewSVG(it, size) {
   if (!it) return '';
-  return selCat === 'profiles' ? profileSVG(it.code, size) : plankSVG(it.code, size);
+  if (it.textureData) {
+    var s = size || 96;
+    return '<img src="' + it.textureData + '" style="width:' + s + 'px;height:' + s + 'px;object-fit:cover;border-radius:8px;display:block;">';
+  }
+  if (selCat === 'profiles') return profileSVG(it.code, size);
+  return plankSVG(it.code, size);
 }
 
 function renderAll() {
@@ -1426,7 +1431,6 @@ function renderDetailTable() {
       <div class="dh-main">
         <div class="dh-title-row">
           <div class="dh-title">${escapeHtml(item.name || item.material || '')}</div>
-          <button class="dh-menu-btn" title="⋯">⋯</button>
         </div>
         <div class="dh-chips">
           ${isMat && thickStr ? `<span class="dh-chip"><span class="dh-chip-label">${t('stat.thickness')}</span><span class="dh-chip-value">${thickStr} мм</span></span>` : ''}
@@ -1566,7 +1570,6 @@ function renderDetailItemsTable(item, isMat) {
     return;
   }
   const type = isMat ? materialTypeFromName(item.name) : (item.material || '');
-  const supplier = isMat && fitRules && fitRules.suppliers ? (fitRules.suppliers[item.code] || '') : '';
   const sortArrow = (col) => detailSort.col === col ? `<span class="sort-arrow">${detailSort.dir === 1 ? '▲' : '▼'}</span>` : '';
   const th = (cls, key, label) => `<th class="${cls} sortable" onclick="setDetailSort('${key}')">${label}${sortArrow(key)}</th>`;
 
@@ -1580,7 +1583,6 @@ function renderDetailItemsTable(item, isMat) {
             ${th('', 'name', t('col.name'))}
             ${th('', 'type', t('col.type'))}
             ${th('code-col', 'code', t('col.article'))}
-            ${th('', 'supplier', t('col.supplier'))}
             ${th('qty-col', 'count', t('col.qty'))}
             ${th('', 'note', t('col.note'))}
           </tr>
@@ -1596,7 +1598,6 @@ function renderDetailItemsTable(item, isMat) {
                 <td>${escapeHtml(d.name || '')}</td>
                 <td>${escapeHtml(type)}</td>
                 <td class="code-col">${escapeHtml(fmtCode(d.code || item.code || ''))}</td>
-                <td>${escapeHtml(supplier || '—')}</td>
                 <td class="qty-col">${d.count || 1}</td>
                 <td class="note-col">${escapeHtml(note)}</td>
               </tr>
