@@ -432,9 +432,30 @@ async function sendToViyar(filePath, creds, onProgress) {
   win.webContents.on('did-fail-load', (_e, code, desc, navUrl) => {
     debugLog('did-fail-load: ' + code + ' ' + desc + ' ' + navUrl);
   });
-  win.webContents.on('dom-ready', () => {
+  win.webContents.on('dom-ready', async () => {
     try {
-      debugLog('dom-ready, URL: ' + win.webContents.getURL());
+      const url = win.webContents.getURL();
+      debugLog('dom-ready, URL: ' + url);
+      // Probe the actual rendered page — tells us whether the server rendered
+      // the constructor with our params or an unrelated page.
+      try {
+        const probe = await win.webContents.executeJavaScript(`
+          (() => {
+            try {
+              const text = (document.body && document.body.innerText || '').slice(0, 600);
+              return {
+                title: document.title || '',
+                href: location.href,
+                search: location.search,
+                bodyText: text.replace(/\\s+/g, ' ').trim()
+              };
+            } catch (e) { return { error: String(e) }; }
+          })();
+        `);
+        debugLog('PAGE PROBE: ' + JSON.stringify(probe));
+      } catch (e) {
+        debugLog('executeJavaScript failed: ' + e.message);
+      }
     } catch (e) {
       debugLog('dom-ready probe failed: ' + e.message);
     }
