@@ -22,18 +22,17 @@
         <div class="brand">
           <span class="brand-logo">OBI</span>
         </div>
-        <div class="project-name" id="project-name"></div>
+        <div class="project-selector" id="project-selector">
+          <button class="project-selector-btn" id="project-selector-btn" type="button">
+            <span id="project-name"></span>
+            <span class="project-selector-caret">▾</span>
+          </button>
+          <div class="project-dropdown" id="project-dropdown"></div>
+        </div>
       </div>
       <div class="topbar-actions">
         <button class="btn btn-secondary" onclick="chooseProjectFolder()" data-i18n="explorer.open"></button>
         <button class="btn btn-secondary" onclick="openCalcModal()" data-i18n="calc.button"></button>
-        <div class="export-dropdown" id="export-dropdown">
-          <button class="btn btn-export" onclick="toggleExportMenu(event)" data-i18n="export"></button>
-          <div class="export-menu" id="export-menu">
-            <button class="export-menu-item" onclick="exportExcel()" data-i18n="export.excel"></button>
-            <button class="export-menu-item" onclick="exportPDF()" data-i18n="export.pdf"></button>
-          </div>
-        </div>
         <button class="btn btn-icon settings-btn" id="settings-btn" title="Налаштування">⚙</button>
       </div>
       <div class="window-controls">
@@ -77,18 +76,16 @@
         <div class="sidebar-stats" id="sidebar-stats"></div>
       </aside>
 
-      <!-- LIST PANEL -->
-      <section class="list-panel">
-        <div class="list-header">
-          <div class="list-title" id="list-title" data-i18n="tab.materials"></div>
-          <div class="list-search">
-            <input class="search-input" id="search-input" placeholder="Пошук...">
+      <!-- CATEGORY LIST (middle column for materials/profiles) -->
+      <section class="category-list" id="category-list">
+        <div class="cat-header">
+          <div class="cat-title" id="cat-title" data-i18n="tab.materials"></div>
+          <div class="cat-search">
+            <span class="cat-search-icon">🔍</span>
+            <input class="cat-search-input" id="cat-search-input" data-i18n-ph="cat.search.placeholder">
           </div>
         </div>
-        <div class="list-body" id="list-body"></div>
-        <div class="list-footer">
-          <button class="btn btn-primary btn-add" id="btn-add" data-i18n="mat.add"></button>
-        </div>
+        <div class="cat-body" id="cat-body"></div>
       </section>
 
       <!-- DETAIL PANEL -->
@@ -174,6 +171,31 @@
         </div>
       </section>
     </div>
+
+    <!-- GLOBAL APPBAR (footer with stats, transfer, totals) -->
+    <footer class="appbar" id="appbar">
+      <div class="appbar-stats" id="appbar-stats">
+        <div class="appbar-stat"><span class="appbar-stat-label" data-i18n="appbar.total.positions"></span><span class="appbar-stat-value" id="appbar-positions">0</span></div>
+        <div class="appbar-stat"><span class="appbar-stat-label" data-i18n="appbar.total.materials"></span><span class="appbar-stat-value" id="appbar-materials">0</span></div>
+        <div class="appbar-stat"><span class="appbar-stat-label" data-i18n="appbar.total.profiles"></span><span class="appbar-stat-value" id="appbar-profiles">0</span></div>
+        <div class="appbar-stat"><span class="appbar-stat-label" data-i18n="appbar.total.area"></span><span class="appbar-stat-value" id="appbar-area">0 м²</span></div>
+      </div>
+      <div class="appbar-transfer">
+        <button class="btn btn-secondary appbar-btn" onclick="importSettings()" data-i18n="appbar.import"></button>
+        <div class="export-dropdown appbar-export">
+          <button class="btn btn-secondary appbar-btn" onclick="toggleExportMenu(event)" data-i18n="appbar.export"></button>
+          <div class="export-menu" id="export-menu">
+            <button class="export-menu-item" onclick="exportExcel()" data-i18n="export.excel"></button>
+            <button class="export-menu-item" onclick="exportPDF()" data-i18n="export.pdf"></button>
+          </div>
+        </div>
+      </div>
+      <div class="appbar-actions">
+        <span class="appbar-total-label" data-i18n="appbar.total.count"></span>
+        <span class="appbar-total-value" id="appbar-total">0</span>
+        <button class="btn btn-primary appbar-add" id="appbar-add" onclick="appbarAddPosition()" data-i18n="appbar.add"></button>
+      </div>
+    </footer>
   </div>
 
   <!-- CALC (workbook) MODAL -->

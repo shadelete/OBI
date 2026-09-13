@@ -56,6 +56,10 @@ const I18N = {
     'update.available':'Доступна нова версія: {v} (поточна {cur})','update.available.dev':'Увімкнено dev-версію — оновлення не перевіряються',
     'update.error':'Помилка перевірки: {error}','update.applying':'Оновлення завантажено. Додаток перезапуститься...',
     'update.apply.error':'Не вдалося оновити: {error}',
+    'appbar.total.positions':'Всього позицій','appbar.total.materials':'Матеріалів','appbar.total.profiles':'Профілів','appbar.total.area':'Площа (загальна)','appbar.import':'Імпорт','appbar.export':'Експорт','appbar.total.count':'Загальна кількість:','appbar.add':'+ Додати позицію','appbar.area.unit':' м²',
+    'cat.search.placeholder':'Пошук...','tab.details':'Деталі','tab.edges':'Кромка','tab.cuts':'Стикування','col.article':'Артикул','col.supplier':'Постачальник','col.note':'Примітка','col.qty':'К-сть','col.name':'Назва','col.type':'Тип','col.no':'№',
+    'project.add':'Додати проєкт','project.open':'Відкрити папку проєкту','project.none':'Інших проєктів немає',
+    'detail.empty':'Оберіть позицію зліва','add.mat.title':'Додати матеріал','add.prof.title':'Додати профіль',
     'fw.title':'Фурнітура','fw.subtitle':'Керування номенклатурою фурнітури в проєкті',
     'fw.tags.manage':'Управління тегами',
     'fw.search.placeholder':'Пошук по назві, артикулу або постачальнику...',
@@ -117,6 +121,10 @@ const I18N = {
     'update.available':'Доступна новая версия: {v} (текущая {cur})','update.available.dev':'Включена dev-версия — обновления не проверяются',
     'update.error':'Ошибка проверки: {error}','update.applying':'Обновление загружено. Приложение перезапустится...',
     'update.apply.error':'Не удалось обновить: {error}',
+    'appbar.total.positions':'Всего позиций','appbar.total.materials':'Материалов','appbar.total.profiles':'Профилей','appbar.total.area':'Площадь (общая)','appbar.import':'Импорт','appbar.export':'Экспорт','appbar.total.count':'Общее количество:','appbar.add':'+ Добавить позицию','appbar.area.unit':' м²',
+    'cat.search.placeholder':'Поиск...','tab.details':'Детали','tab.edges':'Кромка','tab.cuts':'Стыковка','col.article':'Артикул','col.supplier':'Поставщик','col.note':'Примечание','col.qty':'Кол-во','col.name':'Наименование','col.type':'Тип','col.no':'№',
+    'project.add':'Добавить проект','project.open':'Открыть папку проекта','project.none':'Других проектов нет',
+    'detail.empty':'Выберите позицию слева','add.mat.title':'Добавить материал','add.prof.title':'Добавить профиль',
     'fw.title':'Фурнитура','fw.subtitle':'Управление номенклатурой фурнитуры в проекте',
     'fw.tags.manage':'Управление тегами',
     'fw.search.placeholder':'Поиск по названию, артикулу или поставщику...',
@@ -239,6 +247,7 @@ function tagOptions(selected, order) {
 document.addEventListener('DOMContentLoaded', async () => {
   try { config = (await window.api.getConfig()) || config; } catch (e) {}
   if (config.colWidths && typeof config.colWidths === 'object') fwColWidths = Object.assign({}, config.colWidths);
+  if (Array.isArray(config.recentFolders)) recentFolders = config.recentFolders.slice(0, 10);
   try { fitRules = normalizeFitRules(await window.api.getFitRules()); } catch (e) { fitRules = emptyFitRules(); }
   try { appInfo = (await window.api.getAppInfo()) || appInfo; } catch (e) {}
   db = emptyDb();
@@ -250,6 +259,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindFittingsEvents();
   bindSettingsEvents();
   bindExplorerEvents();
+  bindTopbarDropdown();
   if (window.api.onFitRulesUpdated) {
     window.api.onFitRulesUpdated(async () => {
       try { fitRules = normalizeFitRules(await window.api.getFitRules()); } catch (e) {}
@@ -802,18 +812,77 @@ function removeItemsFromOverlay(items) {
   });
 }
 
+// ============ HELPERS: SVG previews / type from name ============
+
+// Derive material type from name (ДСП / МДФ / ДВП / etc.) — returns type label or ''.
+function materialTypeFromName(name) {
+  const s = String(name || '');
+  const m = s.match(/(ДСП|МДФ|ДВП|ХДФ|ЛДСП|ПВХ|фанер[аы]|шпон|масив)/i);
+  return m ? m[1].toUpperCase() : '';
+}
+
+// Hash string → stable hue 0-360 for a derived accent color.
+function hueFromString(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h) % 360;
+}
+
+// Decorative SVG plank preview (3D-style isometric panel).
+function plankSVG(code, size) {
+  const hue = hueFromString(String(code || ''));
+  const top = `hsl(${hue}, 18%, 32%)`;
+  const front = `hsl(${hue}, 22%, 22%)`;
+  const side = `hsl(${hue}, 14%, 14%)`;
+  const edge = `hsl(${hue}, 28%, 42%)`;
+  const s = size || 96;
+  return `<svg viewBox="0 0 96 96" width="${s}" height="${s}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="g-top-${hue}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${top}"/>
+        <stop offset="100%" stop-color="${front}"/>
+      </linearGradient>
+    </defs>
+    <polygon points="20,28 76,16 86,24 30,36" fill="url(#g-top-${hue})"/>
+    <polygon points="30,36 86,24 86,68 30,80" fill="${front}"/>
+    <polygon points="20,28 30,36 30,80 20,72" fill="${side}"/>
+    <line x1="20" y1="28" x2="30" y2="36" stroke="${edge}" stroke-width="1"/>
+    <line x1="30" y1="36" x2="86" y2="24" stroke="${edge}" stroke-width="1"/>
+    <line x1="86" y1="24" x2="86" y2="68" stroke="${edge}" stroke-width="1"/>
+    <line x1="30" y1="36" x2="30" y2="80" stroke="${edge}" stroke-width="1"/>
+  </svg>`;
+}
+
+// Profile SVG (thin extrusion rod).
+function profileSVG(code, size) {
+  const hue = hueFromString(String(code || ''));
+  const top = `hsl(${hue}, 30%, 50%)`;
+  const side = `hsl(${hue}, 22%, 30%)`;
+  const s = size || 96;
+  return `<svg viewBox="0 0 96 96" width="${s}" height="${s}" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="14,44 82,32 82,52 14,64" fill="${top}"/>
+    <polygon points="14,64 82,52 82,58 14,70" fill="${side}"/>
+  </svg>`;
+}
+
+function itemPreviewSVG(it, size) {
+  if (!it) return '';
+  return selCat === 'profiles' ? profileSVG(it.code, size) : plankSVG(it.code, size);
+}
+
 function renderAll() {
   ensureTagOrder();
   ensureFitIds();
   renderSidebar();
-  renderListTitle();
+  renderAppbar();
+  renderCategoryListTitle();
   if (selCat === 'fittings') {
     showFittingWorkspace();
     renderFittings();
   } else {
     showRegularDetail();
-    renderList();
-    renderDetail();
+    renderCategoryList();
+    renderDetailTable();
   }
 }
 
@@ -853,8 +922,6 @@ function applyLanguage() {
   });
   const settingsBtn = document.getElementById('settings-btn');
   if (settingsBtn) settingsBtn.title = t('settings');
-  const search = document.getElementById('search-input');
-  if (search) search.placeholder = t('search.placeholder');
   [['explorer-open-btn', 'explorer.open'], ['explorer-refresh-btn', 'explorer.refresh'], ['explorer-select-all-btn', 'explorer.select.all']].forEach(([id, key]) => {
     const el = document.getElementById(id);
     if (el) el.title = t(key);
@@ -863,7 +930,43 @@ function applyLanguage() {
   renderExplorer();
 }
 
-// ============ SIDEBAR ============
+// ============ APPBAR (global footer stats) ============
+function totalArea() {
+  let total = 0;
+  (db.materials || []).forEach(m => {
+    (m.details || []).forEach(d => {
+      const w = Number(d.width || 0), h = Number(d.height || 0);
+      if (w > 0 && h > 0) total += (w * h) / 1e6;
+    });
+  });
+  return total;
+}
+
+function renderAppbar() {
+  const mats = db.materials || [];
+  const prf = db.profiles || [];
+  const fit = db.fittings || [];
+  const posEl = document.getElementById('appbar-positions');
+  const matEl = document.getElementById('appbar-materials');
+  const prfEl = document.getElementById('appbar-profiles');
+  const areaEl = document.getElementById('appbar-area');
+  const totalEl = document.getElementById('appbar-total');
+  if (posEl) posEl.textContent = String(mats.length + prf.length + fit.length);
+  if (matEl) matEl.textContent = String(mats.length);
+  if (prfEl) prfEl.textContent = String(prf.length);
+  if (areaEl) areaEl.textContent = totalArea().toFixed(2) + ' ' + t('appbar.area.unit').trim();
+  if (totalEl) {
+    let total = 0;
+    if (selCat === 'materials') total = mats.reduce((s, m) => s + (m.count || 0), 0);
+    else if (selCat === 'profiles') total = prf.reduce((s, p) => {
+      let n = 0; (p.details || []).forEach(d => { n += (d.count || 0); }); return s + n;
+    }, 0);
+    else if (selCat === 'fittings') total = fit.reduce((s, f) => s + (f.count || 0), 0);
+    totalEl.textContent = String(total);
+  }
+}
+
+// ============ SIDEBAR (Матеріали / Профілі / Фурнітура) ============
 function renderSidebar() {
   const mats = db.materials || [];
   const prf = db.profiles || [];
@@ -874,19 +977,6 @@ function renderSidebar() {
   if (badgeMats) badgeMats.textContent = mats.length;
   if (badgePrf) badgePrf.textContent = prf.length;
   if (badgeFit) badgeFit.textContent = fit.length;
-
-  const statsEl = document.getElementById('sidebar-stats');
-  const totalFitUnits = fit.reduce((s, f) => s + (f.count || 0), 0);
-  const total = mats.length + prf.length + fit.length;
-  statsEl.innerHTML = `
-    <div class="stats-title">${t('stat.total')}</div>
-    <div class="stats-total">${total}</div>
-    <div class="stats-rows">
-      <div class="stats-row"><span>${t('stat.materials')}</span><span class="stat-val">${mats.length}</span></div>
-      <div class="stats-row"><span>${t('stat.profiles')}</span><span class="stat-val">${prf.length}</span></div>
-      <div class="stats-row"><span>${t('stat.fittings')}</span><span class="stat-val">${totalFitUnits}</span></div>
-    </div>
-  `;
 }
 
 function switchCat(cat) {
@@ -896,32 +986,139 @@ function switchCat(cat) {
   selectedListItems.clear();
   listAnchorItem = null;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.cat === cat));
-  const search = document.getElementById('search-input');
-  if (search) search.value = '';
   searchQuery = '';
+  const search = document.getElementById('cat-search-input');
+  if (search) search.value = '';
   renderAll();
 }
 
-// ============ LIST (materials / profiles) ============
-function renderListTitle() {
-  const title = document.getElementById('list-title');
+// ============ CATEGORY LIST (middle column for materials/profiles) ============
+function renderCategoryListTitle() {
+  const title = document.getElementById('cat-title');
   if (!title) return;
   if (selCat === 'materials') title.textContent = t('tab.materials');
   else if (selCat === 'profiles') title.textContent = t('tab.profiles');
   else title.textContent = t('tab.fittings');
-  const btnAdd = document.getElementById('btn-add');
-  if (btnAdd) {
-    if (selCat === 'materials') btnAdd.textContent = t('mat.add');
-    else if (selCat === 'profiles') btnAdd.textContent = t('prof.add');
-    else btnAdd.textContent = t('fit.add');
+}
+
+function catCardHTML(it, i, kind) {
+  const isSel = (selId === i) || selectedListItems.has(it);
+  const noEx = it.export === false ? ' no-export' : '';
+  const dragHandle = `<span class="cat-card-drag" title="${t('fit.drag.title')}">⠿</span>`;
+  const checks = `<span class="cat-card-checks">
+    <input type="checkbox" class="cat-check-export" title="${t('fw.export.toggle')}" ${isExported(it) ? 'checked' : ''} onclick="event.stopPropagation(); appbarToggleCatExport(${i}, this.checked)">
+    <input type="checkbox" class="cat-check-book book-check" title="${t('fw.book.toggle')}" ${isBooked(it) ? 'checked' : ''} onclick="event.stopPropagation(); appbarToggleCatBook(${i}, this.checked)">
+  </span>`;
+  let titleHtml, subHtml, metaHtml;
+  if (kind === 'material') {
+    const thick = Math.round(it.thickness) === it.thickness ? it.thickness : (it.thickness || 0).toFixed(1);
+    titleHtml = escapeHtml(it.name || '');
+    subHtml = escapeHtml((thick ? (thick + ' мм') + ' · ' : '') + (it.code || '—'));
+    metaHtml = `<span>${t('detail.parts')}: <b>${(it.details || []).length}</b></span><span>${t('stat.thickness')}: <b>${thick} мм</b></span>`;
+  } else if (kind === 'profile') {
+    titleHtml = escapeHtml(it.material || it.name || '');
+    subHtml = escapeHtml((it.materialCode || it.code || '—'));
+    const sizeCount = (it.details || []).length;
+    metaHtml = `<span>${t('stat.sizes')}: <b>${sizeCount}</b></span><span>${t('detail.article')}: <b>${escapeHtml(it.materialCode || it.code || '—')}</b></span>`;
+  } else {
+    titleHtml = escapeHtml(it.name || '');
+    subHtml = escapeHtml(it.code || '—');
+    metaHtml = `<span>${t('fw.quantity')}: <b>${it.count || 0}</b></span>`;
+  }
+  return `
+    <div class="cat-card${isSel ? ' selected' : ''}${noEx}" draggable="true" data-idx="${i}" onclick="catCardClick(${i}, event)">
+      <div class="cat-card-image">${itemPreviewSVG(it, 48)}</div>
+      <div class="cat-card-main">
+        <div class="cat-card-title">${titleHtml}</div>
+        <div class="cat-card-sub">${subHtml}</div>
+        <div class="cat-card-meta">${metaHtml}</div>
+      </div>
+      <div class="cat-card-actions">
+        ${checks}
+        ${dragHandle}
+      </div>
+    </div>
+  `;
+}
+
+function renderCategoryList() {
+  const body = document.getElementById('cat-body');
+  if (!body) return;
+  let arr = [];
+  let kind = '';
+  if (selCat === 'materials') { arr = db.materials || []; kind = 'material'; }
+  else if (selCat === 'profiles') { arr = db.profiles || []; kind = 'profile'; }
+  else { return; }
+  const q = (searchQuery || '').toLowerCase();
+  const list = arr.map((it, i) => ({ it, i })).filter(({ it }) => {
+    if (!q) return true;
+    const hay = ((it.name || '') + ' ' + (it.code || '') + ' ' + (it.material || '') + ' ' + (it.materialCode || '')).toLowerCase();
+    return hay.indexOf(q) !== -1;
+  });
+  if (!list.length) {
+    body.innerHTML = `<div class="cat-noresults">${arr.length ? t('empty.noresults') : t('empty.list')}</div>`;
+    return;
+  }
+  body.innerHTML = list.map(({ it, i }) => catCardHTML(it, i, kind)).join('');
+}
+
+function catCardClick(i, e) {
+  if (suppressListClick) { suppressListClick = false; return; }
+  if (selCat === 'materials') selectMat(i, e);
+  else if (selCat === 'profiles') selectProf(i, e);
+}
+
+function appbarToggleCatExport(i, checked) {
+  if (selCat === 'materials') saveMatExport(i, checked);
+  else if (selCat === 'profiles') saveProfExport(i, checked);
+}
+
+function appbarToggleCatBook(i, checked) {
+  if (selCat === 'materials') saveMatBook(i, checked);
+  else if (selCat === 'profiles') saveProfBook(i, checked);
+}
+
+function appbarAddPosition() {
+  if (selCat === 'materials') {
+    addMaterialInline();
+  } else if (selCat === 'profiles') {
+    addProfileInline();
+  } else if (selCat === 'fittings') {
+    if (typeof fwAddToColumn === 'function') fwAddToColumn('Загальна фурнітура');
   }
 }
 
+// Inline add (simple prompt-based — keeps the flow without a new modal)
+function addMaterialInline() {
+  const name = prompt(t('add.mat.title') + ' — name:');
+  if (!name) return;
+  const code = prompt(t('add.mat.title') + ' — code:', '') || '';
+  const thickStr = prompt(t('add.mat.title') + ' — thickness (мм):', '18');
+  const thickness = Number(thickStr) || 0;
+  if (!overlay) return;
+  if (!overlay.added) overlay.added = { materials: [], profiles: [], fittings: [] };
+  overlay.added.materials.push({ _addId: overlay.addIdCounter++, name, code, thickness, count: 1, edges: [], details: [], _kind: 'material' });
+  rebuildKeepState();
+  saveDB();
+}
+
+function addProfileInline() {
+  const material = prompt(t('add.prof.title') + ' — material name:');
+  if (!material) return;
+  const code = prompt(t('add.prof.title') + ' — article:', '') || '';
+  if (!overlay) return;
+  if (!overlay.added) overlay.added = { materials: [], profiles: [], fittings: [] };
+  overlay.added.profiles.push({ _addId: overlay.addIdCounter++, name: material, code, material, materialCode: code, details: [], _kind: 'profile' });
+  rebuildKeepState();
+  saveDB();
+}
+
 function bindSearch() {
-  const search = document.getElementById('search-input');
+  const search = document.getElementById('cat-search-input');
   if (search) search.addEventListener('input', () => {
     searchQuery = search.value.trim().toLowerCase();
-    if (selCat === 'fittings') renderFittings(); else renderList();
+    if (selCat === 'fittings') renderFittings();
+    else renderCategoryList();
   });
 
   const fwSearch = document.getElementById('fw-search-input');
@@ -1002,40 +1199,15 @@ function profCardHTML(p, i) {
 }
 
 function renderList() {
-  const body = document.getElementById('list-body');
-  if (!body) return;
-  if (selCat === 'materials') {
-    const mats = db.materials || [];
-    const list = mats
-      .map((m, i) => ({ m, i }))
-      .filter(({ m, i }) => {
-        if (!searchQuery) return true;
-        const c = ((m.code || '') + ' ' + (m.name || '')).toLowerCase();
-        return c.indexOf(searchQuery) !== -1;
-      });
-    body.innerHTML = list.length
-      ? list.map(({ m, i }) => matCardHTML(m, i)).join('')
-      : (mats.length ? `<div class="list-noresults">${t('empty.noresults')}</div>` : `<div class="list-empty">${t('empty.list')}</div>`);
-  } else {
-    const prf = db.profiles || [];
-    const list = prf
-      .map((p, i) => ({ p, i }))
-      .filter(({ p }) => {
-        if (!searchQuery) return true;
-        const c = ((p.materialCode || p.code || '') + ' ' + (p.material || p.name || '')).toLowerCase();
-        return c.indexOf(searchQuery) !== -1;
-      });
-    body.innerHTML = list.length
-      ? list.map(({ p, i }) => profCardHTML(p, i)).join('')
-      : (prf.length ? `<div class="list-noresults">${t('empty.noresults')}</div>` : `<div class="list-empty">${t('empty.list')}</div>`);
-  }
+  // Legacy alias — kept for any straggler callers.
+  renderCategoryList();
 }
 
 // ============ LIST (materials / profiles): drag&drop reorder ============
 let suppressListClick = false;
 
 function bindListEvents() {
-  const body = document.getElementById('list-body');
+  const body = document.getElementById('cat-body');
   if (!body) return;
   body.addEventListener('dragstart', listDragStart);
   body.addEventListener('dragend', listDragEnd);
@@ -1044,8 +1216,8 @@ function bindListEvents() {
 }
 
 function listDragStart(e) {
-  if (e.target.closest('input, select, button, .lc-check')) { e.preventDefault(); return; }
-  const card = e.target.closest('.list-card');
+  if (e.target.closest('input, select, button, .cat-card-checks')) { e.preventDefault(); return; }
+  const card = e.target.closest('.cat-card');
   if (!card) return;
   const idx = parseInt(card.dataset.idx, 10);
   if (!Number.isFinite(idx)) return;
@@ -1056,7 +1228,7 @@ function listDragStart(e) {
 }
 
 function listDragEnd(e) {
-  const card = e.target.closest('.list-card');
+  const card = e.target.closest('.cat-card');
   if (card) card.classList.remove('dragging');
   clearListDropStyles();
 }
@@ -1064,7 +1236,7 @@ function listDragEnd(e) {
 function listDragOver(e) {
   e.preventDefault();
   clearListDropStyles();
-  const card = e.target.closest('.list-card');
+  const card = e.target.closest('.cat-card');
   if (card) card.classList.add('drag-over');
 }
 
@@ -1077,7 +1249,7 @@ function listDrop(e) {
   const fromIdx = parseInt(raw, 10);
   if (!Number.isFinite(fromIdx) || fromIdx < 0 || fromIdx >= list.length) return;
 
-  const card = e.target.closest('.list-card');
+  const card = e.target.closest('.cat-card');
   let insertAt = list.length;
   if (card) {
     const toIdx = parseInt(card.dataset.idx, 10);
@@ -1109,7 +1281,7 @@ function reorderListItem(arr, from, insertAt) {
 }
 
 function clearListDropStyles() {
-  document.querySelectorAll('#list-body .list-card').forEach(c => c.classList.remove('drag-over'));
+  document.querySelectorAll('#cat-body .cat-card').forEach(c => c.classList.remove('drag-over'));
 }
 
 function highlight(text, q) {
@@ -1165,8 +1337,8 @@ function selectMat(i, e) {
   selectListItemRange(m, i, e && (e.ctrlKey || e.metaKey), e && e.shiftKey);
   selId = i;
   selTab = 'details';
-  renderList();
-  renderDetail();
+  renderCategoryList();
+  renderDetailTable();
 }
 
 function selectProf(i, e) {
@@ -1175,9 +1347,9 @@ function selectProf(i, e) {
   if (!p) return;
   selectListItemRange(p, i, e && (e.ctrlKey || e.metaKey), e && e.shiftKey);
   selId = i;
-  selTab = 'sizes';
-  renderList();
-  renderDetail();
+  selTab = 'details';
+  renderCategoryList();
+  renderDetailTable();
 }
 
 // ============ DETAIL (materials / profiles) ============
@@ -1206,158 +1378,246 @@ function detailHeader(sel, badgeClass, badgeHtml) {
 }
 
 function renderDetail() {
+  // Legacy entrypoint retained as no-op for any old caller.
+  renderDetailTable();
+}
+
+// ============ DETAIL TABLE (v2) ============
+let detailSort = { col: null, dir: 1 }; // dir: 1 asc, -1 desc
+
+function renderDetailTable() {
   const header = document.getElementById('detail-header');
   const tabs = document.getElementById('detail-tabs');
   const content = document.getElementById('detail-content');
   const stats = document.getElementById('detail-stats');
-  const fitDetail = document.getElementById('fittings-detail');
-  if (fitDetail) fitDetail.style.display = 'none';
 
-  if (selCat === 'materials') renderMatDetail(header, tabs, content, stats);
-  else if (selCat === 'profiles') renderProfDetail(header, tabs, content, stats);
-}
+  let arr = [];
+  if (selCat === 'materials') arr = db.materials || [];
+  else if (selCat === 'profiles') arr = db.profiles || [];
+  else return;
+  const item = selId != null ? arr[selId] : arr[0];
 
-function renderMatDetail(header, tabs, content, stats) {
-  const mats = db.materials || [];
-  const m = selId != null ? mats[selId] : mats[0];
-  if (!m) {
+  // Hide old detail-stats (footer now lives in appbar)
+  if (stats) stats.style.display = 'none';
+
+  if (!item) {
     header.innerHTML = '';
     tabs.innerHTML = '';
     tabs.style.display = 'none';
-    content.innerHTML = `<div class="list-empty">${t('empty.list')}</div>`;
-    if (stats) stats.innerHTML = '';
+    content.innerHTML = `<div class="detail-table-empty">${t('detail.empty')}</div>`;
     return;
   }
-  const thickness = Math.round(m.thickness) === m.thickness ? m.thickness : m.thickness.toFixed(1);
-  const edgeCount = (m.edges || []).length;
-  const detCount = (m.details || []).length;
 
-  const multiSel = selectedListItems.size > 1 && selectedListItems.has(m);
-  const selItems = multiSel ? mats.filter(x => selectedListItems.has(x)) : [m];
-  const allExported = selItems.every(x => isExported(x));
-  const allBooked = selItems.every(x => isBooked(x));
+  // --- Header v2 ---
+  const isMat = selCat === 'materials';
+  const thickness = isMat ? (item.thickness || 0) : null;
+  const thickStr = thickness != null && Math.round(thickness) === thickness ? thickness : (thickness || 0).toFixed(1);
+  const code = isMat ? item.code : (item.materialCode || item.code);
+  const details = item.details || [];
+  const edges = isMat ? (item.edges || []) : [];
+  const matType = isMat ? materialTypeFromName(item.name) : '';
+  const dimText = isMat && details.some(d => d.width && d.height)
+    ? details.find(d => d.width && d.height).width + '×' + details.find(d => d.width && d.height).height + ' мм'
+    : '';
 
-  header.innerHTML = detailHeader({
-    title: multiSel ? `${m.name || ''} +${selItems.length - 1}…` : (m.name || ''),
-    exported: allExported,
-    onExport: `saveMatExport(${selId != null ? selId : '0'}, this.checked)`,
-    booked: allBooked,
-    onBook: `saveMatBook(${selId != null ? selId : '0'}, this.checked)`,
-    onExcel: 'exportExcel()',
-    sub: [
-      { label: t('detail.article') + ':', value: fmtCode(m.code) },
-      { label: t('detail.count') + ':', value: m.count || 0 }
-    ]
-  }, 'badge-material', `${thickness} мм`);
-
-  tabs.innerHTML = '';
-  tabs.style.display = 'none';
-
-  const edgesBlock = (m.edges && m.edges.length) ? `
-    <div class="edge-block">
-      <div class="block-title">${t('edge.title')}</div>
-      ${m.edges.map(e => `
-        <div class="edge-row"><span class="edge-name">${escapeHtml(e.name)}</span><span class="edge-dim">${e.thickness} мм · арт. ${fmtCode(e.code)}</span></div>
-      `).join('')}
-    </div>` : `<div class="edge-none">${t('edge.none')}</div>`;
-
-  const grouped = groupByPosition(m.details);
-  const detailsBlock = `
-    <div class="block-title">${t('detail.parts')} (${detCount})</div>
-    <div class="dparts">
-      ${grouped.map(d => {
-        const cuts = detailCuts(d);
-        const posHtml = `<span class="dpart-pos">${d.position ? escapeHtml(d.position) : ''}</span>`;
-        const countHtml = `<span class="dpart-count">${d.count || 1}</span>`;
-        const cutHtml = cuts ? ` · <span style="color:var(--orange)">${escapeHtml(cuts.text)}</span>` : '';
-        const dimHtml = (d.width != null && d.height != null) ? `${d.width}×${d.height} мм` : '';
-        return `<div class="dpart-row">${posHtml}${countHtml}<span class="dpart-name">${escapeHtml(d.name)}${cutHtml}</span><span class="dpart-dim">${dimHtml}</span></div>`;
-      }).join('')}
-    </div>`;
-
-  content.innerHTML = edgesBlock + `<div class="separator"></div>` + detailsBlock;
-
-  stats.innerHTML = `
-    <div class="dstat"><span class="ds-label">${t('stat.details')}</span><span class="ds-value">${m.count || 0}</span></div>
-    <div class="dstat"><span class="ds-label">${t('stat.edges')}</span><span class="ds-value">${edgeCount}</span></div>
-    <div class="dstat"><span class="ds-label">${t('stat.thickness')}</span><span class="ds-value">${thickness} ММ</span></div>
-    <div class="dstat"><span class="ds-label">${t('stat.inreport')}</span><span class="ds-value ${isExported(m) ? 'green' : ''}">${isExported(m) ? '☑' : '☐'}</span></div>
+  const headerHtml = `
+    <div class="detail-header-v2">
+      <div class="dh-image">${itemPreviewSVG(item, 96)}</div>
+      <div class="dh-main">
+        <div class="dh-title-row">
+          <div class="dh-title">${escapeHtml(item.name || item.material || '')}</div>
+          <button class="dh-menu-btn" title="⋯">⋯</button>
+        </div>
+        <div class="dh-chips">
+          ${isMat && thickStr ? `<span class="dh-chip"><span class="dh-chip-label">${t('stat.thickness')}</span><span class="dh-chip-value">${thickStr} мм</span></span>` : ''}
+          <span class="dh-chip"><span class="dh-chip-label">${t('col.article')}</span><span class="dh-chip-value">${escapeHtml(fmtCode(code))}</span></span>
+          <span class="dh-chip"><span class="dh-chip-label">${t('detail.parts')}</span><span class="dh-chip-value">${isMat ? details.length : (isMat ? 0 : details.length)}</span></span>
+          ${matType ? `<span class="dh-chip"><span class="dh-chip-label">${t('col.type')}</span><span class="dh-chip-value">${escapeHtml(matType)}</span></span>` : ''}
+        </div>
+      </div>
+      <div class="dh-edges">
+        ${edges.slice(0, 4).map(e => `
+          <div class="dh-edge-row">${e.thickness || 0} мм · <span class="dh-edge-art">арт. ${escapeHtml(fmtCode(e.code))}</span></div>
+        `).join('')}
+      </div>
+    </div>
   `;
-}
+  header.innerHTML = headerHtml;
+  header.style.display = '';
 
-function infoItem(label, value) {
-  return `<div class="info-item"><div class="info-label">${escapeHtml(label)}</div><div class="info-value">${value}</div></div>`;
-}
-
-function renderProfDetail(header, tabs, content, stats) {
-  const prf = db.profiles || [];
-  const p = selId != null ? prf[selId] : prf[0];
-  if (!p) {
-    header.innerHTML = '';
-    tabs.innerHTML = '';
-    content.innerHTML = `<div class="list-empty">${t('empty.list')}</div>`;
-    if (stats) stats.innerHTML = '';
-    return;
-  }
-  const details = (p.details && p.details.length)
-    ? p.details.slice().sort((a, b) => compareByPos(uniqPositions(a)[0], uniqPositions(b)[0]))
-    : [{ length: p.length, count: p.count }];
-  const total = details.reduce((s, d) => s + (d.count || 0), 0);
-
-  const multiSel = selectedListItems.size > 1 && selectedListItems.has(p);
-  const selItems = multiSel ? prf.filter(x => selectedListItems.has(x)) : [p];
-  const allExported = selItems.every(x => isExported(x));
-  const allBooked = selItems.every(x => isBooked(x));
-
-  header.innerHTML = detailHeader({
-    title: multiSel ? `${p.material || p.name || ''} +${selItems.length - 1}…` : (p.material || p.name || ''),
-    exported: allExported,
-    onExport: `saveProfExport(${selId != null ? selId : '0'}, this.checked)`,
-    booked: allBooked,
-    onBook: `saveProfBook(${selId != null ? selId : '0'}, this.checked)`,
-    onExcel: 'exportExcel()',
-    sub: [
-      { label: t('detail.article') + ':', value: fmtCode(p.materialCode || p.code) }
-    ]
-  }, 'badge-profile', `${total} ${t('pcs')}`);
-
-  tabs.innerHTML = `
-    <div class="dtab ${selTab === 'sizes' ? 'active' : ''}" onclick="setProfTab('sizes')">${t('tab.sizes', { n: details.length })}</div>
-    <div class="dtab ${selTab === 'info' ? 'active' : ''}" onclick="setProfTab('info')">${t('tab.info')}</div>
+  // --- Tabs ---
+  const tabsHtml = isMat ? `
+    <div class="dtab ${selTab === 'details' ? 'active' : ''}" onclick="setDetailTab('details')">${t('tab.details')} (${details.length})</div>
+    <div class="dtab ${selTab === 'edges' ? 'active' : ''}" onclick="setDetailTab('edges')">${t('tab.edges')} (${edges.length})</div>
+    <div class="dtab ${selTab === 'cuts' ? 'active' : ''}" onclick="setDetailTab('cuts')">${t('tab.cuts')} (${details.reduce((n, d) => n + (d.cuts ? d.cuts.length : 0), 0)})</div>
+  ` : `
+    <div class="dtab ${selTab === 'details' ? 'active' : ''}" onclick="setDetailTab('details')">${t('profiles.sizes')} (${details.length})</div>
+    <div class="dtab ${selTab === 'info' ? 'active' : ''}" onclick="setDetailTab('info')">${t('tab.info')}</div>
   `;
+  tabs.innerHTML = tabsHtml;
   tabs.style.display = '';
 
-  if (selTab === 'info') {
+  // --- Content ---
+  if (selTab === 'info' && !isMat) {
+    const total = details.reduce((s, d) => s + (d.count || 0), 0);
     content.innerHTML = `
       <div class="info-grid">
-        ${infoItem(t('detail.article'), fmtCode(p.materialCode || p.code))}
-        ${infoItem(t('stat.material'), escapeHtml(p.material || p.name || ''))}
+        ${infoItem(t('col.article'), fmtCode(item.materialCode || item.code))}
+        ${infoItem(t('stat.material'), escapeHtml(item.material || item.name || ''))}
         ${infoItem(t('detail.count'), total)}
         ${infoItem(t('stat.sizes'), details.length)}
       </div>
     `;
-  } else {
+    return;
+  }
+  if (selTab === 'edges' && isMat) {
+    if (!edges.length) {
+      content.innerHTML = `<div class="detail-table-empty">${t('edge.none')}</div>`;
+      return;
+    }
     content.innerHTML = `
-      <div class="block-title">${t('profiles.sizes')} (${details.length})</div>
-      ${details.map(d => {
-        const pos = uniqPositions(d);
-        return `<div class="p-size-row">
-          <span>${pos.length ? `<span class="p-size-pos">${escapeHtml(pos.join(', '))}</span>` : ''}<span class="p-size-len">${d.length || '—'} мм</span></span>
-          <span class="p-size-count">${d.count} ${t('pcs')}</span>
-        </div>`;
-      }).join('') || `<div class="list-empty">${t('empty.list')}</div>`}
+      <div class="detail-table-wrap">
+        <table class="detail-table">
+          <thead><tr>
+            <th class="check-col"></th>
+            <th class="num-col">${t('col.no')}</th>
+            <th>${t('col.name')}</th>
+            <th class="qty-col">${t('stat.thickness')}</th>
+            <th>${t('col.article')}</th>
+            <th class="qty-col">${t('col.qty')}</th>
+          </tr></thead>
+          <tbody>
+            ${edges.map((e, i) => `
+              <tr>
+                <td class="check-col"></td>
+                <td class="num-col">${i + 1}</td>
+                <td>${escapeHtml(e.name || '')}</td>
+                <td class="qty-col">${e.thickness || 0} мм</td>
+                <td class="code-col">${escapeHtml(fmtCode(e.code))}</td>
+                <td class="qty-col">${e.count || 0}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
     `;
+    return;
+  }
+  if (selTab === 'cuts' && isMat) {
+    const allCuts = [];
+    details.forEach((d, di) => {
+      (d.cuts || []).forEach(cu => allCuts.push({ ...cu, _detail: d, _idx: di }));
+    });
+    if (!allCuts.length) {
+      content.innerHTML = `<div class="detail-table-empty">—</div>`;
+      return;
+    }
+    content.innerHTML = `
+      <div class="detail-table-wrap">
+        <table class="detail-table">
+          <thead><tr>
+            <th class="check-col"></th>
+            <th class="num-col">${t('col.no')}</th>
+            <th>${t('col.name')}</th>
+            <th>${t('detail.parts')}</th>
+            <th class="qty-col">${t('col.qty')}</th>
+          </tr></thead>
+          <tbody>
+            ${allCuts.map((c, i) => `
+              <tr>
+                <td class="check-col"></td>
+                <td class="num-col">${i + 1}</td>
+                <td>${escapeHtml(c.sign || c.name || '')}</td>
+                <td>${escapeHtml(c._detail.name || '')}</td>
+                <td class="qty-col">${c._detail.count || 1}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+    return;
   }
 
-  stats.innerHTML = `
-    <div class="dstat"><span class="ds-label">${t('detail.count')}</span><span class="ds-value">${total}</span></div>
-    <div class="dstat"><span class="ds-label">${t('stat.sizes')}</span><span class="ds-value accent">${details.length}</span></div>
+  // Default: details table
+  renderDetailItemsTable(item, isMat);
+}
+
+function renderDetailItemsTable(item, isMat) {
+  const content = document.getElementById('detail-content');
+  const rows = (item.details || []).slice();
+  // Sorting
+  if (detailSort.col && rows.length) {
+    const dir = detailSort.dir;
+    const key = detailSort.col;
+    rows.sort((a, b) => {
+      let av = a[key], bv = b[key];
+      if (key === 'pos') { av = a.position; bv = b.position; }
+      if (key === 'note') { av = (a.width && a.height) ? a.width * a.height : -1; bv = (b.width && b.height) ? b.width * b.height : -1; }
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (typeof av === 'number') return (av - bv) * dir;
+      return String(av).localeCompare(String(bv), 'uk') * dir;
+    });
+  }
+  if (!rows.length) {
+    content.innerHTML = `<div class="detail-table-empty">—</div>`;
+    return;
+  }
+  const type = isMat ? materialTypeFromName(item.name) : (item.material || '');
+  const supplier = isMat && fitRules && fitRules.suppliers ? (fitRules.suppliers[item.code] || '') : '';
+  const sortArrow = (col) => detailSort.col === col ? `<span class="sort-arrow">${detailSort.dir === 1 ? '▲' : '▼'}</span>` : '';
+  const th = (cls, key, label) => `<th class="${cls} sortable" onclick="setDetailSort('${key}')">${label}${sortArrow(key)}</th>`;
+
+  content.innerHTML = `
+    <div class="detail-table-wrap">
+      <table class="detail-table">
+        <thead>
+          <tr>
+            <th class="check-col"></th>
+            ${th('num-col', 'pos', t('col.no'))}
+            ${th('', 'name', t('col.name'))}
+            ${th('', 'type', t('col.type'))}
+            ${th('code-col', 'code', t('col.article'))}
+            ${th('', 'supplier', t('col.supplier'))}
+            ${th('qty-col', 'count', t('col.qty'))}
+            ${th('', 'note', t('col.note'))}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((d, i) => {
+            const pos = d.position ? String(d.position) : String(i + 1);
+            const note = (d.width != null && d.height != null) ? `${d.width}×${d.height} мм` : '';
+            return `
+              <tr>
+                <td class="check-col"><input type="checkbox" class="row-check"></td>
+                <td class="num-col">${escapeHtml(pos)}</td>
+                <td>${escapeHtml(d.name || '')}</td>
+                <td>${escapeHtml(type)}</td>
+                <td class="code-col">${escapeHtml(fmtCode(d.code || item.code || ''))}</td>
+                <td>${escapeHtml(supplier || '—')}</td>
+                <td class="qty-col">${d.count || 1}</td>
+                <td class="note-col">${escapeHtml(note)}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
   `;
 }
 
-function setProfTab(tab) {
+function setDetailTab(tab) {
   selTab = tab;
-  renderDetail();
+  detailSort = { col: null, dir: 1 };
+  renderDetailTable();
+}
+
+function setDetailSort(col) {
+  if (detailSort.col === col) detailSort.dir *= -1;
+  else { detailSort.col = col; detailSort.dir = 1; }
+  renderDetailTable();
 }
 
 // ============ FITTINGS LIST (navigation) ============
@@ -1775,8 +2035,8 @@ function bindFittingsEvents() {
       if (selCat !== 'fittings') {
         selectedListItems.clear();
         listAnchorItem = null;
-        renderList();
-        renderDetail();
+        renderCategoryList();
+        renderDetailTable();
       }
       return;
     }
@@ -2403,6 +2663,69 @@ function windowMaximize() {
 
 function windowClose() {
   window.api.windowClose();
+}
+
+// ============ TOPBAR PROJECT SELECTOR ============
+let recentFolders = [];
+
+function bindTopbarDropdown() {
+  const btn = document.getElementById('project-selector-btn');
+  const dd = document.getElementById('project-dropdown');
+  if (!btn || !dd) return;
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dd.classList.toggle('open');
+    btn.classList.toggle('open', dd.classList.contains('open'));
+    if (dd.classList.contains('open')) renderProjectDropdown();
+  });
+  document.addEventListener('click', (e) => {
+    if (!dd.contains(e.target) && !btn.contains(e.target)) {
+      dd.classList.remove('open');
+      btn.classList.remove('open');
+    }
+  });
+}
+
+function renderProjectDropdown() {
+  const dd = document.getElementById('project-dropdown');
+  if (!dd) return;
+  const items = [];
+  const cur = projectRoot || '';
+  items.push({
+    name: projectTree ? projectTree.name : (cur ? cur.split(/[\\/]/).pop() || cur : '—'),
+    path: cur,
+    active: true
+  });
+  recentFolders.forEach(rf => {
+    if (rf && rf !== cur) {
+      items.push({ name: rf.split(/[\\/]/).pop() || rf, path: rf, active: false });
+    }
+  });
+  items.push({ divider: true });
+  items.push({ action: 'open', label: t('project.open') });
+
+  dd.innerHTML = items.map(it => {
+    if (it.divider) return `<div class="project-dropdown-divider"></div>`;
+    if (it.action === 'open') return `<div class="project-dropdown-item project-dropdown-action" onclick="chooseProjectFolder(); closeProjectDropdown();"><span class="pd-name">+ ${escapeHtml(it.label)}</span></div>`;
+    return `<div class="project-dropdown-item${it.active ? ' active' : ''}" title="${escapeAttr(it.path || '')}" onclick="${it.active ? 'closeProjectDropdown()' : 'switchToProject(\\\'' + (it.path || '').replace(/\\\\/g, '\\\\\\\\') + '\\\')'}"><span class="pd-name">${escapeHtml(it.name)}</span></div>`;
+  }).join('');
+}
+
+function closeProjectDropdown() {
+  const dd = document.getElementById('project-dropdown');
+  const btn = document.getElementById('project-selector-btn');
+  if (dd) dd.classList.remove('open');
+  if (btn) btn.classList.remove('open');
+}
+
+async function switchToProject(path) {
+  if (!path) return;
+  closeProjectDropdown();
+  try {
+    const cfg = await window.api.saveConfig({ lastProjectFolder: path });
+    projectRoot = path;
+    await openProjectFolder(path, '');
+  } catch (e) {}
 }
 
 // ============ SAVE EXPORT TOGGLES ============
