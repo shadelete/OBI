@@ -361,13 +361,13 @@ async function openConvertedProject(hash, title, sessionId, accessToken) {
   return { ticket, constructorId };
 }
 
-function backendUrl(constructorId, ticket, hash) {
-  // NOTE: previous variant used page=homepage&redirect=1 which caused the server
-  // to 302-redirect to the base URL and strip all our params — user ended up at
-  // an empty new-project page. Now: direct constructor page with direct_load=true.
-  return `${SERVICE_BASE}?page=constructor&constructor_id=${encodeURIComponent(constructorId)}`
-    + `&constructor_page=materials&ticket_session=${encodeURIComponent(ticket)}&direct_load=true`
-    + (hash ? `&hash=${encodeURIComponent(hash)}` : '');
+function backendUrl(constructorId, ticket) {
+  // Original URL pattern that lands in /service/ (constructor) — with Keycloak
+  // cookies in the partition and direct_load=true the server should load
+  // the converted project. page=homepage + redirect=1 is what the original
+  // author had; we keep it and trust the redirect to land on /service/.
+  return `${SERVICE_BASE}?page=homepage&redirect=1&constructor_id=${encodeURIComponent(constructorId)}`
+    + `&constructor_page=materials&ticket_session=${encodeURIComponent(ticket)}&direct_load=true`;
 }
 
 // Main orchestration: returns { success, url } or throws.
@@ -386,10 +386,16 @@ async function sendToViyar(filePath, creds, onProgress) {
 
   step('open');
   const title = fileName.replace(/\.project$/i, '') || fileName;
-  const { ticket, constructorId } = await openConvertedProject(hash, title, sessionId, accessToken);
-  const url = backendUrl(constructorId, ticket, hash);
+  const openRes = await openConvertedProject(hash, title, sessionId, accessToken);
+  const ticket = openRes.ticket;
+  const constructorId = openRes.constructorId;
+  const url = backendUrl(constructorId, ticket);
+  // Diagnostic: dump the full openConvertedProject response so we see every
+  // field the server returns (some might be a canonical URL we should use).
+  console.log('[ViyarPro] openConvertedProject response:', JSON.stringify(openRes));
+  console.log('[ViyarPro] opening URL:', url);
   // Open in a new BrowserWindow that reuses the same persist:viyarpro partition
-  // as the Keycloak login — cookies carry over.
+  // as the Keycloak login — Keycloak session cookies carry over.
   const win = new BrowserWindow({
     show: true,
     width: 1280,
@@ -400,18 +406,16 @@ async function sendToViyar(filePath, creds, onProgress) {
     },
     title: 'ViyarPro — проєкт'
   });
-  // Step 1: visit viyar.pro/main first to establish the server-side session
-  // cookie that the constructor expects. Without this step the server
-  // redirects /service/?direct_load=true → /main (empty page).
-  await new Promise((resolve) => {
-    let resolved = false;
-    const done = () => { if (!resolved) { resolved = true; resolve(); } };
-    win.webContents.once('did-finish-load', done);
-    win.webContents.once('did-fail-load', done);
-    win.loadURL(`${SERVICE_BASE}main`);
-    setTimeout(done, 8000); // safety timeout
+  // Diagnostic: log every navigation so we see the full redirect chain.
+  win.webContents.on('did-navigate', (_e, navUrl) => {
+    console.log('[ViyarPro] did-navigate:', navUrl);
   });
-  // Step 2: navigate to the constructor URL with the project ticket.
+  win.webContents.on('did-navigate-in-page', (_e, navUrl) => {
+    console.log('[ViyarPro] did-navigate-in-page:', navUrl);
+  });
+  win.webContents.on('did-fail-load', (_e, code, desc, navUrl) => {
+    console.log('[ViyarPro] did-fail-load:', code, desc, navUrl);
+  });
   win.loadURL(url);
   return { success: true, url };
 }
