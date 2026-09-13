@@ -294,7 +294,7 @@ async function convertProject(filePath, sessionId, accessToken) {
   fd.append('originalFileSize', String(buf.length));
   fd.append('file', new Blob([buf], { type: bazis === '1' ? 'bazis' : 'application/octet-stream' }), name);
 
-  const resp = await fetch(`${API_BASE}?XDEBUG_SESSION_START=netbeans-xdebug`, {
+  const resp = await fetch(API_BASE, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -306,16 +306,20 @@ async function convertProject(filePath, sessionId, accessToken) {
   let data = null;
   try { data = JSON.parse(text); } catch (e) {}
   if (!resp.ok) {
-    throw new Error(`Завантаження не вдалося (HTTP ${resp.status}): ${text.slice(0, 200)}`);
+    throw new Error(`Завантаження не вдалося (HTTP ${resp.status}): ${text.slice(0, 300)}`);
   }
   const status = data && data.result && data.result.status;
-  if (status && status.error && status.error.status !== undefined) {
-    throw new Error('Сервер не прийняв файл: ' + JSON.stringify(status.error).slice(0, 200));
+  if (status && status.error) {
+    throw new Error('Сервер не прийняв файл: ' + JSON.stringify(status.error).slice(0, 400));
   }
   const group = status && status.convertedProjects && status.convertedProjects[0];
   const proj = group && group.projects && group.projects[0];
   if (!proj || !proj.hash) {
-    throw new Error('Сервер не повернув hash завантаженого проєкту');
+    // Surface the real server response so we can see WHY the server didn't return a hash
+    // (session expired, invalid file, server-side parsing error, ...).
+    const snippet = (text || '').slice(0, 500);
+    const parsed = data ? JSON.stringify(data).slice(0, 500) : '(no JSON)';
+    throw new Error(`Сервер не повернув hash (HTTP ${resp.status}). Відповідь: ${snippet} | parsed: ${parsed}`);
   }
   return { hash: proj.hash, fileName: proj.file_name || name };
 }
