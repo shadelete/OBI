@@ -306,20 +306,21 @@ async function convertProject(filePath, sessionId, accessToken) {
   let data = null;
   try { data = JSON.parse(text); } catch (e) {}
   if (!resp.ok) {
-    throw new Error(`Завантаження не вдалося (HTTP ${resp.status}): ${text.slice(0, 300)}`);
+    throw new Error(`Завантаження не вдалося (HTTP ${resp.status}): ${text.slice(0, 500)}`);
   }
   const status = data && data.result && data.result.status;
   if (status && status.error) {
-    throw new Error('Сервер не прийняв файл: ' + JSON.stringify(status.error).slice(0, 400));
+    // Surface the FULL status (not just status.error) so we can see the real
+    // server-side reason — error may be empty [] but other status fields carry info.
+    throw new Error('Сервер не прийняв файл. status: ' + JSON.stringify(status).slice(0, 800));
   }
   const group = status && status.convertedProjects && status.convertedProjects[0];
   const proj = group && group.projects && group.projects[0];
   if (!proj || !proj.hash) {
     // Surface the real server response so we can see WHY the server didn't return a hash
     // (session expired, invalid file, server-side parsing error, ...).
-    const snippet = (text || '').slice(0, 500);
-    const parsed = data ? JSON.stringify(data).slice(0, 500) : '(no JSON)';
-    throw new Error(`Сервер не повернув hash (HTTP ${resp.status}). Відповідь: ${snippet} | parsed: ${parsed}`);
+    const full = data && data.result ? JSON.stringify(data.result).slice(0, 800) : '(no result)';
+    throw new Error(`Сервер не повернув hash (HTTP ${resp.status}). result: ${full}`);
   }
   return { hash: proj.hash, fileName: proj.file_name || name };
 }
