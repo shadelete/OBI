@@ -374,12 +374,12 @@ async function openConvertedProject(hash, title, sessionId, accessToken) {
 }
 
 function backendUrl(constructorId, ticket) {
-  // Original URL pattern that lands in /service/ (constructor) — with Keycloak
-  // cookies in the partition and direct_load=true the server should load
-  // the converted project. page=homepage + redirect=1 is what the original
-  // author had; we keep it and trust the redirect to land on /service/.
-  return `${SERVICE_BASE}?page=homepage&redirect=1&constructor_id=${encodeURIComponent(constructorId)}`
-    + `&constructor_page=materials&ticket_session=${encodeURIComponent(ticket)}&direct_load=true`;
+  // page=materials — direct materials page of the constructor (where the
+  // loaded project actually displays). No redirect=1 (that stripped all
+  // params → /service/ with empty project). direct_load=true on this page
+  // tells the server to render the converted project.
+  return `${SERVICE_BASE}?page=materials&constructor_id=${encodeURIComponent(constructorId)}`
+    + `&ticket_session=${encodeURIComponent(ticket)}&direct_load=true`;
 }
 
 // Main orchestration: returns { success, url } or throws.
@@ -439,24 +439,36 @@ async function sendToViyar(filePath, creds, onProgress) {
       debugLog('dom-ready probe failed: ' + e.message);
     }
   });
+  // Step 1: visit viyar.pro/main first to establish the viyar.pro server-side
+  // session cookie (the constructor expects it for direct_load to work).
+  try {
+    debugLog('Step 1: visiting /main to establish session...');
+    await win.loadURL(`${SERVICE_BASE}main`);
+    // Wait for the page to fully load (including any JS-driven redirects).
+    await new Promise(resolve => setTimeout(resolve, 4000));
+    debugLog('after /main visit, URL: ' + win.webContents.getURL());
+  } catch (e) {
+    debugLog('/main visit threw: ' + (e && e.message ? e.message : String(e)));
+  }
+  // Step 2: navigate to the constructor URL with the project ticket.
+  try {
+    debugLog('Step 2: calling win.loadURL(constructor)...');
+    await win.loadURL(url);
+    debugLog('Step 2: win.loadURL resolved');
+  } catch (e) {
+    debugLog('win.loadURL threw: ' + (e && e.message ? e.message : String(e)));
+    throw e;
+  }
   // Capture the final URL after navigation settles — tells us exactly where
   // the window ended up (in case many redirects stripped our params).
   setTimeout(() => {
     try {
       const finalUrl = win.webContents.getURL();
-      debugLog('final URL after 5s: ' + finalUrl);
+      debugLog('final URL after 8s: ' + finalUrl);
     } catch (e) {
       debugLog('final URL probe failed: ' + e.message);
     }
-  }, 5000);
-  try {
-    debugLog('calling win.loadURL...');
-    await win.loadURL(url);
-    debugLog('win.loadURL resolved');
-  } catch (e) {
-    debugLog('win.loadURL threw: ' + (e && e.message ? e.message : String(e)));
-    throw e;
-  }
+  }, 8000);
   return { success: true, url };
 }
 
