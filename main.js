@@ -1,10 +1,11 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { exportToXLSXBuffer, buildPdfHtml } = require('./src/export');
 const updater = require('./src/updater');
 const calcWorkbook = require('./src/workbook');
+const viyarpro = require('./src/viyarpro');
 
 let mainWindow;
 let fitRulesWindow;
@@ -34,7 +35,7 @@ function configPath() {
 const APP_URL = 'https://github.com/shadelete/OBI';
 const APP_AUTHOR = 'Alexander Bondarenko';
 
-const DEFAULT_CONFIG = Object.freeze({ theme: 'dark', language: 'uk', autoUpdate: false, workbookPath: '', lastProjectFolder: '', recentFolders: [] });
+const DEFAULT_CONFIG = Object.freeze({ theme: 'dark', language: 'uk', autoUpdate: false, workbookPath: '', lastProjectFolder: '', recentFolders: [], layoutWidths: {} });
 
 function readConfig() {
   try {
@@ -47,7 +48,10 @@ function readConfig() {
       autoUpdate: !!data.autoUpdate,
       workbookPath: typeof data.workbookPath === 'string' ? data.workbookPath : '',
       lastProjectFolder: typeof data.lastProjectFolder === 'string' ? data.lastProjectFolder : '',
-      recentFolders: Array.isArray(data.recentFolders) ? data.recentFolders.filter(f => typeof f === 'string') : []
+      recentFolders: Array.isArray(data.recentFolders) ? data.recentFolders.filter(f => typeof f === 'string') : [],
+      layoutWidths: (data.layoutWidths && typeof data.layoutWidths === 'object') ? data.layoutWidths : {},
+      viyarLogin: typeof data.viyarLogin === 'string' ? data.viyarLogin : '',
+      viyarPasswordEnc: typeof data.viyarPasswordEnc === 'string' ? data.viyarPasswordEnc : ''
     };
   } catch (e) {
     return { ...DEFAULT_CONFIG };
@@ -58,6 +62,34 @@ function saveConfig(config) {
   const p = configPath();
   fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(p, JSON.stringify(config, null, 2), 'utf-8');
+}
+
+// --- ViyarPro credentials (password encrypted with OS safeStorage) ---
+function viyarPasswordToEnc(plain) {
+  if (!plain) return '';
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return '';
+    return safeStorage.encryptString(plain).toString('base64');
+  } catch (e) {
+    return '';
+  }
+}
+
+function viyarPasswordFromEnc(enc) {
+  if (!enc) return '';
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return '';
+    return safeStorage.decryptString(Buffer.from(enc, 'base64'));
+  } catch (e) {
+    return '';
+  }
+}
+
+function saveViyarCredentials(login, password) {
+  const cfg = readConfig();
+  cfg.viyarLogin = String(login || '');
+  cfg.viyarPasswordEnc = viyarPasswordToEnc(String(password || ''));
+  saveConfig(cfg);
 }
 
 function fitRulesPath() {
@@ -436,6 +468,145 @@ ipcMain.handle('open-fit-rules-window', () => {
   openFitRulesWindow();
 });
 
+// ============ VIYARPRO IPC ============
+
+function emitViyarProgress(phase) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('viyarpro-progress', phase || '');
+}
+
+ipcMain.handle('viyarpro-get-status', () => {
+  const cfg = readConfig();
+  return { login: cfg.viyarLogin || '', hasPassword: !!(cfg.viyarPasswordEnc && viyarPasswordFromEnc(cfg.viyarPasswordEnc)) };
+});
+
+ipcMain.handle('viyarpro-save-credentials', (_e, payload) => {
+  try {
+    if (!payload || typeof payload !== 'object') return { success: false, error: 'invalid' };
+    const login = String(payload.login || '').trim();
+    const password = String(payload.password || '');
+    if (!login || !password) return { success: false, error: 'empty' };
+    saveViyarCredentials(login, password);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('viyarpro-pick-and-send', async () => {
+  try {
+    const cfg = readConfig();
+    const password = cfg.viyarPasswordEnc ? viyarPasswordFromEnc(cfg.viyarPasswordEnc) : '';
+    if (!cfg.viyarLogin || !password) {
+      return { success: false, needCredentials: true };
+    }
+    const sel = await dialog.showOpenDialog(mainWindow, {
+      title: 'Оберіть файл .project для передачі у ViyarPro',
+      properties: ['openFile'],
+      filters: [{ name: 'ViyarPro project', extensions: ['project'] }]
+    });
+    if (sel.canceled || !sel.filePaths.length) return { success: false, canceled: true };
+
+    emitViyarProgress('login');
+    const result = await viyarpro.sendToViyar(sel.filePaths[0], { login: cfg.viyarLogin, password }, emitViyarProgress);
+    return { success: true, url: result.url };
+  } catch (e) {
+    emitViyarProgress('');
+    return { success: false, error: (e && e.message) || String(e) };
+  }
+});
+
+// Collect .project files of one material across all products in the project tree and
+// merge them into a single v27 .project (details of the same material from all products).
+ipcMain.handle('viyarpro-merge-material', async (_e, payload) => {
+  const vpmerge = require('./src/vpmerge');
+  try {
+    if (!projectRoot) return { success: false, error: 'project-not-open' };
+    const name = String(payload && payload.name || '').trim();
+    const thickness = Number(payload && payload.thickness) || 0;
+    if (!name) return { success: false, error: 'empty-name' };
+
+    // 1) collect all *.project files inside projectRoot
+    const found = [];
+    (function scan(dir) {
+      let entries;
+      try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return; }
+      entries.forEach(ent => {
+        const full = path.join(dir, ent.name);
+        if (ent.isDirectory()) {
+          if (ent.name.startsWith('.')) return;
+          scan(full);
+        } else if (ent.name.toLowerCase().endsWith('.project')) {
+          found.push(full);
+        }
+      });
+    })(projectRoot);
+
+    if (!found.length) return { success: false, found: 0, merged: false };
+
+    // 2) filter by sheet material name+thickness (per-file header parse)
+    const matching = [];
+    found.forEach(file => {
+      try {
+        const text = readTextAuto(file);
+        const m = text.match(/<material id="1" type="sheet"[^>]*>/);
+        if (!m) return;
+        const nameMatch = m[0].match(/name="([^"]*)"/);
+        const thickMatch = m[0].match(/thickness="([^"]*)"/);
+        const fname = nameMatch ? nameMatch[1] : '';
+        const fthick = thickMatch ? parseFloat(thickMatch[1].replace(',', '.')) : 0;
+        if (fname === name && (thickness === 0 || Math.abs(fthick - thickness) < 0.01)) {
+          matching.push(file);
+        }
+      } catch (e) {}
+    });
+
+    if (!matching.length) {
+      return { success: false, found: found.length, merged: false, error: 'no-match' };
+    }
+
+    // 3) merge
+    const merged = vpmerge.mergeProjectFiles(matching);
+
+    // 4) write merged file into <projectRoot>\.obi\ (kept out of the product folders)
+    const outDir = path.join(projectRoot, '.obi');
+    fs.mkdirSync(outDir, { recursive: true });
+    const safe = name.replace(/[\\/:*?"<>|]/g, '_');
+    const outPath = path.join(outDir, `${safe}_viyar_merged.project`);
+    fs.writeFileSync(outPath, merged.buffer);
+
+    const result = {
+      success: true,
+      found: matching.length,
+      merged: true,
+      detailCount: merged.detailCount,
+      fileCount: merged.fileCount,
+      outPath
+    };
+
+    // 5) optional auto-send to viyar.pro (if credentials stored)
+    if (payload && payload.send !== false) {
+      const cfg = readConfig();
+      const password = cfg.viyarPasswordEnc ? viyarPasswordFromEnc(cfg.viyarPasswordEnc) : '';
+      if (cfg.viyarLogin && password) {
+        emitViyarProgress('login');
+        try {
+          const r = await viyarpro.sendToViyar(outPath, { login: cfg.viyarLogin, password }, emitViyarProgress);
+          result.url = r.url;
+          result.sent = true;
+        } catch (e2) {
+          result.sent = false;
+          result.sendError = (e2 && e2.message) || String(e2);
+        }
+      }
+    }
+    return result;
+  } catch (e) {
+    emitViyarProgress('');
+    return { success: false, error: (e && e.message) || String(e) };
+  }
+});
+
 // ============ CONFIG / SETTINGS IPC ============
 
 ipcMain.handle('get-config', () => readConfig());
@@ -481,12 +652,16 @@ ipcMain.handle('write-calc-workbook', (event, payload) => {
 
 ipcMain.handle('export-settings', async (_e, payload) => {
   try {
+    const exportConfig = (payload && payload.config && typeof payload.config === 'object')
+      ? Object.assign({}, payload.config) : {};
+    delete exportConfig.viyarLogin;
+    delete exportConfig.viyarPasswordEnc;
     const data = {
       format: 'obi-settings',
       version: 1,
       app: 'Output Bazis Info',
       exportedAt: new Date().toISOString(),
-      config: (payload && payload.config && typeof payload.config === 'object') ? payload.config : {},
+      config: exportConfig,
       fitRules: (payload && payload.fitRules && typeof payload.fitRules === 'object') ? payload.fitRules : {}
     };
     const filePath = await dialog.showSaveDialog(mainWindow, {
@@ -523,6 +698,10 @@ ipcMain.handle('import-settings', async () => {
       fitRules = raw;
     } else {
       return { success: false, error: 'invalid' };
+    }
+    if (config && typeof config === 'object') {
+      delete config.viyarLogin;
+      delete config.viyarPasswordEnc;
     }
     return { success: true, path: sel.filePaths[0], config, fitRules };
   } catch (e) {

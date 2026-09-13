@@ -86,7 +86,16 @@ const I18N = {
     'calc.room.default':'Авто (з проекту)','calc.write':'Записати в книгу',
     'calc.written':'Записано: {sheets}','calc.room.used':'Приміщення: {name}',
     'calc.err.no.file':'Спочатку оберіть файл-книгу','calc.err.no.room':'Вкажіть назву приміщення',
-    'calc.err':'Помилка запису: {error}','calc.no.rows':'Немає даних для запису'
+    'calc.err':'Помилка запису: {error}','calc.no.rows':'Немає даних для запису',
+    'viyar.modal.title':'Передача у ViyarPro','viyar.phase.login':'Вхід у ViyarPro...',
+    'viyar.phase.session':'Отримання сесії...','viyar.phase.upload':'Завантаження файлу...',
+    'viyar.phase.open':'Відкриття проєкту...','viyar.done':'Готово! Проєкт відкрито у браузері.',
+    'viyar.error.need.creds':'Спочатку вкажіть логін і пароль ViyarPro у налаштуваннях.',
+    'viyar.error':'Помилка передачі: {error}','viyar.material.tip':'Передати матеріал у ViyarPro',
+    'viyar.merge.title':'Зібрати матеріал з усіх виробів','viyar.merge.done.one':'Завантажено {name}: {details} деталей.','viyar.merge.done.many':'Завантажено {name}: {files} виробів, {details} деталей.','viyar.merge.none':'Для матеріалу {name} не знайдено .project файлів. Спочатку запустіть експорт у Базусі для кожного виробу.',
+    'viyar.settings.title':'ViyarPro','viyar.settings.login':'Логін','viyar.settings.password':'Пароль',
+    'viyar.settings.save':'Зберегти','viyar.settings.saved':'Збережено','viyar.settings.partial':'Авторизацію не налаштовано',
+    'viyar.settings.status.set':'Налаштовано: {login}'
   },
   ru: {
     'brand':'OBI','explorer.open':'Открыть папку проекта','explorer.title':'Проект','explorer.refresh':'Обновить','explorer.select.all':'Выделить все',
@@ -151,7 +160,16 @@ const I18N = {
     'calc.room.default':'Авто (из проекта)','calc.write':'Записать в книгу',
     'calc.written':'Записано: {sheets}','calc.room.used':'Помещение: {name}',
     'calc.err.no.file':'Сначала выберите файл-книгу','calc.err.no.room':'Укажите название помещения',
-    'calc.err':'Ошибка записи: {error}','calc.no.rows':'Нет данных для записи'
+    'calc.err':'Ошибка записи: {error}','calc.no.rows':'Нет данных для записи',
+    'viyar.modal.title':'Передача в ViyarPro','viyar.phase.login':'Вход в ViyarPro...',
+    'viyar.phase.session':'Получение сессии...','viyar.phase.upload':'Загрузка файла...',
+    'viyar.phase.open':'Открытие проекта...','viyar.done':'Готово! Проект открыт в браузере.',
+    'viyar.error.need.creds':'Сначала укажите логин и пароль ViyarPro в настройках.',
+    'viyar.error':'Ошибка передачи: {error}','viyar.material.tip':'Передать материал в ViyarPro',
+    'viyar.merge.title':'Собрать материал со всех изделий','viyar.merge.done.one':'Загружено {name}: {details} деталей.','viyar.merge.done.many':'Загружено {name}: {files} изделий, {details} деталей.','viyar.merge.none':'Для материала {name} не найдено .project файлов. Сначала запустите экспорт в Базисе для каждого изделия.',
+    'viyar.settings.title':'ViyarPro','viyar.settings.login':'Логин','viyar.settings.password':'Пароль',
+    'viyar.settings.save':'Сохранить','viyar.settings.saved':'Сохранено','viyar.settings.partial':'Авторизация не настроена',
+    'viyar.settings.status.set':'Настроено: {login}'
   }
 };
 
@@ -260,6 +278,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindSettingsEvents();
   bindExplorerEvents();
   bindTopbarDropdown();
+  bindResizers();
+  renderViyarStatus();
   if (window.api.onFitRulesUpdated) {
     window.api.onFitRulesUpdated(async () => {
       try { fitRules = normalizeFitRules(await window.api.getFitRules()); } catch (e) {}
@@ -913,6 +933,74 @@ function showRegularDetail() {
   });
 }
 
+// ============ COLUMN RESIZING (workspace panels) ============
+const LAYOUT_STORAGE_KEY = 'layoutWidths';
+let layoutWidths = { explorer: 236, sidebar: 200, 'category-list': 300 };
+const LAYOUT_DEFAULTS = { explorer: 236, sidebar: 200, 'category-list': 300 };
+const LAYOUT_MIN = { explorer: 140, sidebar: 140, 'category-list': 180 };
+const LAYOUT_MAX = { explorer: 800, sidebar: 500, 'category-list': 900 };
+
+function loadLayoutWidths() {
+  try {
+    const w = config.layoutWidths && typeof config.layoutWidths === 'object' ? config.layoutWidths : {};
+    layoutWidths = {
+      explorer: clampW('explorer', w.explorer || LAYOUT_DEFAULTS.explorer),
+      sidebar: clampW('sidebar', w.sidebar || LAYOUT_DEFAULTS.sidebar),
+      'category-list': clampW('category-list', w['category-list'] || LAYOUT_DEFAULTS['category-list'])
+    };
+  } catch (e) { /* keep defaults */ }
+}
+
+function clampW(col, w) {
+  const n = Math.round(Number(w) || LAYOUT_DEFAULTS[col]);
+  return Math.max(LAYOUT_MIN[col], Math.min(LAYOUT_MAX[col], n));
+}
+
+function applyLayoutWidths() {
+  const ws = document.querySelector('.workspace');
+  if (!ws) return;
+  ws.style.setProperty('--explorer-w', layoutWidths.explorer + 'px');
+  ws.style.setProperty('--sidebar-w', layoutWidths.sidebar + 'px');
+  ws.style.setProperty('--list-w', layoutWidths['category-list'] + 'px');
+}
+
+function bindResizers() {
+  loadLayoutWidths();
+  applyLayoutWidths();
+  document.querySelectorAll('.resizer').forEach(handle => {
+    handle.addEventListener('mousedown', e => startLayoutResize(e, handle));
+  });
+}
+
+function startLayoutResize(e, handle) {
+  e.preventDefault();
+  handle.classList.add('dragging');
+  const col = handle.getAttribute('data-target');
+  const ws = document.querySelector('.workspace');
+  const pane = ws ? ws.querySelector(`.${col}`) : null;
+  if (!pane) return;
+  const startX = e.clientX;
+  const startW = pane.getBoundingClientRect().width;
+
+  const onMove = (ev) => {
+    const w = clampW(col, startW + (ev.clientX - startX));
+    layoutWidths[col] = w;
+    ws.style.setProperty('--' + (col === 'category-list' ? 'list' : col) + '-w', w + 'px');
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.classList.remove('col-resizing');
+    handle.classList.remove('dragging');
+    config.layoutWidths = Object.assign({}, layoutWidths);
+    saveConfig();
+  };
+
+  document.body.classList.add('col-resizing');
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
 // ============ THEME / LANGUAGE ============
 function applyTheme() {
   document.body.classList.toggle('theme-light', config.theme === 'light');
@@ -1041,6 +1129,7 @@ function catCardHTML(it, i, kind) {
       <div class="cat-card-actions">
         ${checks}
         ${dragHandle}
+        ${kind === 'material' ? `<button class="lc-vp-btn" title="${t('viyar.material.tip')}" onclick="event.stopPropagation();sendMaterialToViyar(${i})">V</button>` : ''}
       </div>
     </div>
   `;
@@ -1431,6 +1520,7 @@ function renderDetailTable() {
       <div class="dh-main">
         <div class="dh-title-row">
           <div class="dh-title">${escapeHtml(item.name || item.material || '')}</div>
+          ${isMat ? `<button class="lc-vp-btn dh-vp-btn" title="${t('viyar.merge.title')}" onclick="sendMaterialToViyar(${selId}, event)">V</button>` : ''}
         </div>
         <div class="dh-chips">
           ${isMat && thickStr ? `<span class="dh-chip"><span class="dh-chip-label">${t('stat.thickness')}</span><span class="dh-chip-value">${thickStr} мм</span></span>` : ''}
@@ -2778,6 +2868,130 @@ function saveProfBook(i, checked) {
   saveDB();
 }
 
+// ============ VIYARPRO ============
+let viyarCreds = { login: '', hasPassword: false };
+
+function openViyarModal() {
+  const modal = document.getElementById('viyar-modal');
+  if (!modal) return;
+  const progress = document.getElementById('viyar-progress');
+  const result = document.getElementById('viyar-result');
+  const okBtn = document.getElementById('viyar-modal-ok');
+  const closeBtn = document.getElementById('viyar-modal-close');
+  if (progress) progress.style.display = '';
+  if (result) { result.style.display = 'none'; result.textContent = ''; result.className = 'viyar-result'; }
+  if (okBtn) okBtn.style.display = 'none';
+  if (closeBtn) closeBtn.style.display = 'none';
+  modal.classList.add('open');
+  setViyarPhase('login');
+}
+
+function closeViyarModal() {
+  const modal = document.getElementById('viyar-modal');
+  if (modal) modal.classList.remove('open');
+}
+
+function setViyarPhase(phase) {
+  const el = document.getElementById('viyar-status-text');
+  if (!el) return;
+  const key = phase === 'session' ? 'viyar.phase.session'
+    : phase === 'upload' ? 'viyar.phase.upload'
+    : phase === 'open' ? 'viyar.phase.open'
+    : 'viyar.phase.login';
+  el.textContent = t(key);
+}
+
+function showViyarResult(ok, message) {
+  const modal = document.getElementById('viyar-modal');
+  if (!modal) return;
+  const progress = document.getElementById('viyar-progress');
+  const result = document.getElementById('viyar-result');
+  const okBtn = document.getElementById('viyar-modal-ok');
+  const closeBtn = document.getElementById('viyar-modal-close');
+  if (progress) progress.style.display = 'none';
+  if (result) {
+    result.style.display = '';
+    result.textContent = message;
+    result.className = 'viyar-result ' + (ok ? 'viyar-result-ok' : 'viyar-result-err');
+  }
+  if (okBtn) okBtn.style.display = '';
+  if (closeBtn) closeBtn.style.display = '';
+}
+
+async function sendMaterialToViyar(i) {
+  const m = db && db.materials && db.materials[i];
+  const name = m ? m.name : ('#' + i);
+  if (!viyarCreds.hasPassword || !viyarCreds.login) {
+    alert(t('viyar.error.need.creds'));
+    openSettings();
+    return;
+  }
+  openViyarModal();
+  try {
+    const res = await window.api.viyarproMergeMaterial({
+      name,
+      thickness: m ? m.thickness || 0 : 0,
+      send: true
+    });
+    if (!res) { showViyarResult(false, t('viyar.error', { error: t('viyar.error.need.creds') })); return; }
+    if (res.success) {
+      let msg;
+      if (res.fileCount === 1) msg = t('viyar.merge.done.one', { name, details: res.detailCount || 0 });
+      else if (res.fileCount > 1) msg = t('viyar.merge.done.many', { name, files: res.fileCount, details: res.detailCount || 0 });
+      else msg = t('viyar.merge.none', { name });
+      if (res.sent === false && res.sendError) msg += '\n' + t('viyar.error', { error: res.sendError });
+      showViyarResult(true, msg);
+    } else if (res.error === 'no-match' || res.merged === false) {
+      showViyarResult(false, t('viyar.merge.none', { name }));
+    } else if (res.needCredentials) {
+      showViyarResult(false, t('viyar.error.need.creds'));
+      closeViyarModal();
+      openSettings();
+    } else {
+      showViyarResult(false, t('viyar.error', { error: res.error || '' }));
+    }
+  } catch (e) {
+    showViyarResult(false, t('viyar.error', { error: (e && e.message) || String(e) }));
+  }
+}
+
+async function saveViyarCredentials() {
+  const loginEl = document.getElementById('viyar-login');
+  const passEl = document.getElementById('viyar-password');
+  if (!loginEl || !passEl) return;
+  const login = (loginEl.value || '').trim();
+  const password = passEl.value || '';
+  if (!login || !password) {
+    alert(t('viyar.error.need.creds'));
+    return;
+  }
+  const res = await window.api.viyarproSaveCredentials({ login, password });
+  if (res && res.success) {
+    viyarCreds = { login, hasPassword: true };
+    passEl.value = '';
+    renderViyarStatus();
+    alert(t('viyar.settings.saved'));
+  } else {
+    alert(t('alert.save.fail'));
+  }
+}
+
+async function renderViyarStatus() {
+  try {
+    const st = await window.api.viyarproGetStatus();
+    if (st) viyarCreds = { login: st.login || '', hasPassword: !!st.hasPassword };
+  } catch (e) {}
+  const el = document.getElementById('viyar-status');
+  if (!el) return;
+  if (viyarCreds.login && viyarCreds.hasPassword) {
+    el.textContent = '✓ ' + t('viyar.settings.status.set', { login: viyarCreds.login });
+    el.className = 'settings-vp-status settings-vp-status-ok';
+  } else {
+    el.textContent = t('viyar.settings.partial');
+    el.className = 'settings-vp-status settings-vp-status-warn';
+  }
+}
+
 // ============ SETTINGS ============
 function bindSettingsEvents() {
   bindCalcEvents();
@@ -2790,6 +3004,7 @@ function bindSettingsEvents() {
     });
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && modal.classList.contains('open')) closeSettings();
+      if (e.key === 'Escape') closeViyarModal();
     });
   }
   const closeBtn = document.getElementById('settings-close');
@@ -2819,6 +3034,15 @@ function bindSettingsEvents() {
     saveConfig();
   });
 
+  const vpClose = document.getElementById('viyar-modal-close');
+  if (vpClose) vpClose.addEventListener('click', closeViyarModal);
+
+  if (window.api.onViyarProProgress) {
+    window.api.onViyarProProgress((phase) => {
+      if (phase) setViyarPhase(phase);
+    });
+  }
+
   if (window.api.onUpdateAvailable) {
     window.api.onUpdateAvailable((info) => {
       if (info && info.available) updateInfo = info;
@@ -2837,6 +3061,7 @@ function openSettings() {
   if (langRu) langRu.checked = config.language === 'ru';
   if (autoUpd) autoUpd.checked = !!config.autoUpdate;
   if (tpr) tpr.value = fwTagsPerRow();
+  renderViyarStatus();
   renderSettingsMeta();
   modal.classList.add('open');
 }

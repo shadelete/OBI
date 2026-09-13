@@ -65,6 +65,8 @@
         <div class="explorer-footer" id="explorer-footer"></div>
       </aside>
 
+      <div class="resizer" data-target="explorer" title=""></div>
+
       <!-- SIDEBAR -->
       <aside class="sidebar" id="sidebar">
         <nav class="sidebar-nav">
@@ -84,6 +86,8 @@
         <div class="sidebar-stats" id="sidebar-stats"></div>
       </aside>
 
+      <div class="resizer" data-target="sidebar" title=""></div>
+
       <!-- CATEGORY LIST (middle column for materials/profiles) -->
       <section class="category-list" id="category-list">
         <div class="cat-header">
@@ -95,6 +99,8 @@
         </div>
         <div class="cat-body" id="cat-body"></div>
       </section>
+
+      <div class="resizer" data-target="category-list" title=""></div>
 
       <!-- DETAIL PANEL -->
       <section class="detail-panel">
@@ -227,6 +233,26 @@
     </div>
   </div>
 
+  <!-- VIYARPRO MODAL -->
+  <div class="modal-overlay" id="viyar-modal">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <span class="modal-title" data-i18n="viyar.modal.title"></span>
+        <button class="btn btn-icon modal-close" id="viyar-modal-close" title="Закрити">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="viyar-progress" id="viyar-progress">
+          <div class="viyar-spinner"></div>
+          <div class="viyar-status" id="viyar-status-text" data-i18n="viyar.phase.login"></div>
+        </div>
+        <div class="viyar-result" id="viyar-result" style="display:none"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="viyar-modal-ok" onclick="closeViyarModal()" style="display:none" data-i18n="settings.close"></button>
+      </div>
+    </div>
+  </div>
+
   <!-- SETTINGS MODAL -->
   <div class="modal-overlay" id="settings-modal">
     <div class="modal">
@@ -269,6 +295,24 @@
           <div class="settings-label" data-i18n="settings.tags.per.row"></div>
           <div class="settings-options settings-tpr">
             <input type="number" id="settings-tags-per-row" min="1" max="6" step="1">
+          </div>
+        </div>
+        <!-- SECTION: ViyarPro -->
+        <div class="settings-section">
+          <div class="settings-label" data-i18n="viyar.settings.title"></div>
+          <div class="settings-vp">
+            <div class="settings-vp-row">
+              <label class="settings-vp-label" data-i18n="viyar.settings.login"></label>
+              <input class="form-input" type="text" id="viyar-login" autocomplete="off">
+            </div>
+            <div class="settings-vp-row">
+              <label class="settings-vp-label" data-i18n="viyar.settings.password"></label>
+              <input class="form-input" type="password" id="viyar-password" autocomplete="new-password">
+            </div>
+            <div class="settings-vp-actions">
+              <button class="btn btn-primary" onclick="saveViyarCredentials()" data-i18n="viyar.settings.save">Зберегти</button>
+              <span class="settings-vp-status" id="viyar-status"></span>
+            </div>
           </div>
         </div>
         <!-- SECTION: Export/Import settings -->
