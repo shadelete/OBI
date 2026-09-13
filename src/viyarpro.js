@@ -408,17 +408,21 @@ async function sendToViyar(filePath, creds, onProgress) {
   debugLog('opening URL: ' + url);
   // Open in a new BrowserWindow that reuses the same persist:viyarpro partition
   // as the Keycloak login — Keycloak session cookies carry over.
+  // NOTE: removed sandbox:true — with sandbox+custom partition combo the URL
+  // load was silently failing (window opens empty, no nav events fired).
   const win = new BrowserWindow({
     show: true,
     width: 1280,
     height: 800,
     webPreferences: {
-      partition: 'persist:viyarpro',
-      sandbox: true
+      partition: 'persist:viyarpro'
     },
     title: 'ViyarPro — проєкт'
   });
-  // Diagnostic: log every navigation so we see the full redirect chain.
+  // Diagnostic: log every navigation event so we see the full redirect chain.
+  win.webContents.on('did-start-loading', (_e, navUrl) => {
+    debugLog('did-start-loading: ' + navUrl);
+  });
   win.webContents.on('did-navigate', (_e, navUrl) => {
     debugLog('did-navigate: ' + navUrl);
   });
@@ -427,6 +431,13 @@ async function sendToViyar(filePath, creds, onProgress) {
   });
   win.webContents.on('did-fail-load', (_e, code, desc, navUrl) => {
     debugLog('did-fail-load: ' + code + ' ' + desc + ' ' + navUrl);
+  });
+  win.webContents.on('dom-ready', () => {
+    try {
+      debugLog('dom-ready, URL: ' + win.webContents.getURL());
+    } catch (e) {
+      debugLog('dom-ready probe failed: ' + e.message);
+    }
   });
   // Capture the final URL after navigation settles — tells us exactly where
   // the window ended up (in case many redirects stripped our params).
@@ -438,7 +449,14 @@ async function sendToViyar(filePath, creds, onProgress) {
       debugLog('final URL probe failed: ' + e.message);
     }
   }, 5000);
-  win.loadURL(url);
+  try {
+    debugLog('calling win.loadURL...');
+    await win.loadURL(url);
+    debugLog('win.loadURL resolved');
+  } catch (e) {
+    debugLog('win.loadURL threw: ' + (e && e.message ? e.message : String(e)));
+    throw e;
+  }
   return { success: true, url };
 }
 
