@@ -462,9 +462,11 @@ async function sendToViyar(filePath, creds, onProgress) {
   });
   // Step 1: visit viyar.pro/main first to establish the viyar.pro server-side
   // session cookie (the constructor expects it for direct_load to work).
+  // NOTE: must be the main app URL (viyar.pro/main), NOT viyar.pro/service/main
+  // (that returns 404 nginx).
   try {
     debugLog('Step 1: visiting /main to establish session...');
-    await win.loadURL(`${SERVICE_BASE}main`);
+    await win.loadURL('https://viyar.pro/main');
     // Wait for the page to fully load (including any JS-driven redirects).
     await new Promise(resolve => setTimeout(resolve, 4000));
     debugLog('after /main visit, URL: ' + win.webContents.getURL());
