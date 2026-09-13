@@ -348,20 +348,24 @@ async function openConvertedProject(hash, title, sessionId, accessToken) {
   let data = null;
   try { data = JSON.parse(text); } catch (e) {}
   if (!resp.ok) {
-    throw new Error(`Відкриття проєкту не вдалося (HTTP ${resp.status}): ${text.slice(0, 200)}`);
+    throw new Error(`Відкриття проєкту не вдалося (HTTP ${resp.status}): ${text.slice(0, 500)}`);
   }
   const status = data && data.result && data.result.status;
   const ticket = status && status.ticket_hash;
   const constructorId = status && status.constructorId;
   if (!ticket || !constructorId) {
-    throw new Error('Сервер не повернув ticket_hash/constructorId');
+    throw new Error('Сервер не повернув ticket_hash/constructorId. status: ' + JSON.stringify(status || data).slice(0, 800));
   }
   return { ticket, constructorId };
 }
 
-function backendUrl(constructorId, ticket) {
-  return `${SERVICE_BASE}?page=homepage&redirect=1&constructor_id=${encodeURIComponent(constructorId)}`
-    + `&constructor_page=materials&ticket_session=${encodeURIComponent(ticket)}&direct_load=true`;
+function backendUrl(constructorId, ticket, hash) {
+  // NOTE: previous variant used page=homepage&redirect=1 which caused the server
+  // to 302-redirect to the base URL and strip all our params — user ended up at
+  // an empty new-project page. Now: direct constructor page with direct_load=true.
+  return `${SERVICE_BASE}?page=constructor&constructor_id=${encodeURIComponent(constructorId)}`
+    + `&constructor_page=materials&ticket_session=${encodeURIComponent(ticket)}&direct_load=true`
+    + (hash ? `&hash=${encodeURIComponent(hash)}` : '');
 }
 
 // Main orchestration: returns { success, url } or throws.
@@ -381,7 +385,7 @@ async function sendToViyar(filePath, creds, onProgress) {
   step('open');
   const title = fileName.replace(/\.project$/i, '') || fileName;
   const { ticket, constructorId } = await openConvertedProject(hash, title, sessionId, accessToken);
-  const url = backendUrl(constructorId, ticket);
+  const url = backendUrl(constructorId, ticket, hash);
   await shell.openExternal(url);
   return { success: true, url };
 }
