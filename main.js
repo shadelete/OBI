@@ -516,6 +516,22 @@ ipcMain.handle('viyarpro-pick-and-send', async () => {
   }
 });
 
+// Read the ViyarPro debug log so the renderer can show it in the modal
+// (last N lines — large logs would freeze the UI).
+ipcMain.handle('viyarpro-get-debug-log', () => {
+  try {
+    const logPath = path.join(app.getPath('userData'), 'viyarpro-debug.log');
+    if (!fs.existsSync(logPath)) return { ok: false, error: 'no-log', content: '', path: logPath };
+    const text = fs.readFileSync(logPath, 'utf8');
+    // Trim to last ~200 lines (each line is one debug event).
+    const lines = text.split(/\r?\n/);
+    const trimmed = lines.slice(-200).join('\n');
+    return { ok: true, content: trimmed, path: logPath, total: lines.length };
+  } catch (e) {
+    return { ok: false, error: (e && e.message) || String(e), content: '' };
+  }
+});
+
 // Collect .project files of one material across all products in the project tree and
 // merge them into a single v27 .project (details of the same material from all products).
 ipcMain.handle('viyarpro-merge-material', async (_e, payload) => {

@@ -93,6 +93,7 @@ const I18N = {
     'viyar.error.need.creds':'Спочатку вкажіть логін і пароль ViyarPro у налаштуваннях.',
     'viyar.error':'Помилка передачі: {error}','viyar.material.tip':'Передати матеріал у ViyarPro',
     'viyar.merge.title':'Зібрати матеріал з усіх виробів','viyar.merge.done.one':'Завантажено {name}: {details} деталей.','viyar.merge.done.many':'Завантажено {name}: {files} виробів, {details} деталей.','viyar.merge.none':'Для матеріалу {name} не знайдено .project файлів. Спочатку запустіть експорт у Базусі для кожного виробу.',
+    'viyar.debug.summary':'Діагностичний лог (натисніть щоб розгорнути)','viyar.debug.copy':'Копіювати','viyar.debug.copied':'Скопійовано!','viyar.debug.empty':'Лог порожній (запустіть експорт ще раз для запису).',
     'viyar.settings.title':'ViyarPro','viyar.settings.login':'Логін','viyar.settings.password':'Пароль',
     'viyar.settings.save':'Зберегти','viyar.settings.saved':'Збережено','viyar.settings.partial':'Авторизацію не налаштовано',
     'viyar.settings.status.set':'Налаштовано: {login}'
@@ -167,6 +168,7 @@ const I18N = {
     'viyar.error.need.creds':'Сначала укажите логин и пароль ViyarPro в настройках.',
     'viyar.error':'Ошибка передачи: {error}','viyar.material.tip':'Передать материал в ViyarPro',
     'viyar.merge.title':'Собрать материал со всех изделий','viyar.merge.done.one':'Загружено {name}: {details} деталей.','viyar.merge.done.many':'Загружено {name}: {files} изделий, {details} деталей.','viyar.merge.none':'Для материала {name} не найдено .project файлов. Сначала запустите экспорт в Базисе для каждого изделия.',
+    'viyar.debug.summary':'Диагностический лог (нажмите чтобы развернуть)','viyar.debug.copy':'Копировать','viyar.debug.copied':'Скопировано!','viyar.debug.empty':'Лог пустой (запустите экспорт ещё раз для записи).',
     'viyar.settings.title':'ViyarPro','viyar.settings.login':'Логин','viyar.settings.password':'Пароль',
     'viyar.settings.save':'Сохранить','viyar.settings.saved':'Сохранено','viyar.settings.partial':'Авторизация не настроена',
     'viyar.settings.status.set':'Настроено: {login}'
@@ -2878,10 +2880,19 @@ function openViyarModal() {
   const result = document.getElementById('viyar-result');
   const okBtn = document.getElementById('viyar-modal-ok');
   const closeBtn = document.getElementById('viyar-modal-close');
+  const debugWrap = document.getElementById('viyar-debug');
+  const debugPre = document.getElementById('viyar-debug-log');
+  const debugBtn = document.getElementById('viyar-debug-copy');
   if (progress) progress.style.display = '';
   if (result) { result.style.display = 'none'; result.textContent = ''; result.className = 'viyar-result'; }
   if (okBtn) okBtn.style.display = 'none';
   if (closeBtn) closeBtn.style.display = 'none';
+  if (debugWrap) debugWrap.style.display = 'none';
+  if (debugPre) debugPre.textContent = '';
+  if (debugBtn && !debugBtn.dataset.bound) {
+    debugBtn.dataset.bound = '1';
+    debugBtn.addEventListener('click', copyViyarDebugLog);
+  }
   modal.classList.add('open');
   setViyarPhase('login');
 }
@@ -2933,7 +2944,7 @@ async function sendMaterialToViyar(i) {
       thickness: m ? m.thickness || 0 : 0,
       send: true
     });
-    if (!res) { showViyarResult(false, t('viyar.error', { error: t('viyar.error.need.creds') })); return; }
+    if (!res) { showViyarResult(false, t('viyar.error', { error: t('viyar.error.need.creds') })); showViyarDebugLog(); return; }
     if (res.success) {
       let msg;
       if (res.fileCount === 1) msg = t('viyar.merge.done.one', { name, details: res.detailCount || 0 });
@@ -2950,9 +2961,51 @@ async function sendMaterialToViyar(i) {
     } else {
       showViyarResult(false, t('viyar.error', { error: res.error || '' }));
     }
+    showViyarDebugLog();
   } catch (e) {
     showViyarResult(false, t('viyar.error', { error: (e && e.message) || String(e) }));
+    showViyarDebugLog();
   }
+}
+
+async function showViyarDebugLog() {
+  try {
+    const res = await window.api.viyarproGetDebugLog();
+    const wrap = document.getElementById('viyar-debug');
+    const pre = document.getElementById('viyar-debug-log');
+    if (!wrap || !pre) return;
+    if (res && res.ok) {
+      pre.textContent = res.content || '(порожньо)';
+      wrap.style.display = '';
+    } else {
+      pre.textContent = res && res.error === 'no-log' ? t('viyar.debug.empty') : (res && res.error ? res.error : '');
+      wrap.style.display = res && res.error === 'no-log' ? 'none' : '';
+    }
+  } catch (e) {}
+}
+
+async function copyViyarDebugLog() {
+  try {
+    const pre = document.getElementById('viyar-debug-log');
+    if (!pre) return;
+    const text = pre.textContent || '';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+    const btn = document.getElementById('viyar-debug-copy');
+    if (btn) {
+      const old = btn.textContent;
+      btn.textContent = t('viyar.debug.copied');
+      setTimeout(() => { btn.textContent = old; }, 1500);
+    }
+  } catch (e) {}
 }
 
 async function saveViyarCredentials() {

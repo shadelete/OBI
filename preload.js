@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('api', {
   viyarproSaveCredentials: (payload) => ipcRenderer.invoke('viyarpro-save-credentials', payload),
   viyarproPickAndSend: () => ipcRenderer.invoke('viyarpro-pick-and-send'),
   viyarproMergeMaterial: (payload) => ipcRenderer.invoke('viyarpro-merge-material', payload),
+  viyarproGetDebugLog: () => ipcRenderer.invoke('viyarpro-get-debug-log'),
   onViyarProProgress: (cb) => ipcRenderer.on('viyarpro-progress', (e, phase) => cb(phase)),
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
   checkUpdate: () => ipcRenderer.invoke('check-update'),

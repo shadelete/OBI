@@ -1439,3 +1439,24 @@ body.theme-light ::-webkit-scrollbar-thumb:hover { background: #aab4c2; }
 .settings-vp-status { font-size: 12px; color: var(--text-muted); }
 .settings-vp-status-ok { color: #3ecf6a; }
 .settings-vp-status-warn { color: #e8a33d; }
+
+.viyar-debug { margin-top: 12px; font-size: 12px; }
+.viyar-debug summary { cursor: pointer; color: var(--text-muted); padding: 4px 0; user-select: none; }
+.viyar-debug-log {
+  background: #1a1d24;
+  color: #cfd6e4;
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
+  margin: 6px 0;
+  border: 1px solid var(--border);
+}
+.viyar-debug-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.viyar-debug-actions .btn { font-size: 12px; padding: 4px 10px; }

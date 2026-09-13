@@ -246,6 +246,13 @@
           <div class="viyar-status" id="viyar-status-text" data-i18n="viyar.phase.login"></div>
         </div>
         <div class="viyar-result" id="viyar-result" style="display:none"></div>
+        <details class="viyar-debug" id="viyar-debug" style="display:none">
+          <summary data-i18n="viyar.debug.summary"></summary>
+          <pre id="viyar-debug-log" class="viyar-debug-log"></pre>
+          <div class="viyar-debug-actions">
+            <button class="btn btn-secondary" id="viyar-debug-copy" data-i18n="viyar.debug.copy"></button>
+          </div>
+        </details>
       </div>
       <div class="modal-footer">
         <button class="btn btn-primary" id="viyar-modal-ok" onclick="closeViyarModal()" style="display:none" data-i18n="settings.close"></button>
