@@ -1,10 +1,15 @@
 # AGENTS.md — Output Bazis Info (OBI)
 
-Электрон-приложение, которое читает `data/<проект>.json` и показывает/экспортирует данные мебельного проекта (материалы, профили, фурнитуру). Данные генерирует **скрипт Базиса** (`OBI.js`), запускаемый внутри САПР «Базис». Пользователь запускает скрипт в Базис, тот пишет json (называемый найменованием изделия) в `data\projects\` и запускает OBI.exe.
+Электрон-приложение «проєкт-папка»: користувач відкриває **папку замовлення** в
+standalone-додатку, додаток знаходить усі **JSON-файли виробів** (поруч із
+моделями Базиса), показує файловий оглядач і після вибору одного/кількох/усіх
+виробів — об'єднаний список матеріалів / профілів / фурнітури. Дані генерує
+**скрипт Базиса** (`OBI.js`), запущений усередині САПР «Базис»: він показує
+діалог «Відкрити OBI» / «Зберегти» і пише JSON **поруч із моделлю**.
 
 ## Две независимые части
-- **Скрипт Базиса** (корень): `OBI.js` — единственный рабочий/эталонный скрипт: вынимает состав фурнитуры через `GetParams('AdvParamData')`, пишет json в 2 места (корень + рядом с exe), запускает OBI.exe. Это НЕ часть electron-приложения.
-- **Electron-приложение**: `main.js`, `preload.js`, `src/renderer.js`, `src/export.js`, `src/workbook.js`, `src/index.html`. Основной исходник UI — `src/renderer.js`. Корневые `renderer.js`/`export.js` — gitignored-артефакты, в приложении не используются. `src/workbook.js` исполняется в main-процессе (перенос в книгу «Розрахунок»).
+- **Скрипт Базиса** (корень): `OBI.js` — единственный рабочий/эталонный скрипт. Діалог «Відкрити OBI» / «Зберегти» (`NewForm`), пишет **один** JSON-файл **рядом с моделью** (`<папка модели>\<Article.Name>.json`, fallback `scriptDir\data\projects\`), запускает `OBI.exe --project <абс. путь>`. Это НЕ часть electron-приложения.
+- **Electron-приложение**: `main.js`, `preload.js`, `src/renderer.js`, `src/export.js`, `src/workbook.js`, `src/updater.js`, `src/fit_rules.html`+`js`, `src/index.html`. Основной исходник UI — `src/renderer.js`. Корневые `renderer.js`/`export.js` — gitignored-артефакты, в приложении не используются. `src/workbook.js` исполняется в main-процессе (перенос в книгу «Розрахунок»).
 
 ## Критичные факты о Bazis-скриптах (иначе всё сломается)
 - **Базис читает скрипты в кодировке Windows-1251**. Правки готовятся в UTF-8, затем конвертируются PowerShell: `GetEncoding(1251)` и `WriteAllText`. Cyrillic в `alert()` внутри JSON-строк, где не жалко, пишем как `\uXXXX`-эскейпы (иначе после конвертации ломается).
@@ -19,12 +24,15 @@
 - Рабочее правило состава: у фурнитуры с `Elements` родитель остаётся в db с деревом `elements` (вложенность) + все внутренние элементы добавляются отдельными позициями с `isComposition:true`; узел, совпадающий с родителем (имя+код), в список не дублируют.
 
 ## Где OBI.exe берёт данные (частый источник «база есть, в интерфейсе пусто»)
-- **Старт завжди «з чистого листа»**: `dbPath()` = `activeProjectPath` (якщо задано) інакше `data\db.json`. На старті `activeProjectPath` береться з CLI-аргументу `--project <path>` (його передає `OBI.js`), інакше — `null` → `ensureDB()` **перезаписує** `data\db.json` порожньою структурою `{date, materials:[], profiles:[], fittings:[]}`. Ніякого авто-завантаження «останнього проекту» / `current_project.txt` / scan по `data\projects\` більше НЕМАЄ (прибрано в main.js; `current_project.txt` більше не читається й лишився тільки для зворотної сумісності з боку скрипта).
-- Base каталог: `<папка exe>` (для portable — `PORTABLE_EXECUTABLE_DIR`, інакше папка exe). Dev-запуск `npx electron .` без `--project` читає порожній `data\db.json` по корню проекта.
-- Название проекта: `OBI.js` берёт **наименование изделия** из глобальной `Article.Name` (fallback `currentFileData.article.Name`) → `getOrderName()`; имя фала = санiтiзованное `Article.Name`. Файл пишется в `data\projects\<Наименование>.json` (в оба места: в `папка_скрипта\data\` и `data\` рядом с найденным OBI.exe). Если имени нет — fallback на `data\db.json` как раньше.
-- **Запуск `OBI.exe` — через `--project`**: `OBI.js` у фіналі передає `spawn(EXE_PATH, ["--project", <абс. шлях>], ...)` — шлях до щойно записаного файлу біля exe (`<exe_data>\projects\<name>.json`, інакше `<exe_data>\db.json`). Без цього аргументу app відкриється порожнім. Тому **скрипт-генератор обов'язково** пише json і в `папка_скрипта\data\projects\`, і в `data\projects\` біля знайденого OBI.exe (зараз: `dist\data\projects\`).
-- **b3d-збереження НЕ забруднюють projects**: `save-b3d-db` пише в `data\models\` (окрема папка), у межах сесії перезаписує один файл моделі (`activeModelPath`), ставиться `_source:"b3d-model"`. `listProjects()` відфільтровує файли з `_source:"b3d-model"` — у пікері проектів і автозавантаженні старі b3d-дані не з'являються. Старі b3d-сави, що колись потрапили в `data\projects\<Name> (N).json`, теж відфільтровуються по тому ж маркеру (можна видалити вручну).
-- Поиск exe (в `OBI.js`): рядом со скриптом → сохранённый путь `data\exe_path.txt` → `dist\OBI.exe` → `dist\release\OBI.exe` → вверх до 4 родительских + cwd.
+- **Старт завжди «з чистого листа»**: немає жодного `data\db.json`/`current_project.txt`/`save-db`. Додаток працює з **папкою проєкту** (а не одним файлом): OBI.js передає `--project <абс. шлях до JSON>`, main.js бере `dirname` як `projectRoot` і преселект = сам JSON. Без `--project` — `config.lastProjectFolder` (остання робоча папка, автозбереження в `saveConfig`).
+- **Сканер проєкту** (`walkDir`/`tryReadProduct` у `main.js`): рекурсивно знаходить JSON-файли зі схемою `materials[]` + `fittings[]`. Пропускає приховані директорії (`.git`, `.obi`, …), `node_modules`, файли > 20 МБ. Крос-кодування (UTF-8 → cp1251 fallback).
+- **Overlay** проєкту: `<projectRoot>\.obi\project.json` — зберігає `deleted[]` (видалені позиції), `counts{}`/`edits{}` (правки), `added{materials,profiles,fittings}[]` (додані), `order{}` (користувацький порядок), `tagOrder[]`. Не модифікує вихідні JSON-файли виробів.
+- **Fit Rules** — окремий файл `<dataDir>\data\fit_rules.json` (загальний між проєктами, не входить до overlay). Хендлер `save-fit-rules` розсилає `fit-rules-updated` всім вікнам.
+- Назва проєкту (= заголовок експорту) = `path.basename(projectRoot)`. Назва окремого виробу — `data.name` із його JSON.
+- Base каталог: `<папка exe>` (для portable — `PORTABLE_EXECUTABLE_DIR`, інакше папка exe). Dev-запуск `npx electron .` без `--project` відкриває UI з prompt «відкрийте папку проєкту».
+- **Запуск `OBI.exe` — через `--project`**: `OBI.js` передає `spawn(EXE_PATH, ["--project", <абс. шлях>], { detached, stdio:'ignore', windowsHide:true })` — шлях до щойно записаного JSON **поруч із моделлю** (`<папка моделі>\<Article.Name>.json`). Без цього аргумента додаток відкриється з порожнім explorer.
+- **b3d НЕ підтримується**: `src/b3d_parser.js` і `b3d-builder.json` видалені в поточній версії. JSON пишеться виключно Базисом через `OBI.js`.
+- Поиск exe (в `OBI.js`): поряд зі скриптом → збережений шлях `data\exe_path.txt` → `dist\OBI.exe` → `dist\release\OBI.exe` → вгору до 4 батьківських + cwd.
 
 ## Команды
 - **Запуск при тестировании**: пользователь запускает `OBI.js` из Базиса → тот стартует `dist\OBI.exe`. Соответственно, **любые правки в `src/*.js`, `src/*.html`, `src/*.css` требуют пересборки через `npm run dist`**, иначе OBI.exe не подхватит изменения.
@@ -46,52 +54,88 @@
 - Важно перед сборкой zip: перегенерировать `release\OBI.js` из корневого `OBI.js` в cp1251 (см. «Критичные факты»), а в `release\OBI-<ver>.zip` класть **новый** `dist\OBI.exe` (не старый `release\OBI.exe` — он не обновляется сборкой и останется без правок). Перед сборкой zip убедиться, что `dist\OBI.exe` не заблокирован запущенным процессом OBI (закрыть при необходимости).
 - Полезное: `git tag v0.1.1 f6839e1` создаёт тег на конкретном коммите, `gh release create` выводит URL релиза.
 
-## Схема db.json
-`{ date, name, orderName, totalObjects, panelsCount, profilesCount, fastenersCount, materials[], profiles[], fittings[] }` — поля `name` (найменування виробу) і `orderName` (найменування замовлення) пише `OBI.js` з `Article.Name`/`Article.OrderName` (fallback на ті самі джерела, що й `getOrderName()`). `orderName` використовується як «Приміщення» у книзі розрахунку, fallback — `name`.
-- `fittings[i]`: `{ name, code, count, tag?, export?, book? }`, доп.флаги `isDraft`, `isComposition`, `isComposite`, `elements[]` — дерево `{name, code, count, nested[]}`.
-- Материалы: `{ name, code, thickness, count, edges[], details[] }`. `details[i]` — `{ name, position?, width, height, cuts[] }`, где `position` — артикул/позиция объекта из модели (`obj.ArtPos`, ставится скриптом/вручную на объект). Профили: `{ name, code, material, materialCode?, details[] }`, `details[i]` — `{ width, thickness, length, count, positions[]? }` (массив артикулов, т.к. по позициям профили не группируются). `materialCode` (артикул материала) и сам `code` профиля пишет `OBI.js` приоритетно из `splitName(obj.MaterialName).code`, fallback — артикул профиля, извлечённый из `(Артикул NNN)` в названии (т.е. артикул профиля = артикул его материала). В книгу «Розрахунок» профілі потрапляють назвою матеріалу `material` з артикулом `materialCode`/`code` у дужках; интерфейс профиля тоже показывает артикул материала. Материалы/профили (и правки тегов/count/export) рендерятся в `src/renderer.js` (см. `renderFittings`, `saveFit*`); изменения сохраняются обратно в тот же db.json через IPC `save-db`. Колонка «Поз.» в Excel-экспорте (src/export.js) берёт `position`/`positions` из модели, при отсутствии — порядковый номер.
+## Схема JSON виробу
+Один JSON на виріб — пишеться `OBI.js` поряд із моделлю. Файл — об'єкт
+`{ date, name, orderName, modelFile, totalObjects, panelsCount, profilesCount, fastenersCount, materials[], profiles[], fittings[] }`:
+- `name` (найменування виробу) і `orderName` (найменування замовлення) — з
+  `Article.Name`/`Article.OrderName` (fallback на `currentFileData.article.*`).
+  `orderName` використовується як «Приміщення» у книзі розрахунку, fallback
+  — `name`.
+- `modelFile` — базове ім'я файлу моделі (без шляху й розширення), дає
+  оглядачу зрозуміти, до якої моделі належить виріб.
+- `fittings[i]`: `{ name, code, count, tag?, export?, book? }`, доп.флаги
+  `isDraft`, `isComposition`, `isComposite`, `elements[]` — дерево
+  `{name, code, count, nested[]}`.
+- Матеріали: `{ name, code, thickness, count, edges[], details[] }`.
+  `details[i]` — `{ name, position?, width, height, cuts[] }`, де `position` —
+  артикул/позиція об'єкта з моделі (`obj.ArtPos`, ставиться скриптом або
+  вручну).
+- Профілі: `{ name, code, material, materialCode?, supplier?, details[] }`,
+  `details[i]` — `{ width, thickness, length, count, positions[]? }` (масив
+  артикулів, бо профілі за позиціями не групуються).
+  `materialCode` (артикул матеріалу) і сам `code` профілю пише `OBI.js`
+  пріоритетно з `splitName(obj.MaterialName).code`, fallback — артикул
+  профілю з `(Артикул NNN)` у назві (тобто артикул профілю = артикул його
+  матеріалу). У книгу «Розрахунок» профілі потрапляють назвою матеріалу
+  `material` з артикулом `materialCode`/`code` у дужках; інтерфейс профілю
+  теж показує артикул матеріалу.
+- Колонка «Поз.» в Excel-експорті (src/export.js) бере `position`/`positions`
+  з моделі, при відсутності — порядковий номер.
+
+Правочний шар (теги, кастомні лічильники, редагування полів, додані позиції,
+кастомний порядок) — в **overlay** проєкту (див. «Где OBI.exe берёт данные»).
+Вихідні JSON виробів **не модифікуються** standalone-додатком.
 
 ## Renderer / UI — структура, стили, расширенные state-ки
-Приложение — **Electron frameless** (`frame:false`, без системной рамки). Всё окно рисует сам рендерер: кастомный `header` с `-webkit-app-region: drag` + кнопки сворачивания/закрытия. UI-язык интерфейса — **украинский**. Данные читает/пишет через `window.api` (preload), рендерится целиком в `src/renderer.js` (строки jquery-style innerHTML-шаблономи, без фреймворков/виртуального DOM).
+Приложение — **Electron frameless** (`frame:false`, без системной рамки). Всё окно рисует сам рендерер: кастомный `header` с `-webkit-app-region: drag` + кнопки сворачивания/закрытия. UI-язык интерфейса — **украинский**. Данные читает/пишет через `window.api` (preload), рендерится целиком в `src/renderer.js` (jquery-style innerHTML-шаблоны, без фреймворков/виртуального DOM).
 
 ### Файлы рендера
-- `src/index.html` — каркас: `.header` (бренд + действия + window-controls), `.tabs` (Матеріали та кромка / Профілі / Фурнітура), `.content` → `.stats` + три `.panel` (`panel-materials`, `panel-profiles`, `panel-fittings`). Панель фурнитуры содержит форму добавления (`#add-fitting-form`), менеджер тегов (`#tag-manager`), контейнер колонок `#fittings-columns` и скрытый список `#fittings-list`. Модал розрахунку `#calc-modal` (кнопка «Розрахунок» в `.header-actions`) — вибір книги `Розрахунок фурнітури`, авто-підстановка «Приміщення», запуск переносу. Кнопка экспорта — `.export-dropdown` (дропдаун «Експорт ▾»: `#export-menu` с пунктами Excel/PDF, классы `.export-menu`/`.export-menu-item`).
-- `src/styles.css` — все стили. Базис-дизайн на нейтральных тонах: фон `#f5f7fa`, карточки белые `#ffffff` с рамкой `#e3e8ef`, акцент-синий `#2b6de0`. Классы перечислены по назначению ниже.
-- `src/renderer.js` — вся логика рендера и интерактива (см. ниже).
-- `src/fit_rules.html` + `src/fit_rules.js` — **окно правил експорту** (список відомої фурнітури по тегах + чорні списки фурнітури/матеріалів/профілів). Відкривається з налаштувань кнопкою «Правила експорту» → `window.api.openFitRulesWindow()`. Дані бере через `window.api.getFitRulesData()` (повертає `{ rules, fittings, materials, profiles, tagOrder }`), видалення з чорного списку — через `getDB()`+`saveDB()`.
+- `src/index.html` — каркас: `.topbar` (бренд + назва проєкту + дії + window-controls), `.workspace` → `.explorer` (оглядач папки проєкту) + `.sidebar` (категорії) + `.list-panel` (список) + `.detail-panel` (деталі) + `.fittings-detail` (постійна робоча зона фурнітури з формою додавання). Модал розрахунку `#calc-modal` (кнопка «Розрахунок» у шапці) — вибір книги `Розрахунок фурнітури`, авто-підстановка «Приміщення», запуск переносу. Кнопка экспорта — `.export-dropdown` (дропдаун «Експорт ▾»: `#export-menu` з пунктами Excel/PDF, класи `.export-menu`/`.export-menu-item`). Також boot-splash `#boot-splash` (анімація завантаження).
+- `src/styles.css` — всі стилі. Базис-дизайн на нейтральних тонах: фон `#f5f7fa`, картки білі `#ffffff` з рамкою `#e3e8ef`, акцент-синій `#2b6de0`. Кольори — CSS-змінні в `:root` (світла) і `body.theme-light` (явно увімкнена світла тема).
+- `src/renderer.js` — вся логіка рендера та інтерактиву.
+- `src/fit_rules.html` + `src/fit_rules.js` — **окно правил експорту** (список відомої фурнітури по тегах + чорні списки фурнітури/матеріалів/профілів). Відкривається з налаштувань кнопкою «Правила експорту» → `window.api.openFitRulesWindow()`. Дані бере через `window.api.getFitRulesData()` (повертає `{ rules, fittings, materials, profiles, tagOrder }`). Контекст (поточний агрегат) рендерер пушить через `window.api.setFitRulesContext({fittings, materials, profiles})` у `rebuildAggregate()`. Видалення з чорного списку — `window.api.saveFitRules(rules)`.
 - `src/export.js` — генерация XLSX (exceljs) и PDF (HTML-отчёт → `printToPDF`), CSV/JSON. Вызывается из main процесса, данные приходят от рендерера (см. IPC). См. отдельный раздел.
 
 ### Глобальное состояние и запуск
-- Один глобал `db` — весь объект db.json в памяти рендера (`let db = null;`).
+- **`db`** — **обчислений агрегат** усіх вибраних JSON (`let db = null;`). Ніколи не зберігається як є; правки пишуться в overlay (`saveDB()` → `syncOverlayFromDb` + `persistOverlay`).
+- **`projectRoot`** — обрана користувачем папка; **`projectTree`** — дерево `{type:'dir',name,path,children}` зі сканера; **`products`** — `Map<path, db>` (завантажені JSON); **`selection`** — `Set<path>` вибраних виробів; **`overlay`** — `<root>\.obi\project.json` (нормалізований); **`fitIdMap`** — `Map<rowKey, id>` (стабільні id фурнітури в агрегаті).
 - `DEFAULT_TAGS` (4 стандартных тега), `LEGACY_TAGS` (маппинг старых русских тегов «Петли»→«Петлі» и т.д., применяется в `normTag()`).
-- `document.addEventListener('DOMContentLoaded')`: `db = await window.api.getDB()`, затем `ensureTagOrder()`, `ensureFitIds()`, `bindFittingsEvents()`, `renderAll()`.
-- `renderAll()` последовательно: `renderMaterials()`, `renderProfiles()`, `renderFittings()`, `renderStats()`, `updateCounts()`.
+- `document.addEventListener('DOMContentLoaded')`: `config = await window.api.getConfig()`, `fitRules = normalizeFitRules(await window.api.getFitRules())`, потім `bindSearch`/`bindListEvents`/`bindFittingsEvents`/`bindSettingsEvents`/`bindExplorerEvents`. Далі `st = await window.api.getProjectState()`: якщо є `root` — `openProjectFolder(st.root, st.preselect)`, інакше — пустий explorer.
+- `openProjectFolder(root, preselect)`: `scanProject` → дерево, `readOverlay` → overlay, `selection = preselect || Set(all product paths)`, `ensureProductsLoaded(selection)`, `rebuildAggregate()` (→ `pushFitRulesContext()`), `renderExplorer`/`renderProjectName`/`renderAll`.
 
-### Слои и их функции (renderer.js)
-- **Основа рендеринга**: `renderMaterials()` (стр.128), `renderProfiles()` (182), `renderFittings()` (262), `renderStats()` (65, stat-карточки), `updateCounts()` (80, счётчики в табах), `switchTab()` (86).
-- **Материалы/профили** — карточки `.card`, каждая: `.card-header` (заголовок + `.card-badges`: бейджи толщины/пазов + чекбокс «Експорт»), `.card-details` (артикул, кол-во), блок кромок `.edges-block`, список деталей `.parts-list`. Строка детали `.detail-row` — сетка 3 колонки: название (с позицией `.detail-pos` и счётчиком «×N») / пазы `.detail-cuts` / размеры `.detail-dim`.
-- **Группировка деталей**: `groupByPosition(details)` (110) — сворачивает детали по `position` (артикулу), считает `count`; детали без позиции остаются по одной. Дублируется в export.js.
-- **Фурнитура (главный интерактив)** — колонки-теги `.fit-column` (по тегу), внутри строки `.fit-row`:
-  - `fitRowHTML(f)` (238): драг-хендл `.fit-drag-handle`, чекбокс экспорта `.exp-check`, инлайн-редактируемые name (`fit-edit-name`), тег (`select.fit-tag`), code/count, кнопка удаления.
-  - Мульти-выбор (мышью-marquee + Ctrl/Shift-клик): `selectedFitIds` (Set id), `fitById()`, `fittingsMouseDown` (312), `startMarquee`/`onMarqueeMove`/`onMarqueeEnd` (329-381), `updateMarqueeSelection`, `updateRowSelection` (383), `.fit-marquee` (наложение-рамка).
-  - Drag&drop строк между тегами: `fittingsDragStart` (401), `fittingsDragOver` (439), `fittingsDrop` (452), данные через `application/x-obi-fits` (JSON массива id); перетаскивание колонок = реордер тегов `reorderTag` (485), тип `application/x-obi-tag`.
-  - Теги: `addTag()` (1565), `deleteTag()` (1577, захищений лише базовий тег «Загальна фурнітура» — catch-all), `startRenameTag`/`commitRenameTag` (1374/1402), `tagOptions()` для select'ов.
-  - Сохранение правок: `saveFitExport/Name/Tag/Code/Count` (539-575), каждая вызывает `saveDB()`.
-  - `saveDB()` (577): `ensureTagOrder()` → `window.api.saveDB(db)` → по успеху `renderAll()`.
-  - Форма добавления: `addFitting()` (585). `deleteFitting()` (606, с confirm).
-- **Файл-операции/экспорт/окно**: `openProject()` (відкриває модальний пікер `#project-picker-modal` зі списком проектів), `saveProject()` (тихо перезаписує активний проект), `startRenameProject()` (клік по назві проекту в шапці → перейменування файлу), `exportExcel()`, `exportPDF()`, дропдаун `toggleExportMenu(event)` (stopPropagation)/`closeExportMenu()` з document-click-закриттям поза `#export-dropdown`, `windowMinimize/Close`. Назва проекту в шапці (`.project-name`) клікабельна — біндинги у `bindSettingsEvents()` (`.project-picker-modal` теж там замикається).
-- **Экранирование**: `escapeHtml()` (638), `escapeAttr()` (642) — ОБЯЗАТЕЛЬНО применять к любому пользовательскому/модельному тексту при подстановке в HTML.
+### Шари рендеринга (renderer.js)
+- **Стан проєкту / explorer**: `chooseProjectFolder`/`rescanProject`/`selectAllProducts`/`onSelectionChanged` (викликається на зміну виділення), `toggleDir` (розгортання папок), `renderExplorer`/`expDirHTML`/`expProductHTML`, `bindExplorerEvents`/`explorerClick`/`explorerCheckChange`. Чекбокси з indeterminate-позначкою `data-ind="1"`.
+- **Агрегація**: `mergeProducts(list)` — об'єднує всі вибрані JSON у один `db` за ключами `name|code|thickness` (матеріали), `name|material` (профілі), `name|code` (фурнітура). `applyOverlayToDb()` (видалення, edits, counts, додані, порядок). `rebuildAggregate()` (`merge` → `overlay` → `tagOrder` → `applyFitRules` → `ensureTagOrder` → `ensureFitIds` → `pushFitRulesContext`). `rebuildKeepState()` зберігає вибір/фокус за ключами при ребілді.
+- **Списки/деталі**: `renderSidebar` (бейджі категорій + статистика), `renderList` (картки `matCardHTML`/`profCardHTML` з drag&drop reorder), `renderDetail` (заголовок із чекбоксами «До звіту»/«У книгу», кромки, групування деталей через `groupByPosition`).
+- **Фурнітура (постійна в detail-панелі)**: `renderFittings` (tag-колонки `fwColumnHTML` + картки `fwCardHTML` з інлайн-редагуванням і drag&drop), tabs `renderFwTabs`, sidebar форми `renderFwSidebar`, footer `renderFwFooter`. Multi-select (mouse marquee + ctrl/shift) — `fittingsMouseDown`/`startMarquee`/`onMarqueeMove`/`onMarqueeEnd`/`updateMarqueeSelection`/`updateRowSelection`/`.fit-marquee`. Drag&drop рядків між тегами — `fittingsDragStart/DragOver/Drop` (MIME `application/x-obi-fits`); колонок — `reorderTag` (MIME `application/x-obi-tag`); inline — `saveFitName/Tag/Code/Count/Supplier/Export/Book`. `deleteFitting`/`deleteSelectedFittings` (з confirm). `startRenameTag`/`commitRenameTag`/`addTag`/`deleteTag` (базовий «Загальна фурнітура» захищений). `applyFitRules` (теги/постачальники/чорні списки з fitRules).
+- **Пошук**: `bindSearch` → `searchQuery` спільний для матеріалів/профілів і фурнітури; `fw-search-input` окремо, чистить при перемиканні табів.
+- **Збереження**: `saveDB()` → `ensureTagOrder` + `syncOverlayFromDb` (tagOrder + order.*) + `persistOverlay` + `persistFitRules` + `rebuildKeepState`. `saveFit*`/`saveMat*`/`saveProf*` — зберігають у `overlay.edits`/`counts` для існуючих, або в `overlay.added.*` для доданих користувачем; `fitRules` оновлюють напряму для тегів/постачальників/чорних списків.
+- **Експорти/онови/фіт-правила**: `exportExcel`/`exportPDF` (отримують `db` агрегат), `toggleExportMenu`/`closeExportMenu`, `openSettings`/`closeSettings`/`setTheme`/`setLanguage`/`saveConfig`/`exportSettings`/`importSettings`/`openFitRulesWindow`. `openCalcModal`/`chooseCalcWorkbook`/`setCalcRoomAuto`/`writeCalcWorkbook` (модал розрахунку). `checkUpdates`/`applyUpdates`/`renderUpdateResult` (`updateInfo`/`updateState`).
+- **Екранирование**: `escapeHtml()`, `escapeAttr()` — ОБЯЗАТЕЛЬНО применять к любому пользовательскому/модельному тексту при подстановке в HTML.
 
 ### Стили (стиль-гайд для доработки)
-- Переменных CSS нет — цвета захардкожены. Ключевые: фон `#f5f7fa`, карточка `#ffffff`, рамка `#e3e8ef`, акцент `#2b6de0`, текст `#2b3440`, вторичный серый `#8a94a6`.
-- Бейджи категорий: `.badge-material` (синий), `.badge-furniture` (зелёный), `.badge-profile` (оранжевый), `.badge-cut` (оранжевый паз).
-- Кнопки: `.btn-primary`/`.btn-export` (синие), `.btn-secondary`, `.btn-icon` (нейтральные). Поле ввода: `.form-input` (+ `-sm`, `-tag`, `-tag-new` размеры).
-- Селектор стиля обводки при редактировании: `.fit-row.selected` (синяя рамка + glow), `fit-editing` для карточек.
-- **Внимание (drag-зона)**: контент в `.topbar` с `-webkit-app-region: drag` НЕ получает клики. Любой кликабельный элемент в шапке (напр. `.project-name`) обязан иметь `-webkit-app-region: no-drag`, иначе клик перехватывается перетаскиванием окна.
-- Анимация: `@keyframes fadeIn` (141) для появления строк/колонок.
+- CSS-змінні в `:root` (світла тема за замовчуванням) + `body.theme-light` (явно увімкнена світла). Ключові: фон `#f5f7fa`, картка `#ffffff`, рамка `#e3e8ef`, акцент `#2b6de0`, орандж-паз `#f1a04b`.
+- Бейджі категорій: `.badge-material` (синій), `.badge-furniture` (зелений), `.badge-profile` (помаранчевий), `.badge-cut` (помаранчевий паз).
+- Кнопки: `.btn-primary`/`.btn-export` (сині), `.btn-secondary`, `.btn-icon` (нейтральні). Поле вводу: `.form-input` (+ `-sm`, `-tag`, `-tag-new` розміри).
+- **Explorer**: `.explorer` (ліва панель оглядача), рядки `.exp-row`/`.exp-dir`/`.exp-product`, чекбокси `.exp-check` (з `data-ind="1"` для indeterminate), іконки `.exp-icon-dir`/`.exp-icon-file`, кнопки `.exp-btn` (📂/⟳/☑). Кнопка «Відкрити» для порожнього стану — `.exp-empty-btn`.
+- **Workspace grid**: 4 колонки (236/194/306/1fr) у звичайному режимі; 3 колонки (236/194/1fr) у `.fittings-mode` (з `.list-panel { display:none }`).
+- Селектор стилю виділення: `.fw-card.selected` (синя рамка + glow), `fit-editing` для карток.
+- **Увага (drag-зона)**: контент у `.topbar` з `-webkit-app-region: drag` НЕ отримує кліки. Будь-який клікабельний елемент у шапці (напр. `.project-name`) повинен мати `-webkit-app-region: no-drag`, інакше клік перехоплюється перетягуванням вікна.
+- Анімація: `@keyframes fadeIn` для появи рядків/колонок.
 
 ### IPC (preload.js → main.js)
-`window.api` = `{ getDB, getProjectName, getProjects, renameProject, saveDB, saveProject, loadProject, exportXLSX, exportPDF, getCalcWorkbookConfig, chooseCalcWorkbook, writeCalcWorkbook, getFitRulesData, openFitRulesWindow, getConfig, saveConfig, getAppInfo, checkUpdate, applyUpdate, onUpdateAvailable, windowMinimize, windowClose }`. Хендлеры в `main.js`: `get-db`/`save-db` работают с активным проектом (см. `dbPath()`/`activeProjectPath`), `get-project-name` отдаёт базовое имя активного json без расширения (пустую строку для `db.json`), `get-projects` отдаёт список `{name, path, mtime}` из `data\projects\`, `rename-project` переименовывает файл активного проекта (+ возвращает новое имя/шлях), `save-project` тихо перезаписывает активный проект (без диалога), `load-project(path)` загружает проект по заданному шляху и делает его активным. **Экспорты `export-xlsx`/`export-pdf` принимают актуальный `db` ОТ РЕНДЕРЕРА** (а не `readDB()` — иначе не учитываются чёрные списки `fit_rules`, см. раздел fit_rules) и сохраняют через диалог (имя по умолчанию = названию активного проекта + расширение, fallback `mebel-export.<ext>`). Розрахунок: `get-calc-workbook-config` віддає `{ filePath, room }` (шлях книги «Розрахунок фурнітури» з config + `Приміщення`), `choose-calc-workbook` — діалог вибору книги (зберігає шлях у config), `write-calc-workbook` — запускає `writeCalcWorkbook(filePath, data)` з `src/workbook.js` (main-процес, `data` теж від рендерера). Настройки: `get-config`/`save-config` работают с `configPath()` = `<dataDir>\config\config.json`, `get-app-info` отдаёт `{ version, url, author }` (version = `app.getVersion()` из package.json; url/author — константы в main.js). Обновления: `check-update`/`apply-update` обращаются к `src/updater.js`, событие `update-available` (фоновая проверка при старте).
+`window.api` = `{ getProjectState, chooseProjectFolder, scanProject, loadProducts, readOverlay, saveOverlay, getProjectTitle, exportXLSX, exportPDF, getConfig, saveConfig, getCalcWorkbookConfig, chooseCalcWorkbook, writeCalcWorkbook, getFitRules, saveFitRules, getFitRulesData, setFitRulesContext, openFitRulesWindow, onFitRulesUpdated, exportSettings, importSettings, getAppInfo, checkUpdate, applyUpdate, onUpdateAvailable, windowMinimize, windowMaximize, windowClose }`. Хендлеры в `main.js` (новая архитектура — `data\db.json` больше не существует):
+- `get-project-state` → `{ root, preselect }` (преселект = путь к JSON, с которого стартовало `OBI.js` через `--project`).
+- `choose-project-folder` → `{ success, root }` (из диалога).
+- `scan-project` → `{ success, root, name, tree, products[] }` (рекурсивный сканер, см. «Где OBI.exe берёт данные»).
+- `load-products(paths)` → массив `{ path, db }`/`{ path, error }` (парсинг JSON).
+- `read-overlay` / `save-overlay(data)` — чтение/запись `<root>\.obi\project.json`.
+- `get-project-title` — `path.basename(projectRoot)`.
+- `get-fit-rules` / `save-fit-rules` / `get-fit-rules-data` / `set-fit-rules-context` — общие правила + контекст (см. «Правила фурнітури»).
+- **Экспорты `export-xlsx`/`export-pdf` принимают актуальный `db` ОТ РЕНДЕРЕРА** (а не с диска — чтобы учитывались чёрные списки `fit_rules`).
+- Расчёт: `get-calc-workbook-config` отдаёт `{ workbookPath }` (путь книги из config), `choose-calc-workbook` — диалог выбора `.xlsm`, `write-calc-workbook` (payload: `{db, roomName}`) — запускает `writeCalcWorkbook(filePath, db, roomName)` из `src/workbook.js` (main-процесс, правит OOXML напрямую).
+- Настройки: `get-config`/`save-config` (файл `config\config.json`), `get-app-info` (`{version, url, author}`).
+- Обновления: `check-update`/`apply-update` (через `src/updater.js`), событие `update-available` (фоновая проверка при старте, если `config.autoUpdate`).
 
 ### Настройки пользователя (config)
 - Файл `config/config.json` (в `dataDir()`, рядом с exe/в корне при dev), НЕ gitignored неявно — добавлен в `.gitignore`. Схема: `{ theme: "light"|"dark", language: "uk"|"ru", autoUpdate: bool, workbookPath: string }`. `readConfig()` при отсутствии файла возвращает дефолты (`autoUpdate:false`); `saveConfig()` создаёт папку через `mkdirSync({recursive:true})`. `workbookPath` — шлях до книги «Розрахунок фурнітури» (обирається в модалі розрахунку, зберігається автоматично).
@@ -111,10 +155,10 @@
 - Окремий файл `<dataDir>\data\fit_rules.json` (поряд із exe, в корені при dev) — **загальні правила**, які можна передавати іншим. Схема: `{ tags:{код:тег}, tagsByName:{ім'я:тег}, blacklist:[коди], blacklistByName:[імена], suppliers:{}, suppliersByName:{}, matBlacklist:[коди], matBlacklistByName:[імена], profBlacklist:[коди], profBlacklistByName:[імена], bookBlacklist:[коди], bookBlacklistByName:[імена], matBookBlacklist:[коди], matBookBlacklistByName:[імена], profBookBlacklist:[коди], profBookBlacklistByName:[імена] }` — *Blacklist-масиви без префікса/суфікса `Book` стосуються «До звіту» (PDF/Excel), масиви з `Book` — «У книгу» (розрахунок).
 - Мета: при завантаженні нового проекту фурнітура **автоматично розкидається по тегах** і **вимикається в експорті/у книзі**, а матеріали/профілі вимикаються з експорту/книги — на основі накопиченої історії (по артикулу `code` або, якщо коду нема, по імені `name`).
 - Запис: `saveFitTag`/`applyFitMove` (drag&drop) зберігають тег і в `tags[code]`, і в `tagsByName[name]`; `saveFitExport`/`saveMatExport`/`saveProfExport` та `saveFitBook`/`saveMatBook`/`saveProfBook` — блекліст відповідно «До звіту»/«У книгу» по коду (коли є код) і в `*ByName` по імені (коли коду нема). Тогл — спільний хелпер `toggleBlacklist(byCode, byName, item, checked)`.
-- Зберігання в файл не окремим IPC, а **разом із db.json**: `saveDB()` пише `db.fitRules`, а хендлер `save-db` у `main.js` додатково викликає `saveFitRules(data.fitRules)` → пишеться `fit_rules.json`.
-- Читання на старті: рендерер пріоритетно бере `getFitRules()` (→ `readFitRules()` з `fit_rules.json`), fallback на `db.fitRules`; нові масиви (`matBlacklist` тощо) нормалізуються (`if (!fitRules.X) fitRules.X = ...`). Далі `applyFitRules()` (перебиває `f.tag`/`f.export`, `m.export`/`p.export` і `f.book`/`m.book`/`p.book`), потім `ensureTagOrder()` (додає нові теги з правил у колонки).
+- Зберігання в файл **окремо** через IPC: `saveDB()` рендерера викликає `window.api.saveFitRules(fitRules)` → пишеться `fit_rules.json`. **Жодного `db.json`: правила ніколи не зберігаються в JSON виробу.**
+- Читання на старті: рендерер викликає `getFitRules()` (→ `readFitRules()` з `fit_rules.json`); нові масиви (`matBlacklist` тощо) нормалізуються в `normalizeFitRules()` (`if (!fitRules.X) fitRules.X = ...`). Далі `applyFitRules()` (перебиває `f.tag`/`f.export`, `m.export`/`p.export` і `f.book`/`m.book`/`p.book`), потім `ensureTagOrder()` (додає нові теги з правил у колонки).
 - Дропдаун тега в UI — `fitRules.tags[f.code]`; фурнітура без коду — `tagsByName[f.name]`.
-- Перегляд/зміна правил — в **окремому вікні** `src/fit_rules.html`+`src/fit_rules.js` (вкладки: «По тегах», «Фурнітура (до звіту)», «Матеріали (до звіту)», «Профілі (до звіту)», «Фурнітура (у книгу)», «Матеріали (у книгу)», «Профілі (у книгу)»), відкривається з налаштувань через `window.api.openFitRulesWindow()`; видалення з чорного списку — `getDB()`+`saveDB()`. Назви чорних списків підбираються по типу вкладки (`blacklistArrays(kind)`), рендер уніфікований `renderBlacklist(kind)`.
+- Перегляд/зміна правил — в **окремому вікні** `src/fit_rules.html`+`src/fit_rules.js` (вкладки: «По тегах», «Фурнітура (до звіту)», «Матеріали (до звіту)», «Профілі (до звіту)», «Фурнітура (у книгу)», «Матеріали (у книгу)», «Профілі (у книгу)»), відкривається з налаштувань через `window.api.openFitRulesWindow()`. **Контекстний агрегат** (поточні матеріали/профілі/фурнітура) рендерер пушить через `window.api.setFitRulesContext({fittings,materials,profiles})` у `rebuildAggregate()`, main тримає в `fitRulesContext` і віддає через `getFitRulesData()` (без нього вікно показувало б коди замість назв). Видалення з чорного списку — `window.api.saveFitRules(rules)`. Назви чорних списків підбираються по типу вкладки (`blacklistArrays(kind)`), рендер уніфікований `renderBlacklist(kind)`.
 
 ### Экспорт (src/export.js) — кратко
 `exportToXLSXBuffer(data)` → 3 листа: «Матеріали» (сгруппирован по поз.), «Профілі», «Фурнітура». Стили-константы `FONT_TITLE/FONT_HEAD/FONT_DATA/FILL_ORANGE/FILL_PEACH/BORDER` (Montserrat + оранжевая палитра, `charset:204`). Фильтрация по `export !== false` (`exported()`). Фурнитура на листе сгруппирована по тегу, порядок тегов = `db.tagOrder` (как в интерфейсе), затем алфавит. `autofitColumns()` — автоподбор ширины колонок (пропускает `cell.isMerged`; `width = max(9, ceil(maxLine*1.3 + 3))`, потолок 90) на всех трёх листах. Имя фала по умолчанию в диалоге = название проекта. При доработке UI помнить: если меняется/добавляется поле в fittings/materials, его надо поддержать и тут (иначе расхождение UI↔Excel).

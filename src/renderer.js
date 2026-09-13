@@ -1,3 +1,4 @@
+// db = the COMPUTED aggregate of all selected product JSONs (never saved as-is).
 let db = null;
 let config = { theme: 'dark', language: 'uk' };
 let fitRules = { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [], bookBlacklist: [], bookBlacklistByName: [], matBookBlacklist: [], matBookBlacklistByName: [], profBookBlacklist: [], profBookBlacklistByName: [] };
@@ -7,14 +8,24 @@ let selCat = 'materials';
 let selId = null;
 let selTab = 'details';
 let searchQuery = '';
-let modelMode = false;
+
+// ---- Project folder state ----
+let projectRoot = '';            // chosen folder
+let projectTree = null;          // scanned tree {type:'dir',name,path,children}
+let products = new Map();        // json path -> parsed product db
+let selection = new Set();       // selected product json paths
+let overlay = null;              // <project>\.obi\project.json content
+let expandedDirs = new Set();    // expanded folder paths in explorer
+let fitIdMap = new Map();        // rowKey -> stable fitting id
+let fitIdSeq = 1;
 
 const DEFAULT_TAGS = ['Загальна фурнітура', 'Петлі', 'Напрямні', 'Метизна фурнітура'];
 const LEGACY_TAGS = { 'Петли': 'Петлі', 'Направляющие': 'Напрямні', 'Метизная фурнитура': 'Метизна фурнітура', 'Общая фурнитура': 'Загальна фурнітура' };
 
 const I18N = {
   uk: {
-    'brand':'OBI','open.project':'Відкрити замовлення','save.project':'Зберегти замовлення','model.open':'Відкрити модель','model.saved':'Модель збережено: {name}',
+    'brand':'OBI','explorer.open':'Відкрити папку проєкту','explorer.title':'Проєкт','explorer.refresh':'Оновити','explorer.select.all':'Виділити все',
+    'explorer.empty':'Папку проєкту не обрано. Натисніть «Відкрити папку проєкту».','explorer.no.products':'У папці не знайдено JSON-файлів OBI','explorer.selected':'Вибрано {n} із {m}',
     'export.excel':'Експорт Excel','export.pdf':'Експорт у PDF','tab.materials':'Матеріали та кромка','tab.profiles':'Профілі','tab.fittings':'Фурнітура',
     'fit.placeholder.name':'Найменування фурнітури','fit.placeholder.code':'Артикул','fit.placeholder.count':'К-сть','btn.add':'Додати',
     'tags.manage':'Управління тегами:','tags.new.placeholder':'Новий тег','tags.add':'Додати тег',
@@ -37,12 +48,8 @@ const I18N = {
     'settings.language':'Мова','settings.language.uk':'Українська','settings.language.ru':'Русский',
     'settings.rules':'Правила експорту','settings.rules.open':'Відкрити',
     'settings.about':'Про застосунок','settings.version':'Версія','settings.author':'Автор','settings.github':'GitHub','settings.close':'Закрити',
-    'alert.save.fail':'Не вдалося зберегти зміни','alert.open.fail':'Не вдалося відкрити замовлення',
-    'order.saved':'Замовлення збережено:\n{path}','alert.saveProject.fail':'Не вдалося зберегти замовлення',
+    'alert.save.fail':'Не вдалося зберегти зміни',
     'export.saved':'Експорт збережено:\n{path}','alert.export.error':'Помилка експорту:\n{error}',
-    'project.open':'Відкрити проект','project.rename.placeholder':'Нова назва проекту','project.empty':'Немає збережених проектів',
-    'project.rename.error.exists':'Проект із такою назвою вже існує','project.rename.error.invalid':'Некоректна назва проекту',
-    'project.saved':'Збережено: {name}','project.renamed':'Проект перейменовано: {name}','project.hint':'Клікніть для перейменування',
     'settings.updates':'Оновлення','settings.updates.auto':'Автоматично перевіряти оновлення при запуску',
     'settings.updates.check':'Перевірити оновлення','settings.updates.apply':'Оновити',
     'update.checking':'Перевірка оновлень...','update.none':'Оновлень немає. Версія {v} — актуальна.',
@@ -78,7 +85,8 @@ const I18N = {
     'calc.err':'Помилка запису: {error}','calc.no.rows':'Немає даних для запису'
   },
   ru: {
-    'brand':'OBI','open.project':'Открыть заказ','save.project':'Сохранить заказ','model.open':'Открыть модель','model.saved':'Модель сохранена: {name}',
+    'brand':'OBI','explorer.open':'Открыть папку проекта','explorer.title':'Проект','explorer.refresh':'Обновить','explorer.select.all':'Выделить все',
+    'explorer.empty':'Папка проекта не выбрана. Нажмите «Открыть папку проекта».','explorer.no.products':'В папке не найдено JSON-файлов OBI','explorer.selected':'Выбрано {n} из {m}',
     'export.excel':'Экспорт Excel','export.pdf':'Экспорт в PDF','tab.materials':'Материалы и кромка','tab.profiles':'Профили','tab.fittings':'Фурнитура',
     'fit.placeholder.name':'Наименование фурнитуры','fit.placeholder.code':'Артикул','fit.placeholder.count':'Кол-во','btn.add':'Добавить',
     'tags.manage':'Управление тегами:','tags.new.placeholder':'Новый тег','tags.add':'Добавить тег',
@@ -101,12 +109,8 @@ const I18N = {
     'settings.language':'Язык','settings.language.uk':'Українська','settings.language.ru':'Русский',
     'settings.rules':'Правила экспорта','settings.rules.open':'Открыть',
     'settings.about':'О приложении','settings.version':'Версия','settings.author':'Автор','settings.github':'GitHub','settings.close':'Закрыть',
-    'alert.save.fail':'Не удалось сохранить изменения','alert.open.fail':'Не удалось открыть заказ',
-    'order.saved':'Заказ сохранён:\n{path}','alert.saveProject.fail':'Не удалось сохранить заказ',
+    'alert.save.fail':'Не удалось сохранить изменения',
     'export.saved':'Экспорт сохранён:\n{path}','alert.export.error':'Ошибка экспорта:\n{error}',
-    'project.open':'Открыть проект','project.rename.placeholder':'Новое название проекта','project.empty':'Нет сохранённых проектов',
-    'project.rename.error.exists':'Проект с таким названием уже существует','project.rename.error.invalid':'Некорректное название проекта',
-    'project.saved':'Сохранено: {name}','project.renamed':'Проект переименован: {name}','project.hint':'Нажмите для переименования',
     'settings.updates':'Обновления','settings.updates.auto':'Автоматически проверять обновления при запуске',
     'settings.updates.check':'Проверить обновления','settings.updates.apply':'Обновить',
     'update.checking':'Проверка обновлений...','update.none':'Обновлений нет. Версия {v} — актуальна.',
@@ -188,10 +192,40 @@ function ensureTagOrder() {
 
 function ensureFitIds() {
   if (!db.fittings) db.fittings = [];
-  if (typeof db.fitIdCounter !== 'number') db.fitIdCounter = 0;
   db.fittings.forEach(f => {
-    if (typeof f.id !== 'number') { f.id = db.fitIdCounter++; }
+    const k = rowKey(f);
+    let id = fitIdMap.get(k);
+    if (id == null) { id = fitIdSeq++; fitIdMap.set(k, id); }
+    f.id = id;
   });
+}
+
+function emptyFitRules() {
+  return { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [], bookBlacklist: [], bookBlacklistByName: [], matBookBlacklist: [], matBookBlacklistByName: [], profBookBlacklist: [], profBookBlacklistByName: [] };
+}
+
+function normalizeFitRules(r) {
+  const out = emptyFitRules();
+  if (!r || typeof r !== 'object') return out;
+  Object.keys(out).forEach(k => {
+    if (Array.isArray(out[k])) out[k] = Array.isArray(r[k]) ? r[k] : [];
+    else out[k] = (r[k] && typeof r[k] === 'object') ? r[k] : {};
+  });
+  return out;
+}
+
+// ---- Row identity keys (stable across aggregate rebuilds) ----
+function matKey(m) { return (m.name || '') + '|' + (m.code || '') + '|' + (m.thickness || 0); }
+function profKey(p) { return (p.name || '') + '|' + (p.material || ''); }
+function fitKey(f) { return (f.name || '') + '|' + (f.code || ''); }
+
+function rowKey(it) {
+  if (!it) return '';
+  if (it._added) return 'A' + it._addId;
+  if (it._key) return it._key;
+  if (it._kind === 'material') return matKey(it);
+  if (it._kind === 'profile') return profKey(it);
+  return fitKey(it);
 }
 
 function tagOptions(selected, order) {
@@ -203,44 +237,39 @@ function tagOptions(selected, order) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  db = await window.api.getDB();
-  renderProjectName();
   try { config = (await window.api.getConfig()) || config; } catch (e) {}
   if (config.colWidths && typeof config.colWidths === 'object') fwColWidths = Object.assign({}, config.colWidths);
-  fitRules = null;
-  try { fitRules = await window.api.getFitRules(); } catch (e) {}
-  if (!fitRules || !fitRules.tags) {
-    fitRules = (db && db.fitRules) ? db.fitRules : { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [], bookBlacklist: [], bookBlacklistByName: [], matBookBlacklist: [], matBookBlacklistByName: [], profBookBlacklist: [], profBookBlacklistByName: [] };
-  }
-  if (!fitRules.tags) fitRules.tags = {};
-  if (!fitRules.tagsByName) fitRules.tagsByName = {};
-  if (!fitRules.blacklist) fitRules.blacklist = [];
-  if (!fitRules.blacklistByName) fitRules.blacklistByName = [];
-  if (!fitRules.suppliers) fitRules.suppliers = {};
-  if (!fitRules.suppliersByName) fitRules.suppliersByName = {};
-  if (!fitRules.matBlacklist) fitRules.matBlacklist = [];
-  if (!fitRules.matBlacklistByName) fitRules.matBlacklistByName = [];
-  if (!fitRules.profBlacklist) fitRules.profBlacklist = [];
-  if (!fitRules.profBlacklistByName) fitRules.profBlacklistByName = [];
-  if (!fitRules.bookBlacklist) fitRules.bookBlacklist = [];
-  if (!fitRules.bookBlacklistByName) fitRules.bookBlacklistByName = [];
-  if (!fitRules.matBookBlacklist) fitRules.matBookBlacklist = [];
-  if (!fitRules.matBookBlacklistByName) fitRules.matBookBlacklistByName = [];
-  if (!fitRules.profBookBlacklist) fitRules.profBookBlacklist = [];
-  if (!fitRules.profBookBlacklistByName) fitRules.profBookBlacklistByName = [];
-  if (db) delete db.fitRules;
+  try { fitRules = normalizeFitRules(await window.api.getFitRules()); } catch (e) { fitRules = emptyFitRules(); }
   try { appInfo = (await window.api.getAppInfo()) || appInfo; } catch (e) {}
+  db = emptyDb();
+  overlay = normalizeOverlay(null);
   applyTheme();
   applyLanguage();
-  ensureFitIds();
-  applyFitRules();
-  ensureTagOrder();
   bindSearch();
   bindListEvents();
   bindFittingsEvents();
   bindSettingsEvents();
-  if (db.materials && db.materials.length) selId = 0;
-  renderAll();
+  bindExplorerEvents();
+  if (window.api.onFitRulesUpdated) {
+    window.api.onFitRulesUpdated(async () => {
+      try { fitRules = normalizeFitRules(await window.api.getFitRules()); } catch (e) {}
+      if (db) rebuildKeepState();
+    });
+  }
+  try {
+    const st = await window.api.getProjectState();
+    if (st && st.root) {
+      await openProjectFolder(st.root, st.preselect || '');
+    } else {
+      renderExplorer();
+      renderProjectName();
+      renderAll();
+    }
+  } catch (e) {
+    renderExplorer();
+    renderProjectName();
+    renderAll();
+  }
   hideBootSplash();
 });
 
@@ -253,115 +282,524 @@ function hideBootSplash() {
   }, 40);
 }
 
-async function renderProjectName() {
+function renderProjectName() {
   const el = document.getElementById('project-name');
   if (!el) return;
-  if (modelMode) {
-    el.textContent = (db && db.name) ? db.name : '';
-    el.classList.add('model-name');
-    return;
-  }
-  el.classList.remove('model-name');
-  try {
-    const name = await window.api.getProjectName();
-    el.textContent = name || '';
-  } catch (e) {
-    el.textContent = '';
-  }
+  el.textContent = projectTree ? projectTree.name : '';
+  el.title = projectRoot || '';
 }
 
-async function startRenameProject() {
-  if (modelMode) return;
-  const el = document.getElementById('project-name');
-  if (!el) return;
-  const current = el.textContent.trim();
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.id = 'project-name-input';
-  input.placeholder = t('project.rename.placeholder');
-  input.value = current;
-  el.replaceChildren(input);
-  input.focus();
-  input.select();
-  el.classList.add('editing');
-  input.style.width = Math.max(120, (current.length * 8) + 24) + 'px';
+// ============ PROJECT FOLDER / EXPLORER ============
 
-  const done = async () => {
-    el.classList.remove('editing');
-    const val = input.value.trim();
-    if (val && val !== current) {
-      const res = await window.api.renameProject(val);
-      if (res && res.success) {
-        renderProjectName();
-      } else if (res && res.error === 'exists') {
-        alert(t('project.rename.error.exists'));
-        renderProjectName();
-      } else {
-        alert(t('project.rename.error.invalid'));
-        renderProjectName();
-      }
-    } else {
-      renderProjectName();
-    }
+function emptyDb() {
+  return { date: new Date().toString(), name: '', orderName: '', materials: [], profiles: [], fittings: [] };
+}
+
+function normalizeOverlay(o) {
+  o = (o && typeof o === 'object') ? o : {};
+  const added = (o.added && typeof o.added === 'object') ? o.added : {};
+  const order = (o.order && typeof o.order === 'object') ? o.order : {};
+  return {
+    version: 1,
+    deleted: Array.isArray(o.deleted) ? o.deleted.filter(x => typeof x === 'string') : [],
+    counts: (o.counts && typeof o.counts === 'object') ? o.counts : {},
+    edits: (o.edits && typeof o.edits === 'object') ? o.edits : {},
+    added: {
+      materials: Array.isArray(added.materials) ? added.materials : [],
+      profiles: Array.isArray(added.profiles) ? added.profiles : [],
+      fittings: Array.isArray(added.fittings) ? added.fittings : []
+    },
+    order: {
+      materials: Array.isArray(order.materials) ? order.materials : [],
+      profiles: Array.isArray(order.profiles) ? order.profiles : [],
+      fittings: Array.isArray(order.fittings) ? order.fittings : []
+    },
+    tagOrder: Array.isArray(o.tagOrder) ? o.tagOrder : [],
+    addIdCounter: (typeof o.addIdCounter === 'number' && o.addIdCounter > 0) ? o.addIdCounter : 1
   };
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-    else if (e.key === 'Escape') { input.value = current; input.blur(); }
+}
+
+function collectTreeProducts(node, out) {
+  if (!node) return out || [];
+  if (!out) out = [];
+  if (node.type === 'product') { out.push(node); return out; }
+  (node.children || []).forEach(c => collectTreeProducts(c, out));
+  return out;
+}
+
+function allDirPaths(node, out) {
+  if (!node) return out || [];
+  if (!out) out = [];
+  if (node.type === 'dir') {
+    out.push(node.path);
+    (node.children || []).forEach(c => allDirPaths(c, out));
+  }
+  return out;
+}
+
+function visibleProductPaths(node, out) {
+  node = node || projectTree;
+  if (!node) return out || [];
+  if (!out) out = [];
+  if (node.type === 'product') { out.push(node.path); return out; }
+  const expanded = (node === projectTree) || expandedDirs.has(node.path);
+  if (expanded) (node.children || []).forEach(c => visibleProductPaths(c, out));
+  return out;
+}
+
+function findTreeNode(node, p) {
+  if (!node) return null;
+  if (node.path === p) return node;
+  const kids = node.children || [];
+  for (let i = 0; i < kids.length; i++) {
+    const r = findTreeNode(kids[i], p);
+    if (r) return r;
+  }
+  return null;
+}
+
+async function ensureProductsLoaded(paths) {
+  const missing = (paths || []).filter(p => !products.has(p));
+  if (!missing.length) return;
+  const res = await window.api.loadProducts(missing);
+  (res || []).forEach(r => {
+    if (r && r.db) products.set(r.path, r.db);
   });
-  input.addEventListener('blur', () => done());
 }
 
-function openProjectPicker() {
-  const overlay = document.getElementById('project-picker-modal');
-  const listEl = document.getElementById('project-list');
-  overlay.classList.add('open');
-  renderProjectPicker();
-}
-
-function closeProjectPicker() {
-  const overlay = document.getElementById('project-picker-modal');
-  overlay.classList.remove('open');
-}
-
-async function renderProjectPicker() {
-  const listEl = document.getElementById('project-list');
-  if (!listEl) return;
-  listEl.innerHTML = '';
-  let items = [];
-  try { items = await window.api.getProjects(); } catch (e) {}
-  if (!items.length) {
-    listEl.innerHTML = `<div class="project-empty">${escapeHtml(t('project.empty'))}</div>`;
+async function openProjectFolder(root, preselect) {
+  projectRoot = root;
+  let scan = null;
+  try { scan = await window.api.scanProject(); } catch (e) {}
+  products = new Map();
+  fitIdMap = new Map();
+  fitIdSeq = 1;
+  if (!scan || !scan.success || !scan.tree) {
+    projectTree = null;
+    selection = new Set();
+    db = emptyDb();
+    ensureTagOrder();
+    renderExplorer();
+    renderProjectName();
+    renderAll();
     return;
   }
-  items.forEach(p => {
-    const row = document.createElement('div');
-    row.className = 'project-item';
-    row.innerHTML = `
-      <span class="project-item-name">${escapeHtml(p.name)}</span>
-      <span class="project-item-meta">${p.path ? escapeHtml(pathBasename(p.path)) : ''}</span>
-    `;
-    row.title = p.path || '';
-    row.addEventListener('click', async () => {
-      const res = await window.api.loadProject(p.path);
-      if (!res.success) return;
-      db = res.data;
-      if (!db.fittings) db.fittings = [];
-      if (!db.materials) db.materials = [];
-      if (!db.profiles) db.profiles = [];
-      modelMode = false;
-      ensureTagOrder();
-      ensureFitIds();
-      renderAll();
-      renderProjectName();
-      closeProjectPicker();
-    });
-    listEl.appendChild(row);
+  projectTree = scan.tree;
+  const allPaths = Array.isArray(scan.products) ? scan.products : collectTreeProducts(projectTree).map(n => n.path);
+  try { overlay = normalizeOverlay(await window.api.readOverlay()); } catch (e) { overlay = normalizeOverlay(null); }
+  if (preselect && allPaths.indexOf(preselect) !== -1) selection = new Set([preselect]);
+  else selection = new Set(allPaths);
+  expandedDirs = new Set(allDirPaths(projectTree));
+  await ensureProductsLoaded([...selection]);
+  selId = null;
+  selTab = 'details';
+  selectedFitIds.clear();
+  selectedListItems.clear();
+  listAnchorItem = null;
+  rebuildAggregate();
+  if (db.materials && db.materials.length) selId = 0;
+  renderExplorer();
+  renderProjectName();
+  renderAll();
+}
+
+async function chooseProjectFolder() {
+  let res;
+  try { res = await window.api.chooseProjectFolder(); } catch (e) { return; }
+  if (!res || !res.success) return;
+  await openProjectFolder(res.root, '');
+}
+
+async function rescanProject() {
+  if (!projectRoot) { chooseProjectFolder(); return; }
+  products = new Map();
+  let scan = null;
+  try { scan = await window.api.scanProject(); } catch (e) {}
+  if (!scan || !scan.success || !scan.tree) return;
+  projectTree = scan.tree;
+  const allPaths = Array.isArray(scan.products) ? scan.products : collectTreeProducts(projectTree).map(n => n.path);
+  const kept = [...selection].filter(p => allPaths.indexOf(p) !== -1);
+  selection = new Set(kept.length ? kept : allPaths);
+  try { overlay = normalizeOverlay(await window.api.readOverlay()); } catch (e) {}
+  await ensureProductsLoaded([...selection]);
+  rebuildKeepState();
+  renderExplorer();
+}
+
+function selectAllProducts() {
+  if (!projectTree) return;
+  selection = new Set(collectTreeProducts(projectTree).map(n => n.path));
+  onSelectionChanged();
+}
+
+async function onSelectionChanged() {
+  try {
+    await ensureProductsLoaded([...selection]);
+    rebuildKeepState();
+  } catch (e) {}
+  renderExplorer();
+}
+
+function toggleDir(p) {
+  if (expandedDirs.has(p)) expandedDirs.delete(p);
+  else expandedDirs.add(p);
+  renderExplorer();
+}
+
+// ---- Explorer rendering ----
+
+function renderExplorer() {
+  const el = document.getElementById('explorer-tree');
+  if (!el) return;
+  if (!projectTree) {
+    el.innerHTML = `<div class="exp-empty">${escapeHtml(t('explorer.empty'))}
+      <button class="btn btn-primary exp-empty-btn" onclick="chooseProjectFolder()">${escapeHtml(t('explorer.open'))}</button>
+    </div>`;
+    renderExplorerFooter();
+    return;
+  }
+  const prods = collectTreeProducts(projectTree);
+  if (!prods.length) {
+    el.innerHTML = `<div class="exp-empty">${escapeHtml(t('explorer.no.products'))}
+      <button class="btn btn-primary exp-empty-btn" onclick="rescanProject()">${escapeHtml(t('explorer.refresh'))}</button>
+    </div>`;
+    renderExplorerFooter();
+    return;
+  }
+  el.innerHTML = expDirHTML(projectTree, 0, true);
+  el.querySelectorAll('.exp-check[data-ind="1"]').forEach(c => { c.indeterminate = true; });
+  renderExplorerFooter();
+}
+
+function renderExplorerFooter() {
+  const el = document.getElementById('explorer-footer');
+  if (!el) return;
+  const total = projectTree ? collectTreeProducts(projectTree).length : 0;
+  el.textContent = total ? t('explorer.selected', { n: selection.size, m: total }) : '';
+}
+
+function expDirHTML(node, depth, isRoot) {
+  const prods = collectTreeProducts(node);
+  const selCount = prods.filter(p => selection.has(p.path)).length;
+  const allSel = prods.length > 0 && selCount === prods.length;
+  const someSel = selCount > 0 && !allSel;
+  const expanded = isRoot || expandedDirs.has(node.path);
+  const row = `
+    <div class="exp-row exp-dir${isRoot ? ' exp-root' : ''}" data-path="${escapeAttr(node.path)}" style="--depth:${depth}">
+      <span class="exp-chev${expanded ? ' open' : ''}">▶</span>
+      <input type="checkbox" class="exp-check" data-act="dir-check" ${allSel ? 'checked' : ''}${someSel ? ' data-ind="1"' : ''}>
+      <span class="exp-icon exp-icon-dir">🗀</span>
+      <span class="exp-name" title="${escapeAttr(node.path)}">${escapeHtml(node.name)}</span>
+      ${prods.length ? `<span class="exp-count">${selCount}/${prods.length}</span>` : ''}
+    </div>`;
+  if (!expanded) return row;
+  return row + (node.children || []).map(c =>
+    c.type === 'dir' ? expDirHTML(c, depth + 1, false) : expProductHTML(c, depth + 1)
+  ).join('');
+}
+
+function expProductHTML(node, depth) {
+  const sel = selection.has(node.path);
+  return `
+    <div class="exp-row exp-product${sel ? ' selected' : ''}" data-path="${escapeAttr(node.path)}" style="--depth:${depth}" title="${escapeAttr(node.path)}">
+      <span class="exp-chev-placeholder"></span>
+      <input type="checkbox" class="exp-check" data-act="prod-check" ${sel ? 'checked' : ''}>
+      <span class="exp-icon exp-icon-file">🗎</span>
+      <span class="exp-name">${escapeHtml(node.displayName || node.name)}</span>
+    </div>`;
+}
+
+let explorerAnchorPath = null;
+
+function bindExplorerEvents() {
+  const tree = document.getElementById('explorer-tree');
+  if (tree) {
+    tree.addEventListener('click', explorerClick);
+    tree.addEventListener('change', explorerCheckChange);
+  }
+  const openBtn = document.getElementById('explorer-open-btn');
+  if (openBtn) openBtn.addEventListener('click', chooseProjectFolder);
+  const refreshBtn = document.getElementById('explorer-refresh-btn');
+  if (refreshBtn) refreshBtn.addEventListener('click', rescanProject);
+  const allBtn = document.getElementById('explorer-select-all-btn');
+  if (allBtn) allBtn.addEventListener('click', selectAllProducts);
+}
+
+function explorerClick(e) {
+  if (e.target.closest('input')) return;
+  const row = e.target.closest('.exp-row');
+  if (!row) return;
+  const p = row.dataset.path;
+  if (row.classList.contains('exp-dir')) {
+    toggleDir(p);
+    return;
+  }
+  const visible = visibleProductPaths();
+  if (e.shiftKey && explorerAnchorPath) {
+    const a = visible.indexOf(explorerAnchorPath);
+    const b = visible.indexOf(p);
+    if (a !== -1 && b !== -1) {
+      const lo = Math.min(a, b);
+      const hi = Math.max(a, b);
+      const range = visible.slice(lo, hi + 1);
+      if (e.ctrlKey || e.metaKey) range.forEach(x => selection.add(x));
+      else selection = new Set(range);
+    } else {
+      selection = new Set([p]);
+    }
+    onSelectionChanged();
+    return;
+  }
+  if (e.ctrlKey || e.metaKey) {
+    if (selection.has(p)) selection.delete(p); else selection.add(p);
+    explorerAnchorPath = p;
+    onSelectionChanged();
+    return;
+  }
+  selection = new Set([p]);
+  explorerAnchorPath = p;
+  onSelectionChanged();
+}
+
+function explorerCheckChange(e) {
+  const cb = e.target;
+  if (!cb.classList || !cb.classList.contains('exp-check')) return;
+  const row = cb.closest('.exp-row');
+  if (!row) return;
+  const p = row.dataset.path;
+  if (cb.dataset.act === 'dir-check') {
+    const node = findTreeNode(projectTree, p);
+    const prods = node ? collectTreeProducts(node).map(n => n.path) : [];
+    if (cb.checked) prods.forEach(x => selection.add(x));
+    else prods.forEach(x => selection.delete(x));
+  } else {
+    if (cb.checked) selection.add(p); else selection.delete(p);
+    explorerAnchorPath = p;
+  }
+  onSelectionChanged();
+}
+
+// ============ AGGREGATION ============
+
+function mergeEdgeInto(edges, e) {
+  if (!e || !e.name) return;
+  const k = (e.name || '') + '|' + (e.code || '');
+  let t = null;
+  for (let i = 0; i < edges.length; i++) {
+    if (((edges[i].name || '') + '|' + (edges[i].code || '')) === k) { t = edges[i]; break; }
+  }
+  if (!t) {
+    t = { name: e.name || '', code: e.code || '', width: e.width || 0, thickness: e.thickness || 0, count: 0 };
+    edges.push(t);
+  }
+  t.count += (e.count || 0);
+  if (!t.width && e.width) t.width = e.width;
+  if (!t.thickness && e.thickness) t.thickness = e.thickness;
+}
+
+function mergeProfileDetailInto(details, d) {
+  if (!d) return;
+  const k = (d.width || 0) + '|' + (d.thickness || 0) + '|' + (d.length || 0);
+  let t = null;
+  for (let i = 0; i < details.length; i++) {
+    const x = details[i];
+    if (((x.width || 0) + '|' + (x.thickness || 0) + '|' + (x.length || 0)) === k) { t = x; break; }
+  }
+  if (!t) {
+    t = { width: d.width || 0, thickness: d.thickness || 0, length: d.length || 0, count: 0, positions: [] };
+    details.push(t);
+  }
+  t.count += (d.count || 0);
+  (d.positions || []).forEach(pos => {
+    if (pos && t.positions.indexOf(pos) === -1) t.positions.push(pos);
   });
 }
 
-function pathBasename(p) {
-  const i = p.lastIndexOf('\\');
-  return i > -1 ? p.substring(i + 1) : p;
+function mergeProducts(list) {
+  const mats = new Map();
+  const profs = new Map();
+  const fits = new Map();
+  (list || []).forEach(pdb => {
+    (pdb.materials || []).forEach(m => {
+      const key = matKey(m);
+      let t = mats.get(key);
+      if (!t) {
+        t = { name: m.name || '', code: m.code || '', thickness: m.thickness || 0, count: 0, edges: [], details: [], _kind: 'material', _key: key };
+        mats.set(key, t);
+      }
+      t.count += (m.count || 0);
+      if (m.details && m.details.length) t.details = t.details.concat(m.details);
+      (m.edges || []).forEach(e => mergeEdgeInto(t.edges, e));
+      if (m.export === false) t.export = false;
+      if (m.book === false) t.book = false;
+    });
+    (pdb.profiles || []).forEach(p => {
+      const key = profKey(p);
+      let t = profs.get(key);
+      if (!t) {
+        t = { name: p.name || '', code: p.code || '', material: p.material || '', materialCode: p.materialCode || '', details: [], _kind: 'profile', _key: key };
+        profs.set(key, t);
+      }
+      if (!t.code && p.code) t.code = p.code;
+      if (!t.materialCode && p.materialCode) t.materialCode = p.materialCode;
+      (p.details || []).forEach(d => mergeProfileDetailInto(t.details, d));
+      if (!t.supplier && p.supplier) t.supplier = p.supplier;
+      if (p.export === false) t.export = false;
+      if (p.book === false) t.book = false;
+    });
+    (pdb.fittings || []).forEach(f => {
+      const key = fitKey(f);
+      let t = fits.get(key);
+      if (!t) {
+        t = Object.assign({}, f, { count: 0, _kind: 'fitting', _key: key });
+        delete t.id;
+        fits.set(key, t);
+      }
+      t.count += (f.count || 0);
+      if (!t.elements && f.elements) t.elements = f.elements;
+      if (f.isComposite) t.isComposite = true;
+      if (f.isDraft) t.isDraft = true;
+      if (!t.tag && f.tag) t.tag = f.tag;
+      if (!t.supplier && f.supplier) t.supplier = f.supplier;
+      if (f.export === false) t.export = false;
+      if (f.book === false) t.book = false;
+    });
+  });
+  return {
+    date: new Date().toString(),
+    materials: [...mats.values()],
+    profiles: [...profs.values()],
+    fittings: [...fits.values()]
+  };
+}
+
+function applyOrder(arr, keys) {
+  if (!arr || !keys || !keys.length) return;
+  const idx = new Map();
+  keys.forEach((k, i) => { if (!idx.has(k)) idx.set(k, i); });
+  arr.sort((a, b) => {
+    const ia = idx.has(rowKey(a)) ? idx.get(rowKey(a)) : Number.MAX_SAFE_INTEGER;
+    const ib = idx.has(rowKey(b)) ? idx.get(rowKey(b)) : Number.MAX_SAFE_INTEGER;
+    return ia - ib;
+  });
+}
+
+function applyOverlayToDb() {
+  if (!overlay) return;
+  const del = new Set(overlay.deleted);
+  ['materials', 'profiles', 'fittings'].forEach(k => {
+    db[k] = (db[k] || []).filter(it => !del.has(rowKey(it)));
+  });
+  [...(db.materials || []), ...(db.profiles || []), ...(db.fittings || [])].forEach(it => {
+    const rk = rowKey(it);
+    if (overlay.counts[rk] != null) it.count = overlay.counts[rk];
+    const ed = overlay.edits[rk];
+    if (ed) {
+      if (ed.name != null) it.name = ed.name;
+      if (ed.code != null) it.code = ed.code;
+    }
+  });
+  (overlay.added.materials || []).forEach(m => db.materials.push(Object.assign({}, m, { _added: true, _kind: 'material' })));
+  (overlay.added.profiles || []).forEach(p => db.profiles.push(Object.assign({}, p, { _added: true, _kind: 'profile' })));
+  (overlay.added.fittings || []).forEach(f => db.fittings.push(Object.assign({}, f, { _added: true, _kind: 'fitting' })));
+  applyOrder(db.materials, overlay.order.materials);
+  applyOrder(db.profiles, overlay.order.profiles);
+  applyOrder(db.fittings, overlay.order.fittings);
+}
+
+function rebuildAggregate() {
+  const selDbs = [];
+  selection.forEach(p => { const d = products.get(p); if (d) selDbs.push(d); });
+  db = mergeProducts(selDbs);
+  applyOverlayToDb();
+  if (overlay && overlay.tagOrder && overlay.tagOrder.length) db.tagOrder = overlay.tagOrder.slice();
+  applyFitRules();
+  ensureTagOrder();
+  ensureFitIds();
+  const folderName = projectTree ? projectTree.name : '';
+  const orderNames = selDbs.map(d => d.orderName).filter(x => x && String(x).trim());
+  db.orderName = orderNames.length ? String(orderNames[0]).trim() : folderName;
+  db.name = (selDbs.length === 1 && selDbs[0].name) ? selDbs[0].name : folderName;
+  db.productCount = selDbs.length;
+  pushFitRulesContext();
+}
+
+function pushFitRulesContext() {
+  if (!window.api || !window.api.setFitRulesContext) return;
+  try {
+    window.api.setFitRulesContext({
+      fittings: db.fittings || [],
+      materials: db.materials || [],
+      profiles: db.profiles || []
+    });
+  } catch (e) {}
+}
+
+function rebuildKeepState() {
+  const catArr = () => (selCat === 'materials' ? (db.materials || []) : (db.profiles || []));
+  const prevKey = (selId != null && catArr()[selId]) ? rowKey(catArr()[selId]) : null;
+  const prevListKeys = new Set([...selectedListItems].map(rowKey));
+  const prevFitIds = new Set(selectedFitIds);
+  rebuildAggregate();
+  if (prevKey != null) {
+    const ni = catArr().findIndex(it => rowKey(it) === prevKey);
+    selId = (ni !== -1) ? ni : null;
+  } else {
+    selId = null;
+  }
+  selectedListItems = new Set(catArr().filter(it => prevListKeys.has(rowKey(it))));
+  selectedFitIds = new Set([...prevFitIds].filter(id => (db.fittings || []).some(f => f.id === id)));
+  renderAll();
+}
+
+function syncOverlayFromDb() {
+  if (!overlay) return;
+  overlay.tagOrder = Array.isArray(db.tagOrder) ? db.tagOrder.slice() : [];
+  overlay.order.materials = (db.materials || []).map(rowKey);
+  overlay.order.profiles = (db.profiles || []).map(rowKey);
+  overlay.order.fittings = (db.fittings || []).map(rowKey);
+}
+
+function persistOverlay() {
+  if (!projectRoot || !overlay) return;
+  try {
+    window.api.saveOverlay(overlay).then(res => {
+      if (!(res && res.success) && !(res && res.error === 'no-project')) alert(t('alert.save.fail'));
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+function persistFitRules() {
+  try {
+    window.api.saveFitRules(fitRules).then(res => {
+      if (!(res && res.success)) alert(t('alert.save.fail'));
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+function findAdded(kind, addId) {
+  if (!overlay || !overlay.added) return null;
+  const arr = overlay.added[kind] || [];
+  return arr.find(x => x && x._addId === addId) || null;
+}
+
+function addedKindArr(kind) {
+  if (kind === 'material') return 'materials';
+  if (kind === 'profile') return 'profiles';
+  return 'fittings';
+}
+
+function removeItemsFromOverlay(items) {
+  (items || []).forEach(it => {
+    if (it._added) {
+      const arr = overlay.added[addedKindArr(it._kind)] || [];
+      const i = arr.findIndex(x => x && x._addId === it._addId);
+      if (i !== -1) arr.splice(i, 1);
+    } else {
+      const rk = rowKey(it);
+      if (overlay.deleted.indexOf(rk) === -1) overlay.deleted.push(rk);
+    }
+  });
 }
 
 function renderAll() {
@@ -417,7 +855,12 @@ function applyLanguage() {
   if (settingsBtn) settingsBtn.title = t('settings');
   const search = document.getElementById('search-input');
   if (search) search.placeholder = t('search.placeholder');
+  [['explorer-open-btn', 'explorer.open'], ['explorer-refresh-btn', 'explorer.refresh'], ['explorer-select-all-btn', 'explorer.select.all']].forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if (el) el.title = t(key);
+  });
   renderAll();
+  renderExplorer();
 }
 
 // ============ SIDEBAR ============
@@ -827,7 +1270,8 @@ function renderMatDetail(header, tabs, content, stats) {
         const posHtml = `<span class="dpart-pos">${d.position ? escapeHtml(d.position) : ''}</span>`;
         const countHtml = `<span class="dpart-count">${d.count || 1}</span>`;
         const cutHtml = cuts ? ` · <span style="color:var(--orange)">${escapeHtml(cuts.text)}</span>` : '';
-        return `<div class="dpart-row">${posHtml}${countHtml}<span class="dpart-name">${escapeHtml(d.name)}${cutHtml}</span><span class="dpart-dim">${d.width}×${d.height} мм</span></div>`;
+        const dimHtml = (d.width != null && d.height != null) ? `${d.width}×${d.height} мм` : '';
+        return `<div class="dpart-row">${posHtml}${countHtml}<span class="dpart-name">${escapeHtml(d.name)}${cutHtml}</span><span class="dpart-dim">${dimHtml}</span></div>`;
       }).join('')}
     </div>`;
 
@@ -1270,19 +1714,26 @@ function addFittingFromSidebar() {
   if (fwEditingId != null) {
     const f = fitById(fwEditingId);
     if (f) {
-      f.name = name;
-      f.code = code;
-      f.count = count;
-      f.tag = tag;
-      f.supplier = supplier;
-      if (f.code) fitRules.tags[f.code] = tag;
-      if (f.name) fitRules.tagsByName[f.name] = tag;
-      saveFitRules();
+      if (f._added) {
+        const ent = findAdded('fittings', f._addId);
+        if (ent) { ent.name = name; ent.code = code; ent.count = count; ent.tag = tag; ent.supplier = supplier; }
+      } else {
+        const rk = rowKey(f);
+        const ed = overlay.edits[rk] || (overlay.edits[rk] = {});
+        ed.name = name;
+        ed.code = code;
+        overlay.counts[rk] = count;
+      }
+      if (code) fitRules.tags[code] = tag;
+      if (name) fitRules.tagsByName[name] = tag;
+      if (supplier) {
+        if (code) fitRules.suppliers[code] = supplier;
+        if (name) fitRules.suppliersByName[name] = supplier;
+      }
     }
     fwEditingId = null;
   } else {
-    if (!db.fittings) db.fittings = [];
-    db.fittings.push({ id: db.fitIdCounter++, name, code, count, tag, supplier });
+    overlay.added.fittings.push({ _addId: overlay.addIdCounter++, name, code, count, tag, supplier });
     fwAddTagDefault = tag;
   }
   if (nameEl) nameEl.value = '';
@@ -1290,7 +1741,6 @@ function addFittingFromSidebar() {
   if (countEl) countEl.value = '1';
   if (supEl) supEl.value = '';
   updateFwFormTitle();
-  ensureTagOrder();
   saveDB();
 }
 
@@ -1593,11 +2043,14 @@ function applyFitMove(ids, tag, beforeId) {
   db.fittings.forEach(f => {
     if (idSet.has(f.id)) {
       f.tag = tag;
+      if (f._added) {
+        const ent = findAdded('fittings', f._addId);
+        if (ent) ent.tag = tag;
+      }
       if (f.code) fitRules.tags[f.code] = tag;
       if (f.name) fitRules.tagsByName[f.name] = tag;
     }
   });
-  saveFitRules();
 
   const tagKey = normTag(tag);
   const nonTarget = db.fittings.filter(f => !idSet.has(f.id) && normTag(f.tag) !== tagKey).map(f => f.id);
@@ -1667,7 +2120,6 @@ function commitRenameTag(oldTag, newTag) {
   Object.keys(ft).forEach(code => { if (ft[code] === oldTag) ft[code] = newTag; });
   const fbn = fitRules.tagsByName || {};
   Object.keys(fbn).forEach(name => { if (fbn[name] === oldTag) fbn[name] = newTag; });
-  saveFitRules();
   saveDB();
 }
 
@@ -1678,10 +2130,8 @@ function saveFitExport(id, checked) {
     ? (db.fittings || []).filter(x => selectedFitIds.has(x.id))
     : [f];
   targets.forEach(t => {
-    t.export = checked;
     toggleBlacklist(fitRules.blacklist, fitRules.blacklistByName || [], t, checked);
   });
-  saveFitRules();
   saveDB();
 }
 
@@ -1692,10 +2142,8 @@ function saveFitBook(id, checked) {
     ? (db.fittings || []).filter(x => selectedFitIds.has(x.id))
     : [f];
   targets.forEach(t => {
-    t.book = checked;
     toggleBlacklist(fitRules.bookBlacklist, fitRules.bookBlacklistByName || [], t, checked);
   });
-  saveFitRules();
   saveDB();
 }
 
@@ -1752,32 +2200,45 @@ function applyFitRules() {
   });
 }
 
-function saveFitRules() {
-  db.fitRules = fitRules;
-}
-
 function saveFitName(id, value) {
   const f = fitById(id);
   if (!f) return;
-  f.name = value.trim();
+  const v = value.trim();
+  if (f._added) {
+    const ent = findAdded('fittings', f._addId);
+    if (ent) ent.name = v;
+  } else {
+    const rk = rowKey(f);
+    const ed = overlay.edits[rk] || (overlay.edits[rk] = {});
+    ed.name = v;
+  }
   saveDB();
 }
 
 function saveFitTag(id, value) {
   const f = fitById(id);
   if (!f) return;
-  f.tag = value;
+  if (f._added) {
+    const ent = findAdded('fittings', f._addId);
+    if (ent) ent.tag = value;
+  }
   if (f.code) fitRules.tags[f.code] = value;
   if (f.name) fitRules.tagsByName[f.name] = value;
-  ensureTagOrder();
-  saveFitRules();
   saveDB();
 }
 
 function saveFitCode(id, value) {
   const f = fitById(id);
   if (!f) return;
-  f.code = value.trim();
+  const v = value.trim();
+  if (f._added) {
+    const ent = findAdded('fittings', f._addId);
+    if (ent) ent.code = v;
+  } else {
+    const rk = rowKey(f);
+    const ed = overlay.edits[rk] || (overlay.edits[rk] = {});
+    ed.code = v;
+  }
   saveDB();
 }
 
@@ -1786,77 +2247,78 @@ function saveFitCount(id, value) {
   if (!f) return;
   const n = parseInt(value, 10);
   if (!n || n < 1) { renderFittings(); return; }
-  f.count = n;
+  if (f._added) {
+    const ent = findAdded('fittings', f._addId);
+    if (ent) ent.count = n;
+  } else {
+    overlay.counts[rowKey(f)] = n;
+  }
   saveDB();
 }
 
 function saveFitSupplier(id, value) {
   const f = fitById(id);
   if (!f) return;
-  f.supplier = value || '';
+  const supplier = value || '';
+  if (f._added) {
+    const ent = findAdded('fittings', f._addId);
+    if (ent) ent.supplier = supplier;
+  }
   const suppliers = fitRules.suppliers || {};
   const suppliersByName = fitRules.suppliersByName || {};
-  if (f.supplier) {
-    if (f.code) suppliers[f.code] = f.supplier;
-    if (f.name) suppliersByName[f.name] = f.supplier;
+  if (supplier) {
+    if (f.code) suppliers[f.code] = supplier;
+    if (f.name) suppliersByName[f.name] = supplier;
   } else {
     if (f.code) delete suppliers[f.code];
     if (f.name) delete suppliersByName[f.name];
   }
-  saveFitRules();
   saveDB();
 }
 
 function saveProfileSupplier(i, value) {
   const p = db.profiles[i];
   if (!p) return;
-  p.supplier = value || '';
+  const supplier = value || '';
+  if (p._added) {
+    const ent = findAdded('profiles', p._addId);
+    if (ent) ent.supplier = supplier;
+  }
   const suppliers = fitRules.suppliers || {};
   const suppliersByName = fitRules.suppliersByName || {};
-  if (p.supplier) {
-    if (p.code) suppliers[p.code] = p.supplier;
-    if (p.name) suppliersByName[p.name] = p.supplier;
+  if (supplier) {
+    if (p.code) suppliers[p.code] = supplier;
+    if (p.name) suppliersByName[p.name] = supplier;
   } else {
     if (p.code) delete suppliers[p.code];
     if (p.name) delete suppliersByName[p.name];
   }
-  saveFitRules();
   saveDB();
 }
 
 function saveDB() {
   ensureTagOrder();
-  if (modelMode) {
-    const toSave = Object.assign({}, db, { fitRules: fitRules });
-    window.api.saveB3dDB(toSave).then(res => {
-      if (!(res && res.success)) alert(t('alert.save.fail'));
-      else renderAll();
-    });
-    return;
-  }
-  const toSave = Object.assign({}, db, { fitRules: fitRules });
-  window.api.saveDB(toSave).then(res => {
-    if (!(res && res.success)) alert(t('alert.save.fail'));
-    else renderAll();
-  });
+  syncOverlayFromDb();
+  persistOverlay();
+  persistFitRules();
+  rebuildKeepState();
 }
 
 function deleteFitting(id) {
   const f = fitById(id);
   if (!f) return;
   if (!confirm(t('confirm.delete.pos'))) return;
-  db.fittings.splice(db.fittings.indexOf(f), 1);
+  removeItemsFromOverlay([f]);
   saveDB();
 }
 
 function deleteSelectedFittings() {
   if (!selectedFitIds.size) return;
-  const ids = [...selectedFitIds];
-  if (!confirm(t('confirm.delete.selected', { n: ids.length }))) return;
-  (db.fittings || []).forEach(f => selectedFitIds.delete(f.id));
-  db.fittings = (db.fittings || []).filter(f => !ids.includes(f.id));
+  const items = (db.fittings || []).filter(f => selectedFitIds.has(f.id));
+  if (!items.length) return;
+  if (!confirm(t('confirm.delete.selected', { n: items.length }))) return;
+  removeItemsFromOverlay(items);
   selectedFitIds.clear();
-  updateRowSelection();
   saveDB();
 }
 
@@ -1885,7 +2347,7 @@ function deleteTag(tag) {
   Object.keys(ft).forEach(code => { if (ft[code] === tag) ft[code] = 'Загальна фурнітура'; });
   const fbn = fitRules.tagsByName || {};
   Object.keys(fbn).forEach(name => { if (fbn[name] === tag) fbn[name] = 'Загальна фурнітура'; });
-  saveFitRules();
+  (overlay.added.fittings || []).forEach(f => { if (normTag(f.tag) === tag) f.tag = 'Загальна фурнітура'; });
   saveDB();
 }
 
@@ -1899,54 +2361,8 @@ function escapeAttr(str) {
 }
 
 // ============ FILE ACTIONS ============
-async function openProject() {
-  openProjectPicker();
-}
-
-async function openModel() {
-  let pick;
-  try { pick = await window.api.openB3dDialog(); } catch (e) {}
-  if (!pick || !pick.success) return;
-  let parsed;
-  try { parsed = await window.api.parseB3D(pick.path); } catch (e) {}
-  if (!parsed || !parsed.success) {
-    alert(parsed && parsed.error ? parsed.error : t('alert.open.fail'));
-    return;
-  }
-  modelMode = true;
-  db = parsed.db;
-  if (!db.fittings) db.fittings = [];
-  if (!db.materials) db.materials = [];
-  if (!db.profiles) db.profiles = [];
-  ensureFitIds();
-  applyFitRules();
-  ensureTagOrder();
-  renderAll();
-  renderProjectName();
-}
-
-async function saveProject() {
-  if (modelMode) {
-    const toSave = Object.assign({}, db, { fitRules: fitRules });
-    const res = await window.api.saveB3dDB(toSave);
-    if (res && res.success) {
-      db.name = res.name;
-      alert(t('model.saved', { name: res.name }));
-      renderProjectName();
-    } else {
-      alert(t('alert.saveProject.fail'));
-    }
-    return;
-  }
-  const res = await window.api.saveProject(db);
-  if (res.success) {
-    const name = await window.api.getProjectName();
-    alert(t('project.saved', { name: name || 'order' }));
-    renderProjectName();
-  } else {
-    alert(t('alert.saveProject.fail'));
-  }
-}
+// Project folder open/rescan/selection: see "PROJECT FOLDER / EXPLORER" section
+// (chooseProjectFolder, rescanProject, selectAllProducts, openProjectFolder).
 
 async function exportExcel() {
   const result = await window.api.exportXLSX(db);
@@ -1997,10 +2413,8 @@ function saveMatExport(i, checked) {
     ? db.materials.filter(x => selectedListItems.has(x))
     : [m];
   targets.forEach(t => {
-    t.export = checked;
     toggleBlacklist(fitRules.matBlacklist, fitRules.matBlacklistByName || [], t, checked);
   });
-  saveFitRules();
   saveDB();
 }
 
@@ -2011,10 +2425,8 @@ function saveMatBook(i, checked) {
     ? db.materials.filter(x => selectedListItems.has(x))
     : [m];
   targets.forEach(t => {
-    t.book = checked;
     toggleBlacklist(fitRules.matBookBlacklist, fitRules.matBookBlacklistByName || [], t, checked);
   });
-  saveFitRules();
   saveDB();
 }
 
@@ -2025,10 +2437,8 @@ function saveProfExport(i, checked) {
     ? db.profiles.filter(x => selectedListItems.has(x))
     : [p];
   targets.forEach(t => {
-    t.export = checked;
     toggleBlacklist(fitRules.profBlacklist, fitRules.profBlacklistByName || [], t, checked);
   });
-  saveFitRules();
   saveDB();
 }
 
@@ -2039,10 +2449,8 @@ function saveProfBook(i, checked) {
     ? db.profiles.filter(x => selectedListItems.has(x))
     : [p];
   targets.forEach(t => {
-    t.book = checked;
     toggleBlacklist(fitRules.profBookBlacklist, fitRules.profBookBlacklistByName || [], t, checked);
   });
-  saveFitRules();
   saveDB();
 }
 
@@ -2091,20 +2499,6 @@ function bindSettingsEvents() {
     window.api.onUpdateAvailable((info) => {
       if (info && info.available) updateInfo = info;
     });
-  }
-
-  const projName = document.getElementById('project-name');
-  if (projName) {
-    projName.title = t('project.hint');
-    projName.addEventListener('click', startRenameProject);
-  }
-  const picker = document.getElementById('project-picker-modal');
-  if (picker) {
-    picker.addEventListener('click', e => {
-      if (e.target === picker) closeProjectPicker();
-    });
-    const pickerClose = document.getElementById('project-picker-close');
-    if (pickerClose) pickerClose.addEventListener('click', closeProjectPicker);
   }
 }
 
@@ -2159,25 +2553,7 @@ async function importSettings() {
       applied++;
     }
     if (result.fitRules && typeof result.fitRules === 'object') {
-      fitRules = result.fitRules;
-      if (!fitRules.tags) fitRules.tags = {};
-      if (!fitRules.tagsByName) fitRules.tagsByName = {};
-      if (!fitRules.blacklist) fitRules.blacklist = [];
-      if (!fitRules.blacklistByName) fitRules.blacklistByName = [];
-      if (!fitRules.suppliers) fitRules.suppliers = {};
-      if (!fitRules.suppliersByName) fitRules.suppliersByName = {};
-      if (!fitRules.matBlacklist) fitRules.matBlacklist = [];
-      if (!fitRules.matBlacklistByName) fitRules.matBlacklistByName = [];
-      if (!fitRules.profBlacklist) fitRules.profBlacklist = [];
-      if (!fitRules.profBlacklistByName) fitRules.profBlacklistByName = [];
-      if (!fitRules.bookBlacklist) fitRules.bookBlacklist = [];
-      if (!fitRules.bookBlacklistByName) fitRules.bookBlacklistByName = [];
-      if (!fitRules.matBookBlacklist) fitRules.matBookBlacklist = [];
-      if (!fitRules.matBookBlacklistByName) fitRules.matBookBlacklistByName = [];
-      if (!fitRules.profBookBlacklist) fitRules.profBookBlacklist = [];
-      if (!fitRules.profBookBlacklistByName) fitRules.profBookBlacklistByName = [];
-      applyFitRules();
-      ensureTagOrder();
+      fitRules = normalizeFitRules(result.fitRules);
       saveDB();
       applied++;
     }

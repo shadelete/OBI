@@ -137,10 +137,12 @@ async function removeItem(kind, key, byName) {
     const idx = byCodeArr.indexOf(key);
     if (idx !== -1) byCodeArr.splice(idx, 1);
   }
-  const db = await window.api.getDB();
-  db.fitRules = rules;
-  await window.api.saveDB(db);
+  await window.api.saveFitRules(rules);
   load();
+}
+
+if (window.api.onFitRulesUpdated) {
+  window.api.onFitRulesUpdated(() => load());
 }
 
 function escapeHtml(str) {

@@ -25,9 +25,7 @@
         <div class="project-name" id="project-name"></div>
       </div>
       <div class="topbar-actions">
-        <button class="btn btn-secondary" onclick="openProject()" data-i18n="open.project"></button>
-        <button class="btn btn-secondary" onclick="openModel()" data-i18n="model.open"></button>
-        <button class="btn btn-secondary" onclick="saveProject()" data-i18n="save.project"></button>
+        <button class="btn btn-secondary" onclick="chooseProjectFolder()" data-i18n="explorer.open"></button>
         <button class="btn btn-secondary" onclick="openCalcModal()" data-i18n="calc.button"></button>
         <div class="export-dropdown" id="export-dropdown">
           <button class="btn btn-export" onclick="toggleExportMenu(event)" data-i18n="export"></button>
@@ -46,6 +44,20 @@
     </div>
 
     <div class="workspace">
+      <!-- PROJECT EXPLORER (file tree) -->
+      <aside class="explorer" id="explorer">
+        <div class="explorer-header">
+          <span class="explorer-title" data-i18n="explorer.title"></span>
+          <div class="explorer-actions">
+            <button class="btn btn-icon exp-btn" id="explorer-open-btn">📂</button>
+            <button class="btn btn-icon exp-btn" id="explorer-refresh-btn">⟳</button>
+            <button class="btn btn-icon exp-btn" id="explorer-select-all-btn">☑</button>
+          </div>
+        </div>
+        <div class="explorer-tree" id="explorer-tree"></div>
+        <div class="explorer-footer" id="explorer-footer"></div>
+      </aside>
+
       <!-- SIDEBAR -->
       <aside class="sidebar" id="sidebar">
         <nav class="sidebar-nav">
@@ -161,22 +173,6 @@
           </div>
         </div>
       </section>
-    </div>
-  </div>
-
-  <!-- PROJECT PICKER MODAL -->
-  <div class="modal-overlay" id="project-picker-modal">
-    <div class="modal">
-      <div class="modal-header">
-        <span class="modal-title" data-i18n="project.open"></span>
-        <button class="btn btn-icon modal-close" id="project-picker-close" title="Закрити">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="project-list" id="project-list"></div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeProjectPicker()" data-i18n="settings.close"></button>
-      </div>
     </div>
   </div>
 

@@ -5,7 +5,6 @@ const os = require('os');
 const { exportToXLSXBuffer, buildPdfHtml } = require('./src/export');
 const updater = require('./src/updater');
 const calcWorkbook = require('./src/workbook');
-const b3dParser = require('./src/b3d_parser');
 
 let mainWindow;
 let fitRulesWindow;
@@ -16,63 +15,16 @@ function dataDir() {
   return __dirname;
 }
 
-function projectsDir() {
-  return path.join(dataDir(), 'data', 'projects');
-}
-
-function modelsDir() {
-  return path.join(dataDir(), 'data', 'models');
-}
-
-let activeProjectPath = null;
-let activeModelPath = null;
+// Active project = a FOLDER chosen by the user (or the folder of the JSON passed
+// via --project by the Bazis script). Products are OBI JSON files inside it.
+let projectRoot = null;
+let preselectJson = '';
 
 function startupProjectPath() {
   const idx = process.argv.indexOf('--project');
   if (idx === -1 || !process.argv[idx + 1]) return '';
   const p = path.resolve(process.argv[idx + 1]);
   return fs.existsSync(p) ? p : '';
-}
-
-function isB3dProjectFile(filePath) {
-  try {
-    const raw = fs.readFileSync(filePath, 'utf-8');
-    return /"_source"\s*:\s*"b3d-model"/.test(raw);
-  } catch (e) {
-    return false;
-  }
-}
-
-function listProjects() {
-  const pd = projectsDir();
-  if (!fs.existsSync(pd)) return [];
-  return fs.readdirSync(pd)
-    .filter(f => f.toLowerCase().endsWith('.json'))
-    .map(f => ({
-      name: path.basename(f, '.json'),
-      path: path.join(pd, f),
-      mtime: fs.statSync(path.join(pd, f)).mtimeMs
-    }))
-    .filter(item => !isB3dProjectFile(item.path))
-    .sort((a, b) => b.mtime - a.mtime);
-}
-
-function findMostRecentProject() {
-  const items = listProjects();
-  return items.length ? items[0].path : '';
-}
-
-function dbPath() {
-  if (activeProjectPath && fs.existsSync(activeProjectPath)) return activeProjectPath;
-  return path.join(dataDir(), 'data', 'db.json');
-}
-
-function ensureProjectsDir() {
-  fs.mkdirSync(projectsDir(), { recursive: true });
-}
-
-function sanitizeFileName(name) {
-  return String(name || '').replace(/[\\\/:\*\?"<>\|]/g, '_').trim();
 }
 
 function configPath() {
@@ -82,7 +34,7 @@ function configPath() {
 const APP_URL = 'https://github.com/shadelete/OBI';
 const APP_AUTHOR = 'Alexander Bondarenko';
 
-const DEFAULT_CONFIG = Object.freeze({ theme: 'dark', language: 'uk', autoUpdate: false, workbookPath: '' });
+const DEFAULT_CONFIG = Object.freeze({ theme: 'dark', language: 'uk', autoUpdate: false, workbookPath: '', lastProjectFolder: '', recentFolders: [] });
 
 function readConfig() {
   try {
@@ -93,7 +45,9 @@ function readConfig() {
       theme: data.theme === 'dark' ? 'dark' : 'light',
       language: data.language === 'ru' ? 'ru' : 'uk',
       autoUpdate: !!data.autoUpdate,
-      workbookPath: typeof data.workbookPath === 'string' ? data.workbookPath : ''
+      workbookPath: typeof data.workbookPath === 'string' ? data.workbookPath : '',
+      lastProjectFolder: typeof data.lastProjectFolder === 'string' ? data.lastProjectFolder : '',
+      recentFolders: Array.isArray(data.recentFolders) ? data.recentFolders.filter(f => typeof f === 'string') : []
     };
   } catch (e) {
     return { ...DEFAULT_CONFIG };
@@ -110,50 +64,170 @@ function fitRulesPath() {
   return path.join(dataDir(), 'data', 'fit_rules.json');
 }
 
-const DEFAULT_FIT_RULES = Object.freeze({ tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [], bookBlacklist: [], bookBlacklistByName: [], matBookBlacklist: [], matBookBlacklistByName: [], profBookBlacklist: [], profBookBlacklistByName: [] });
+const DEFAULT_FIT_RULES = Object.freeze({ tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: [], matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [], bookBlacklist: [], bookBlacklistByName: [], matBookBlacklist: [], matBookBlacklistByName: [], profBookBlacklist: [], profBookBlacklistByName: [] });
 
-function readFitRules() {  try {
+function emptyFitRules() {
+  return { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [], bookBlacklist: [], bookBlacklistByName: [], matBookBlacklist: [], matBookBlacklistByName: [], profBookBlacklist: [], profBookBlacklistByName: [] };
+}
+
+function readFitRules() {
+  try {
     const p = fitRulesPath();
-    if (!fs.existsSync(p)) return { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [], bookBlacklist: [], bookBlacklistByName: [], matBookBlacklist: [], matBookBlacklistByName: [], profBookBlacklist: [], profBookBlacklistByName: [] };
+    if (!fs.existsSync(p)) return emptyFitRules();
     const data = JSON.parse(fs.readFileSync(p, 'utf-8'));
-    return {
-      tags: (data.tags && typeof data.tags === 'object') ? data.tags : {},
-      tagsByName: (data.tagsByName && typeof data.tagsByName === 'object') ? data.tagsByName : {},
-      blacklist: Array.isArray(data.blacklist) ? data.blacklist : [],
-      blacklistByName: Array.isArray(data.blacklistByName) ? data.blacklistByName : [],
-      suppliers: (data.suppliers && typeof data.suppliers === 'object') ? data.suppliers : {},
-      suppliersByName: (data.suppliersByName && typeof data.suppliersByName === 'object') ? data.suppliersByName : {},
-      matBlacklist: Array.isArray(data.matBlacklist) ? data.matBlacklist : [],
-      matBlacklistByName: Array.isArray(data.matBlacklistByName) ? data.matBlacklistByName : [],
-      profBlacklist: Array.isArray(data.profBlacklist) ? data.profBlacklist : [],
-      profBlacklistByName: Array.isArray(data.profBlacklistByName) ? data.profBlacklistByName : [],
-      bookBlacklist: Array.isArray(data.bookBlacklist) ? data.bookBlacklist : [],
-      bookBlacklistByName: Array.isArray(data.bookBlacklistByName) ? data.bookBlacklistByName : [],
-      matBookBlacklist: Array.isArray(data.matBookBlacklist) ? data.matBookBlacklist : [],
-      matBookBlacklistByName: Array.isArray(data.matBookBlacklistByName) ? data.matBookBlacklistByName : [],
-      profBookBlacklist: Array.isArray(data.profBookBlacklist) ? data.profBookBlacklist : [],
-      profBookBlacklistByName: Array.isArray(data.profBookBlacklistByName) ? data.profBookBlacklistByName : []
-    };
+    const out = emptyFitRules();
+    Object.keys(out).forEach(k => {
+      if (Array.isArray(out[k])) out[k] = Array.isArray(data[k]) ? data[k] : [];
+      else out[k] = (data[k] && typeof data[k] === 'object') ? data[k] : {};
+    });
+    return out;
   } catch (e) {
-    return { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [], bookBlacklist: [], bookBlacklistByName: [], matBookBlacklist: [], matBookBlacklistByName: [], profBookBlacklist: [], profBookBlacklistByName: [] };
+    return emptyFitRules();
   }
 }
 
-function saveFitRules(rules) {
+function saveFitRulesFile(rules) {
   const p = fitRulesPath();
   fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(p, JSON.stringify(rules, null, 2), 'utf-8');
 }
 
-function ensureDB() {
-  if (activeProjectPath) return;
-  const p = dbPath();
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify({ date: new Date().toString(), materials: [], profiles: [], fittings: [] }, null, 2), 'utf-8');
+// --- cp1251 fallback reader (Bazis-era JSON files) ---
+const windows1251 = (() => {
+  const chars = [];
+  const cp = [
+    0x0402,0x0403,0x201A,0x0453,0x201E,0x2026,0x2020,0x2021,
+    0x20AC,0x2030,0x0409,0x2039,0x040A,0x040C,0x040B,0x040F,
+    0x0452,0x2018,0x2019,0x201C,0x201D,0x2022,0x2013,0x2014,
+    0xFEFF,0x2122,0x0459,0x203A,0x045A,0x045C,0x045B,0x045F,
+    0x00A0,0x040E,0x045E,0x0408,0x00A4,0x0490,0x00A6,0x00A7,
+    0x0401,0x00A9,0x0404,0x00AB,0x00AC,0x00AD,0x00AE,0x0407,
+    0x00B0,0x00B1,0x0406,0x0456,0x0491,0x00B5,0x00B6,0x00B7,
+    0x0451,0x2116,0x0454,0x00BB,0x0458,0x0405,0x0455,0x0457,
+    0x0410,0x0411,0x0412,0x0413,0x0414,0x0415,0x0416,0x0417,
+    0x0418,0x0419,0x041A,0x041B,0x041C,0x041D,0x041E,0x041F,
+    0x0420,0x0421,0x0422,0x0423,0x0424,0x0425,0x0426,0x0427,
+    0x0428,0x0429,0x042A,0x042B,0x042C,0x042D,0x042E,0x042F,
+    0x0430,0x0431,0x0432,0x0433,0x0434,0x0435,0x0436,0x0437,
+    0x0438,0x0439,0x043A,0x043B,0x043C,0x043D,0x043E,0x043f,
+    0x0440,0x0441,0x0442,0x0443,0x0444,0x0445,0x0446,0x0447,
+    0x0448,0x0449,0x044A,0x044B,0x044C,0x044D,0x044E,0x044F
+  ];
+  for (let i = 0; i < 128; i++) chars[i] = String.fromCharCode(i);
+  for (let i = 0; i < 128; i++) chars[i + 128] = String.fromCharCode(cp[i]);
+  return chars;
+})();
+
+function readTextAuto(filePath) {
+  const buf = fs.readFileSync(filePath);
+  let text = buf.toString('utf-8');
+  if (text.includes('\uFFFD')) {
+    text = buf.toString('latin1')
+      .replace(/[\u0080-\u00FF]/g, ch => windows1251[ch.charCodeAt(0)] || ch);
+  }
+  return text;
+}
+
+// --- Project folder scanning ---
+// An "OBI product JSON" is detected by schema: arrays materials + fittings.
+function tryReadProduct(filePath) {
+  try {
+    const data = JSON.parse(readTextAuto(filePath));
+    if (!data || typeof data !== 'object') return null;
+    if (!Array.isArray(data.materials) || !Array.isArray(data.fittings)) return null;
+    return data;
+  } catch (e) {
+    return null;
+  }
+}
+
+function walkDir(dir, out) {
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return; }
+  entries.forEach(ent => {
+    const full = path.join(dir, ent.name);
+    if (ent.isDirectory()) {
+      if (ent.name.startsWith('.') || ent.name === 'node_modules') return;
+      const sub = { type: 'dir', name: ent.name, path: full, children: [] };
+      walkDir(full, sub.children);
+      if (sub.children.length) out.push(sub);
+    } else if (ent.isFile() && ent.name.toLowerCase().endsWith('.json')) {
+      let stat = null;
+      try { stat = fs.statSync(full); } catch (e) {}
+      if (stat && stat.size > 20 * 1024 * 1024) return;
+      const data = tryReadProduct(full);
+      if (!data) return;
+      const base = path.basename(ent.name, '.json');
+      out.push({
+        type: 'product',
+        name: base,
+        path: full,
+        displayName: (data.name && String(data.name).trim()) ? String(data.name).trim() : base,
+        orderName: data.orderName || '',
+        modelFile: data.modelFile || '',
+        mtime: stat ? stat.mtimeMs : 0
+      });
+    }
+  });
+  out.sort((a, b) => {
+    if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+    return String(a.name).localeCompare(String(b.name), 'uk');
+  });
+}
+
+function scanProjectFolder(root) {
+  const children = [];
+  walkDir(root, children);
+  return {
+    type: 'dir',
+    name: path.basename(root) || root,
+    path: root,
+    children
+  };
+}
+
+function collectProductPaths(node, out) {
+  if (!node) return out || [];
+  if (!out) out = [];
+  if (node.type === 'product') out.push(node.path);
+  (node.children || []).forEach(c => collectProductPaths(c, out));
+  return out;
+}
+
+function setProjectRoot(root, preselect) {
+  projectRoot = root || null;
+  preselectJson = preselect || '';
+  if (projectRoot) {
+    const cfg = readConfig();
+    cfg.lastProjectFolder = projectRoot;
+    const recents = (cfg.recentFolders || []).filter(f => f !== projectRoot);
+    recents.unshift(projectRoot);
+    cfg.recentFolders = recents.slice(0, 10);
+    saveConfig(cfg);
+  }
+}
+
+function projectTitle() {
+  return projectRoot ? (path.basename(projectRoot) || projectRoot) : '';
+}
+
+// --- Per-project overlay: <projectRoot>\.obi\project.json ---
+function overlayPath() {
+  return projectRoot ? path.join(projectRoot, '.obi', 'project.json') : '';
+}
+
+function readOverlayFile() {
+  try {
+    const p = overlayPath();
+    if (p && fs.existsSync(p)) {
+      const data = JSON.parse(readTextAuto(p));
+      if (data && typeof data === 'object') return data;
+    }
+  } catch (e) {}
+  return null;
 }
 
 function createWindow() {
-  ensureDB();
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -203,7 +277,15 @@ function openFitRulesWindow() {
 }
 
 app.whenReady().then(() => {
-  activeProjectPath = startupProjectPath() || null;
+  const sp = startupProjectPath();
+  if (sp) {
+    setProjectRoot(path.dirname(sp), sp);
+  } else {
+    const cfg = readConfig();
+    if (cfg.lastProjectFolder && fs.existsSync(cfg.lastProjectFolder)) {
+      projectRoot = cfg.lastProjectFolder;
+    }
+  }
   if (process.env.OBI_TEST_UPDATE === '1') {
     autoTestUpdate();
     const hb = () => {
@@ -211,19 +293,6 @@ app.whenReady().then(() => {
       setTimeout(hb, 2000);
     };
     hb();
-  }
-  if (process.env.OBI_TEST_WSCRIPT === '1') {
-    const { spawn } = require('child_process');
-    const marker = path.join(process.env.TEMP || 'C:\\Temp', 'obi-wscript-' + Date.now() + '.txt');
-    try { fs.appendFileSync(path.join(dataDir(), 'data', 'updtest.log'), 'TEST_WSCRIPT marker=' + marker + '\n'); } catch (e) {}
-    const p = spawn('wscript.exe',
-      [process.env.OBI_LAUNCHER_VBS,
-       process.env.OBI_WRITE_PS1,
-       marker],
-      { detached: true, windowsHide: true, stdio: 'ignore' });
-    p.unref();
-    try { fs.appendFileSync(path.join(dataDir(), 'data', 'updtest.log'), 'TEST_WSCRIPT spawned pid=' + p.pid + '\n'); } catch (e) {}
-    setTimeout(() => app.quit(), 800);
   }
   createWindow();
 });
@@ -257,47 +326,117 @@ app.on('window-all-closed', () => {
   }
 });
 
-const windows1251 = (() => {
-  const chars = [];
-  const cp = [
-    0x0402,0x0403,0x201A,0x0453,0x201E,0x2026,0x2020,0x2021,
-    0x20AC,0x2030,0x0409,0x2039,0x040A,0x040C,0x040B,0x040F,
-    0x0452,0x2018,0x2019,0x201C,0x201D,0x2022,0x2013,0x2014,
-    0xFEFF,0x2122,0x0459,0x203A,0x045A,0x045C,0x045B,0x045F,
-    0x00A0,0x040E,0x045E,0x0408,0x00A4,0x0490,0x00A6,0x00A7,
-    0x0401,0x00A9,0x0404,0x00AB,0x00AC,0x00AD,0x00AE,0x0407,
-    0x00B0,0x00B1,0x0406,0x0456,0x0491,0x00B5,0x00B6,0x00B7,
-    0x0451,0x2116,0x0454,0x00BB,0x0458,0x0405,0x0455,0x0457,
-    0x0410,0x0411,0x0412,0x0413,0x0414,0x0415,0x0416,0x0417,
-    0x0418,0x0419,0x041A,0x041B,0x041C,0x041D,0x041E,0x041F,
-    0x0420,0x0421,0x0422,0x0423,0x0424,0x0425,0x0426,0x0427,
-    0x0428,0x0429,0x042A,0x042B,0x042C,0x042D,0x042E,0x042F,
-    0x0430,0x0431,0x0432,0x0433,0x0434,0x0435,0x0436,0x0437,
-    0x0438,0x0439,0x043A,0x043B,0x043C,0x043D,0x043E,0x043F,
-    0x0440,0x0441,0x0442,0x0443,0x0444,0x0445,0x0446,0x0447,
-    0x0448,0x0449,0x044A,0x044B,0x044C,0x044D,0x044E,0x044F
-  ];
-  for (let i = 0; i < 128; i++) chars[i] = String.fromCharCode(i);
-  for (let i = 0; i < 128; i++) chars[i + 128] = String.fromCharCode(cp[i]);
-  return chars;
-})();
+// ============ PROJECT FOLDER IPC ============
 
-function readDB() {
-  const buf = fs.readFileSync(dbPath());
-  let text = buf.toString('utf-8');
-  if (text.includes('\uFFFD')) {
-    text = buf.toString('latin1')
-      .replace(/[\u0080-\u00FF]/g, ch => windows1251[ch.charCodeAt(0)] || ch);
+ipcMain.handle('get-project-state', () => ({
+  root: projectRoot || '',
+  preselect: (preselectJson && fs.existsSync(preselectJson)) ? preselectJson : ''
+}));
+
+ipcMain.handle('choose-project-folder', async () => {
+  const cfg = readConfig();
+  const sel = await dialog.showOpenDialog(mainWindow, {
+    title: 'Обрати папку проєкту',
+    properties: ['openDirectory'],
+    defaultPath: (cfg.lastProjectFolder && fs.existsSync(cfg.lastProjectFolder)) ? cfg.lastProjectFolder : undefined
+  });
+  if (sel.canceled || !sel.filePaths.length) return { success: false };
+  setProjectRoot(sel.filePaths[0], '');
+  return { success: true, root: projectRoot };
+});
+
+ipcMain.handle('scan-project', () => {
+  if (!projectRoot || !fs.existsSync(projectRoot)) {
+    return { success: false, root: projectRoot || '', tree: null };
   }
-  return JSON.parse(text);
+  const tree = scanProjectFolder(projectRoot);
+  const products = collectProductPaths(tree);
+  return { success: true, root: projectRoot, name: tree.name, tree, products };
+});
+
+ipcMain.handle('load-products', (_e, paths) => {
+  const out = [];
+  (Array.isArray(paths) ? paths : []).forEach(p => {
+    try {
+      const data = JSON.parse(readTextAuto(p));
+      out.push({ path: p, db: data });
+    } catch (e) {
+      out.push({ path: p, error: e.message });
+    }
+  });
+  return out;
+});
+
+ipcMain.handle('read-overlay', () => readOverlayFile());
+
+ipcMain.handle('save-overlay', (_e, data) => {
+  try {
+    const p = overlayPath();
+    if (!p) return { success: false, error: 'no-project' };
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf-8');
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('get-project-title', () => projectTitle());
+
+// ============ FIT RULES IPC ============
+
+ipcMain.handle('get-fit-rules', () => readFitRules());
+
+ipcMain.handle('save-fit-rules', (event, rules) => {
+  try {
+    if (!rules || typeof rules !== 'object') return { success: false, error: 'invalid' };
+    saveFitRulesFile(rules);
+    BrowserWindow.getAllWindows().forEach(w => {
+      if (!w.isDestroyed() && w.webContents.id !== event.sender.id) {
+        w.webContents.send('fit-rules-updated');
+      }
+    });
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+// Last known aggregate from the renderer (for the fit_rules window: maps codes/names
+// back to friendly display strings). Fire-and-forget; defaults to empty arrays.
+let fitRulesContext = { fittings: [], materials: [], profiles: [] };
+
+function normalizeCtxArray(arr) {
+  return Array.isArray(arr) ? arr.filter(x => x && typeof x === 'object') : [];
 }
 
-ipcMain.handle('get-db', () => readDB());
-
-ipcMain.handle('get-project-name', () => {
-  const p = path.basename(activeProjectPath || dbPath(), '.json');
-  return (p && p !== 'db') ? p : '';
+ipcMain.handle('set-fit-rules-context', (_e, ctx) => {
+  if (!ctx || typeof ctx !== 'object') return { success: false };
+  fitRulesContext = {
+    fittings: normalizeCtxArray(ctx.fittings),
+    materials: normalizeCtxArray(ctx.materials),
+    profiles: normalizeCtxArray(ctx.profiles)
+  };
+  return { success: true };
 });
+
+ipcMain.handle('get-fit-rules-data', () => {
+  const rules = readFitRules();
+  const ov = readOverlayFile();
+  return {
+    rules,
+    fittings: fitRulesContext.fittings,
+    materials: fitRulesContext.materials,
+    profiles: fitRulesContext.profiles,
+    tagOrder: (ov && Array.isArray(ov.tagOrder)) ? ov.tagOrder : []
+  };
+});
+
+ipcMain.handle('open-fit-rules-window', () => {
+  openFitRulesWindow();
+});
+
+// ============ CONFIG / SETTINGS IPC ============
 
 ipcMain.handle('get-config', () => readConfig());
 
@@ -332,23 +471,12 @@ ipcMain.handle('write-calc-workbook', (event, payload) => {
     if (!cfg.workbookPath || !fs.existsSync(cfg.workbookPath)) {
       return { success: false, error: 'no-workbook' };
     }
-    const res = calcWorkbook.writeCalcWorkbook(cfg.workbookPath, payload.db || readDB(), payload.roomName || '');
+    if (!payload || !payload.db) return { success: false, error: 'no-data' };
+    const res = calcWorkbook.writeCalcWorkbook(cfg.workbookPath, payload.db, payload.roomName || '');
     return { success: true, result: res };
   } catch (e) {
     return { success: false, error: e.message };
   }
-});
-
-ipcMain.handle('get-fit-rules', () => readFitRules());
-
-ipcMain.handle('get-fit-rules-data', () => {
-  const rules = readFitRules();
-  const db = readDB();
-  return { rules, fittings: db.fittings || [], materials: db.materials || [], profiles: db.profiles || [], tagOrder: db.tagOrder || [] };
-});
-
-ipcMain.handle('open-fit-rules-window', () => {
-  openFitRulesWindow();
 });
 
 ipcMain.handle('export-settings', async (_e, payload) => {
@@ -408,6 +536,8 @@ ipcMain.handle('get-app-info', () => ({
   author: APP_AUTHOR
 }));
 
+// ============ UPDATES ============
+
 function updaterTargets() {
   const dir = dataDir();
   return {
@@ -444,6 +574,8 @@ async function autoCheckUpdates() {
   } catch (e) {}
 }
 
+// ============ WINDOW CONTROLS ============
+
 ipcMain.handle('window-minimize', () => {
   mainWindow.minimize();
 });
@@ -457,108 +589,13 @@ ipcMain.handle('window-close', () => {
   mainWindow.close();
 });
 
-ipcMain.handle('save-db', (event, data) => {
-  ensureProjectsDir();
-  const p = activeProjectPath || dbPath();
-  fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf-8');
-  activeProjectPath = p;
-  if (data.fitRules) {
-    try { saveFitRules(data.fitRules); } catch (e) {}
-  }
-  return { success: true, path: p };
-});
-
-ipcMain.handle('save-project', (event, data) => {
-  ensureProjectsDir();
-  const p = activeProjectPath || findMostRecentProject() || path.join(projectsDir(), 'order.json');
-  fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf-8');
-  activeProjectPath = p;
-  if (data.fitRules) {
-    try { saveFitRules(data.fitRules); } catch (e) {}
-  }
-  return { success: true, path: p };
-});
-
-ipcMain.handle('load-project', (event, filePath) => {
-  if (!filePath || !fs.existsSync(filePath)) return { success: false };
-  const buf = fs.readFileSync(filePath);
-  let text = buf.toString('utf-8');
-  if (text.includes('\uFFFD')) {
-    text = buf.toString('latin1')
-      .replace(/[\u0080-\u00FF]/g, ch => windows1251[ch.charCodeAt(0)] || ch);
-  }
-  const data = JSON.parse(text);
-  activeProjectPath = filePath;
-  return { success: true, data, path: filePath };
-});
-
-ipcMain.handle('get-projects', () => {
-  return listProjects().map(({ name, path: p, mtime }) => ({ name, path: p, mtime }));
-});
-
-ipcMain.handle('rename-project', (event, newName) => {
-  const clean = sanitizeFileName(newName);
-  if (!clean || clean === 'db') return { success: false, error: 'invalid-name' };
-  const old = activeProjectPath || dbPath();
-  const newPath = path.join(path.dirname(old), clean + '.json');
-  if (fs.existsSync(newPath) && newPath !== old) {
-    return { success: false, error: 'exists' };
-  }
-  fs.renameSync(old, newPath);
-  activeProjectPath = newPath;
-  return { success: true, name: clean, path: newPath };
-});
-
-ipcMain.handle('open-b3d-dialog', async () => {
-  const sel = await dialog.showOpenDialog(mainWindow, {
-    title: 'Відкрити модель Базіс',
-    properties: ['openFile'],
-    filters: [{ name: 'Модель Базіс (*.b3d)', extensions: ['b3d'] }]
-  });
-  if (!sel.canceled && sel.filePaths.length) return { success: true, path: sel.filePaths[0] };
-  return { success: false, path: '' };
-});
-
-ipcMain.handle('parse-b3d', (_e, filePath) => {
-  try {
-    if (!filePath || !fs.existsSync(filePath)) return { success: false, error: 'Файл не знайдено' };
-    const res = b3dParser.parseB3D(filePath);
-    if (!res.ok) return { success: false, error: res.error || 'Не вдалося розібрати модель' };
-    activeModelPath = null;
-    return { success: true, db: res.db, meta: res.meta };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-});
-
-ipcMain.handle('save-b3d-db', (_e, data) => {
-  try {
-    if (!activeModelPath || !fs.existsSync(activeModelPath)) {
-      let base = String((data && data.name) || 'Модель').trim();
-      if (!base) base = 'Модель';
-      let p = path.join(modelsDir(), sanitizeFileName(base) + '.json');
-      let i = 2;
-      while (fs.existsSync(p)) {
-        p = path.join(modelsDir(), sanitizeFileName(base) + ' (' + i + ').json');
-        i++;
-      }
-      activeModelPath = p;
-    }
-    fs.mkdirSync(path.dirname(activeModelPath), { recursive: true });
-    const out = { ...data, name: path.basename(activeModelPath, '.json'), _source: 'b3d-model' };
-    delete out._meta;
-    fs.writeFileSync(activeModelPath, JSON.stringify(out, null, 2), 'utf-8');
-    return { success: true, path: activeModelPath, name: path.basename(activeModelPath, '.json') };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-});
+// ============ EXPORT ============
 
 ipcMain.handle('export-xlsx', async (_e, data) => {
   try {
-    const buffer = await exportToXLSXBuffer(data || readDB());
-    const base = path.basename(activeProjectPath || dbPath(), '.json');
-    const fileName = ((base && base !== 'db') ? base : 'mebel-export') + '.xlsx';
+    if (!data) return { success: false, error: 'no-data' };
+    const buffer = await exportToXLSXBuffer(data);
+    const fileName = (projectTitle() || 'mebel-export') + '.xlsx';
     const filePath = await dialog.showSaveDialog(mainWindow, {
       title: 'Зберегти експорт',
       defaultPath: fileName,
@@ -606,9 +643,9 @@ ipcMain.handle('export-pdf', async (_e, data) => {
   let win = null;
   let tmp = null;
   try {
-    const html = buildPdfHtml(data || readDB());
-    const base = path.basename(activeProjectPath || dbPath(), '.json');
-    const fileName = ((base && base !== 'db') ? base : 'mebel-export') + '.pdf';
+    if (!data) return { success: false, error: 'no-data' };
+    const html = buildPdfHtml(data);
+    const fileName = (projectTitle() || 'mebel-export') + '.pdf';
     const filePath = await dialog.showSaveDialog(mainWindow, {
       title: 'Зберегти PDF',
       defaultPath: fileName,

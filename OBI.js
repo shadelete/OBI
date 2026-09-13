@@ -397,7 +397,9 @@ for (var ci = 0; ci < compKeys.length; ci++) {
     }
 }
 
-// Otpokano, launching OBI.exe silently
+// Dialog on start: "Open OBI" (save + launch app) or "Save" (save JSON only).
+// JSON is written NEXT TO THE MODEL (<model dir>\<Article.Name>.json).
+// Fallback (model never saved to disk): scriptDir\data\projects\<name>.json.
 
 function getOrderShortName() {
     if (typeof Article !== "undefined" && Article && Article.OrderName) {
@@ -410,10 +412,42 @@ function toEdgeArray(edgesObj) {
     return Object.values(edgesObj);
 }
 
+// --- Model file path (Bazis API: Action.ModelFilename / Action.Control.Owner.FileName) ---
+function getModelFullPath() {
+    try {
+        if (typeof system !== "undefined" && system && system.apiVersion < 1000) {
+            var fn = Action.Control.Owner.FileName;
+            if (fn) return String(fn);
+        }
+    } catch (e) {}
+    try {
+        if (typeof Action !== "undefined" && Action.ModelFilename) return String(Action.ModelFilename);
+    } catch (e2) {}
+    return "";
+}
+
+function getModelDir() {
+    var p = getModelFullPath();
+    var i = p.lastIndexOf("\\");
+    return (i > -1) ? p.substring(0, i) : "";
+}
+
+function getModelBaseName() {
+    var p = getModelFullPath();
+    var i = p.lastIndexOf("\\");
+    var f = (i > -1) ? p.substring(i + 1) : p;
+    var j = f.lastIndexOf(".");
+    return (j > 0) ? f.substring(0, j) : f;
+}
+
+var MODEL_DIR = getModelDir();
+var MODEL_BASE = getModelBaseName();
+
 var jsonData = {
     date: new Date().toString(),
     name: getOrderName(),
     orderName: getOrderShortName(),
+    modelFile: MODEL_BASE,
     totalObjects: totalObjects,
     panelsCount: panelsCount,
     profilesCount: profilesCount,
@@ -441,9 +475,7 @@ var jsonData = {
 
 var jsonString = JSON.stringify(jsonData, null, 2);
 
-// --- Paths ---
-// DB ������ ������� � data\db.json ����� �� �������� (������ �������).
-// OBI.exe ������ ��-�������� (�����/����� ���������/�������������), �� ������������ ������ ��� �������.
+// --- Paths / exe search ---
 var scriptDir = "";
 if (typeof __dirname !== "undefined" && __dirname) {
     scriptDir = __dirname;
@@ -510,7 +542,7 @@ function findExePath(startDir) {
 function askExePath(startDir) {
     try {
         if (!(typeof UI !== "undefined" && UI && UI.dialogs && UI.dialogs.RunOpenFileDialog)) return "";
-        var dp = { extensions: ['exe'], initialDir: startDir || "", title: "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 OBI.exe" };
+        var dp = { extensions: ['exe'], initialDir: startDir || "", title: "\u0423\u043A\u0430\u0436\u0456\u0442\u044C OBI.exe" };
         var chosen = UI.dialogs.RunOpenFileDialog(dp);
         if (!chosen || !hasFile(chosen)) return "";
         try {
@@ -524,65 +556,95 @@ function askExePath(startDir) {
     } catch (e) { return ""; }
 }
 
-var EXE_PATH = findExePath(scriptDir);
-if (!EXE_PATH) {
-    EXE_PATH = askExePath(scriptDir);
-}
-
-if (!EXE_PATH) {
-    alert("OBI.exe \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D.\n\u041F\u0440\u043E\u0432\u0435\u0440\u0435\u043D\u044B: \u043F\u0430\u043F\u043A\u0430 \u0441\u043A\u0440\u0438\u043F\u0442\u0430, dist\\, \u0432\u0435\u0440\u0445\u043D\u0438\u0435 \u043F\u0430\u043F\u043A\u0438, \u0440\u0430\u0431\u043E\u0447\u0438\u0439 \u043A\u0430\u0442\u0430\u043B\u043E\u0433.\n\u0421\u043A\u043E\u043F\u0438\u0440\u0443\u0439\u0442\u0435 OBI.exe \u0440\u044F\u0434\u043E\u043C \u0441 OBI.js \u0438\u043B\u0438 \u0432 \u043F\u0430\u043F\u043A\u0443 dist.");
-    Action.Finish();
-} else {
-    var DATA_DIR = (scriptDir || ".") + "\\data";
-    var EXE_DATA_DIR = (parentDir(EXE_PATH) || ".") + "\\data";
-
+function ensureDir(dir) {
     try {
         var fs = require('fs');
-        var orderName = sanitizeFilename(getOrderName());
-        var baseName = orderName ? (orderName + ".json") : "db.json";
-        var scriptProjects = DATA_DIR + "\\projects";
-        var exeProjects = EXE_DATA_DIR + "\\projects";
+        if (!dir || fs.existsSync(dir)) return true;
+        var p = parentDir(dir);
+        if (p && p !== dir) ensureDir(p);
+        fs.mkdirSync(dir);
+        return true;
+    } catch (e) { return false; }
+}
 
-        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
-        if (!fs.existsSync(scriptProjects)) fs.mkdirSync(scriptProjects);
-
-        if (orderName) {
-            fs.writeFileSync(scriptProjects + "\\" + baseName, jsonString, 'utf-8');
-        } else {
-            fs.writeFileSync(DATA_DIR + "\\db.json", jsonString, 'utf-8');
-        }
-
-        fs.writeFileSync(DATA_DIR + "\\current_project.txt", (orderName ? (scriptProjects + "\\" + baseName) : (DATA_DIR + "\\db.json")), 'utf-8');
-
-        if (EXE_DATA_DIR && EXE_DATA_DIR !== DATA_DIR) {
-            if (!fs.existsSync(EXE_DATA_DIR)) fs.mkdirSync(EXE_DATA_DIR);
-            if (!fs.existsSync(exeProjects)) fs.mkdirSync(exeProjects);
-            if (orderName) {
-                fs.writeFileSync(exeProjects + "\\" + baseName, jsonString, 'utf-8');
-            } else {
-                fs.writeFileSync(EXE_DATA_DIR + "\\db.json", jsonString, 'utf-8');
-            }
-            fs.writeFileSync(EXE_DATA_DIR + "\\current_project.txt", (orderName ? (exeProjects + "\\" + baseName) : (EXE_DATA_DIR + "\\db.json")), 'utf-8');
-        }
-    } catch (e) {
-        alert("\u041E\u0428\u0418\u0411\u041A\u0410 \u0421\u041E\u0425\u0420\u0410\u041D\u0415\u041D\u0418\u042f: " + e.message);
-        Action.Finish();
+// --- JSON target: next to the model (fallback: script data\projects) ---
+function targetJsonPath() {
+    var name = sanitizeFilename(getOrderName());
+    if (MODEL_DIR) {
+        var base = name ? name : (MODEL_BASE ? MODEL_BASE : "db");
+        return MODEL_DIR + "\\" + base + ".json";
     }
+    var fbDir = (scriptDir || ".") + "\\data\\projects";
+    return fbDir + "\\" + (name ? name : "db") + ".json";
+}
 
+function saveJsonNextToModel() {
+    var fs = require('fs');
+    var p = targetJsonPath();
+    ensureDir(parentDir(p));
+    fs.writeFileSync(p, jsonString, 'utf-8');
+    return p;
+}
+
+function launchExe(projectJsonPath) {
+    var EXE_PATH = findExePath(scriptDir);
+    if (!EXE_PATH) EXE_PATH = askExePath(scriptDir);
+    if (!EXE_PATH) {
+        alert("OBI.exe \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E.\n\u0414\u0430\u043D\u0456 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E: " + projectJsonPath);
+        return;
+    }
     try {
         var cps = require('child_process');
-        var spawnArgs = [];
-        try {
-            var pj = orderName ? (EXE_DATA_DIR + "\\projects\\" + baseName) : (EXE_DATA_DIR + "\\db.json");
-            if (pj && fs.existsSync(pj)) spawnArgs = ["--project", require('path').resolve(pj)];
-        } catch (e2) {}
+        var spawnArgs = ["--project", require('path').resolve(projectJsonPath)];
         var child = cps.spawn(EXE_PATH, spawnArgs, { detached: true, stdio: 'ignore', windowsHide: true });
         child.on('error', function (err) {
-            alert("\u041E\u0428\u0418\u0411\u041A\u0410 \u0417\u0410\u041F\u0423\u0421\u041A\u0410: " + (err.message || err));
+            alert("\u041F\u043e\u043c\u0438\u043b\u043a\u0430 \u0437\u0430\u043f\u0443\u0441\u043a\u0443: " + (err.message || err));
         });
         if (child.unref) child.unref();
     } catch (e) {
-        alert("\u041E\u0428\u0418\u0411\u041A\u0410 \u0417\u0410\u041F\u0423\u0421\u041A\u0410: " + e.message);
+        alert("\u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0437\u0430\u043f\u0443\u0441\u043a\u0443: " + e.message);
     }
+}
+
+// "Save" button: write JSON only.
+function saveOnly() {
+    try {
+        var p = saveJsonNextToModel();
+        alert("\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E: " + p);
+    } catch (e) {
+        alert("\u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043D\u044F: " + e.message);
+    }
+}
+
+// "Open OBI" button: write JSON + launch OBI.exe with --project.
+function saveAndOpen() {
+    try {
+        var p = saveJsonNextToModel();
+        launchExe(p);
+    } catch (e) {
+        alert("\u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043D\u044f: " + e.message);
+    }
+}
+
+// --- Choice dialog (Bazis Forms API); fallback: save + launch silently ---
+try {
+    if (typeof NewForm !== "function") throw new Error("no-forms");
+    var W = { Form: NewForm() };
+    var P = W.Form.Properties;
+    W.Form.Width = 330;
+    W.Form.Height = 150;
+    W.Form.Caption = "OBI";
+    W.Info = P.NewLabel("\u0414\u0430\u043D\u0456 \u0432\u0438\u0440\u043E\u0431\u0443 \u0437\u0456\u0431\u0440\u0430\u043D\u043E. \u0429\u043E \u0434\u0430\u043B\u0456?");
+    W.Info.SetLayout(14, 12, 300, 20);
+    W.BtnOpen = P.NewButton("\u0412\u0456\u0434\u043A\u0440\u0438\u0442\u0438 OBI");
+    W.BtnOpen.SetLayout(22, 52, 135, 36);
+    W.BtnSave = P.NewButton("\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438");
+    W.BtnSave.SetLayout(171, 52, 135, 36);
+    W.BtnOpen.OnClick = function () { saveAndOpen(); W.Form.Close(); };
+    W.BtnSave.OnClick = function () { saveOnly(); W.Form.Close(); };
+    W.Form.OnClose = function () { Action.Finish(); };
+    W.Form.ShowModal();
+} catch (eForm) {
+    saveAndOpen();
     Action.Finish();
 }
