@@ -755,15 +755,21 @@ function saveAndCreateFiles() {
         var lines = [];
         lines.push("‘айл JSON збережено: " + jsonPath);
         lines.push("");
-        lines.push("ViyarPro: вивантажено " + result.totals + " матер≥ал(≥в), "
-            + result.furnsCount + " фурн≥тури.");
-        for (var i = 0; i < result.files.length; i++) {
-            var f = result.files[i];
-            lines.push("  " + f.path + "  (" + f.panels + " дет.)");
+        if (result.log) {
+            // Engine bailed out before writing any file (e.g. objtree-missing).
+            lines.push("ViyarPro engine: " + result.log);
         }
-        if (result.skipped && result.skipped.length > 0) {
-            lines.push("ѕропущено (без деталей): " + result.skipped.length
-                + " Ч " + result.skipped.join(", "));
+        else {
+            lines.push("ViyarPro: вивантажено " + result.totals + " матер≥ал(≥в), "
+                + result.furnsCount + " фурн≥тури.");
+            for (var i = 0; i < result.files.length; i++) {
+                var f = result.files[i];
+                lines.push("  " + f.path + "  (" + f.panels + " дет.)");
+            }
+            if (result.skipped && result.skipped.length > 0) {
+                lines.push("ѕропущено (без деталей): " + result.skipped.length
+                    + " Ч " + result.skipped.join(", "));
+            }
         }
         alert(lines.join("\n"));
     } catch (e) {
@@ -799,7 +805,15 @@ function saveAndCreateFiles() {
 var DEBUG = true;
 var SCRIPT_VERSION = "5.10";
 
+// Pre-declared so the inlined engine (IIFE below) can assign the public API
+// here. Bazis's scripting engine does not expose `globalThis` (or its
+// predecessor `window`) reliably, so we rely on JS scope-chain lookup of the
+// outer-scope `ViyarExport` rather than `globalThis.ViyarExport`. This works
+// under any host Ч Bazis, Node, browser.
+var ViyarExport;
+
 (function () {
+try {
 
 const PROGRAM_NAME = 'Ѕазис—крипт';
 const SCRIPT_VERSION = '5.10';
@@ -6870,6 +6884,13 @@ function exportProjects(dir, base, opts) {
     if (typeof createDocNode !== "function") {
       return { files: exportedFiles, totals: exportedFiles.length, furnsCount: furns.length, skipped: skippedMaterials, elapsedMs: Date.now() - startTime, log: "no-createDocNode" };
     }
+    // XML.ObjTree is loaded by system.require(OBJ_TREE_FILE_NAME). In some
+    // Bazis installations (or when ObjTree.js is missing from the script
+    // directory) the require silently fails and XML stays undefined Ч bail
+    // out cleanly with a clear log instead of throwing on `new XML.ObjTree()`.
+    if (typeof XML === "undefined" || !XML || !XML.ObjTree) {
+      return { files: exportedFiles, totals: exportedFiles.length, furnsCount: furns.length, skipped: skippedMaterials, elapsedMs: Date.now() - startTime, log: "objtree-missing" };
+    }
     var XMLDoc = createDocNode();
     var xotree = new XML.ObjTree();
     xotree.xmlDecl = "<?xml version=\"1.0\" encoding=\"windows-1251\" ?>";
@@ -6910,13 +6931,18 @@ function exportProjects(dir, base, opts) {
   };
 }
 
-globalThis.ViyarExport = {
+ViyarExport = {
   exportProjects: exportProjects,
   SCRIPT_VERSION: SCRIPT_VERSION,
   POSITION_NAME_FORMAT: POSITION_NAME_FORMAT
 };
 
 
+} catch (engineInitError) {
+  // Surface any initialization failure (e.g. missing ObjTree.js, malformed
+  // panels, etc.) so the user gets feedback instead of a silent no-op.
+  try { alert("ViyarPro engine init error: " + engineInitError); } catch (e) {}
+}
 })();
 
 // --- Choice dialog (Bazis Forms API); fallback: save + launch silently ---

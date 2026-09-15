@@ -6,17 +6,27 @@
 // programmatically (e.g. from OBI.js via inline copy, or from
 // ExportViyar.js standalone via inline copy too).
 //
-// Public API (set on globalThis.ViyarExport):
+// Public API (exportProjects assigned to a caller-pre-declared outer-scope
+// `var ViyarExport;`):
 //   exportProjects(dir, base, opts) -> { files, totals, furnsCount,
 //                                       skipped, elapsedMs, log }
 //
 // See end of file for the full signature of exportProjects.
+//
+// Note for callers: this file is a template — the engine here is intended
+// to be either inlined into a single Bazis script (Bazis scripts do not
+// support require() across files) or loaded as a global. When inlining,
+// make sure to pre-declare `var ViyarExport;` BEFORE the IIFE so the
+// assignment inside the IIFE writes to your outer scope (Bazis's scripting
+// engine does not expose `globalThis` reliably, so the public API is
+// exposed via a regular outer-scope var lookup).
 // ============================================================================
 
 var DEBUG = true;
 var SCRIPT_VERSION = "5.10";
 
 (function () {
+try {
 
 const PROGRAM_NAME = 'БазисСкрипт';
 const SCRIPT_VERSION = '5.10';
@@ -6087,6 +6097,13 @@ function exportProjects(dir, base, opts) {
     if (typeof createDocNode !== "function") {
       return { files: exportedFiles, totals: exportedFiles.length, furnsCount: furns.length, skipped: skippedMaterials, elapsedMs: Date.now() - startTime, log: "no-createDocNode" };
     }
+    // XML.ObjTree is loaded by system.require(OBJ_TREE_FILE_NAME). In some
+    // Bazis installations (or when ObjTree.js is missing from the script
+    // directory) the require silently fails and XML stays undefined — bail
+    // out cleanly with a clear log instead of throwing on `new XML.ObjTree()`.
+    if (typeof XML === "undefined" || !XML || !XML.ObjTree) {
+      return { files: exportedFiles, totals: exportedFiles.length, furnsCount: furns.length, skipped: skippedMaterials, elapsedMs: Date.now() - startTime, log: "objtree-missing" };
+    }
     var XMLDoc = createDocNode();
     var xotree = new XML.ObjTree();
     xotree.xmlDecl = "<?xml version=\"1.0\" encoding=\"windows-1251\" ?>";
@@ -6127,12 +6144,17 @@ function exportProjects(dir, base, opts) {
   };
 }
 
-globalThis.ViyarExport = {
+ViyarExport = {
   exportProjects: exportProjects,
   SCRIPT_VERSION: SCRIPT_VERSION,
   POSITION_NAME_FORMAT: POSITION_NAME_FORMAT
 };
 
-
+} catch (engineInitError) {
+  // Surface init failures (e.g. missing ObjTree.js, malformed panels).
+  // Caller is expected to have pre-declared `var ViyarExport;` so the
+  // IIFE did not crash on this assignment.
+  try { alert("ViyarPro engine init error: " + engineInitError); } catch (e) {}
+}
 })();
 
