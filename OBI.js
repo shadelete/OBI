@@ -767,38 +767,22 @@ function saveAndCreateFiles() {
     }
 }
 
-// Plain JSON save (no ViyarPro chain).
-function saveOnly() {
-    try {
-        var p = saveJsonNextToModel();
-        alert("Збережено: " + p);
-    } catch (e) {
-        alert("Помилка збереження: " + e.message);
-    }
-}
-
-// ============================================================================
-
 // --- Choice dialog (Bazis Forms API); fallback: save + launch silently ---
 try {
     if (typeof NewForm !== "function") throw new Error("no-forms");
     var W = { Form: NewForm() };
     var P = W.Form.Properties;
     W.Form.Width = 360;
-    W.Form.Height = 180;
+    W.Form.Height = 130;
     W.Form.Caption = "OBI";
     W.Info = P.NewLabel("Дані виробу зібрано. Що далі?");
     W.Info.SetLayout(14, 12, 330, 20);
-    // Row 1: Відкрити OBI | Зберегти
+    // Row 1: Відкрити OBI | Створити файли
     W.BtnOpen = P.NewButton("Відкрити OBI");
-    W.BtnOpen.SetLayout(14, 50, 160, 36);
-    W.BtnSave = P.NewButton("Зберегти");
-    W.BtnSave.SetLayout(186, 50, 160, 36);
-    // Row 2: Створити файли (centered, full width)
+    W.BtnOpen.SetLayout(14, 46, 160, 36);
     W.BtnCreate = P.NewButton("Створити файли");
-    W.BtnCreate.SetLayout(14, 96, 332, 36);
+    W.BtnCreate.SetLayout(186, 46, 160, 36);
     W.BtnOpen.OnClick = function () { saveAndOpen(); W.Form.Close(); };
-    W.BtnSave.OnClick = function () { saveOnly(); W.Form.Close(); };
     W.BtnCreate.OnClick = function () { saveAndCreateFiles(); W.Form.Close(); };
     W.Form.OnClose = function () { Action.Finish(); };
     W.Form.ShowModal();
