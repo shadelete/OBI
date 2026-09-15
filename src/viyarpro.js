@@ -2,10 +2,14 @@
 //  - Keycloak OIDC login (hidden BrowserWindow) with stored login/password,
 //  - vpSession bootstrap (GET service getVpSession),
 //  - .project upload (multipart convertProject),
-//  - openConvertedProject -> ticket + constructor, then open URL in a new
-//    BrowserWindow that reuses the same persist:viyarpro partition so the
-//    Keycloak session cookies carry over.
-const { BrowserWindow, app } = require('electron');
+//  - openConvertedProject -> ticket,
+//  - findProjectUuid (poll ProjectsAPI getAllProjects for the freshly-converted
+//    project's uuid — keyed by external_id == hash, or by Bazis2Viyar +
+//    most-recent updated_at fallback),
+//  - shell.openExternal — hand the URL off to the user's default browser
+//    (Chrome/Edge/Firefox) which already has the viyar / Keycloak session
+//    cookies the constructor needs.
+const { BrowserWindow, app, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -353,6 +357,8 @@ async function openConvertedProject(hash, title, sessionId, accessToken) {
     body: JSON.stringify({
       endpoint: 'ProjectsAPI',
       vpSessionId: sessionId,
+      uuiddoc: sessionId,
+      sid: sessionId,
       action: 'openConvertedProject',
       hash,
       title
@@ -373,34 +379,333 @@ async function openConvertedProject(hash, title, sessionId, accessToken) {
   return { ticket, constructorId };
 }
 
-function backendUrl(constructorId, ticket, hash) {
-  // page=materials — direct materials page of the constructor (where the
-  // loaded project actually displays). No redirect=1 (that stripped all
-  // params → /service/ with empty project). direct_load=true on this page
-  // tells the server to render the converted project. hash included if known.
-  let url = `${SERVICE_BASE}?page=materials&constructor_id=${encodeURIComponent(constructorId)}`
-    + `&ticket_session=${encodeURIComponent(ticket)}&direct_load=true`;
-  if (hash) url += `&hash=${encodeURIComponent(hash)}`;
-  return url;
+// Register the freshly-converted project with the new viyar SPA (which uses
+// separate endpoints, not ProjectsAPI actions). The old /service/ AngularJS
+// flow accepted `convertProject + openConvertedProject` and the project
+// immediately appeared in the user's saved-projects list. The 2026 SPA at
+// /projects and /service/?page=... is a different code path: the project
+// only becomes addressable (uuid-lookupable, tabs-functional) after an
+// explicit registration call. Discovered by reading
+// https://viyar.pro/assets/index-CPZ2xh13.js — the SPA's ProjectAPI class
+// exposes `saveProject({project, userId})`, `loadProject({projectId})`,
+// `getProjectDetails({projectId})`, `getUserProjects({userId})`, and the
+// legacy `addProject({fileData: base64})`. We try each in turn — any one
+// that returns a uuid (or returns 200 with the project now visible in
+// getUserProjects) is enough. Returns { uuid, project, action, response }
+// on success, or { error, lastResponse } if none worked.
+async function registerProjectViaNewApi(accessToken, sessionId, hash, ticket, title) {
+  const extractUuid = (data) => {
+    if (!data) return null;
+    const candidates = [data, data.result, data.data, data.project,
+      data.convertedProject, data.savedProject,
+      data.result && data.result.data, data.result && data.result.project];
+    for (const c of candidates) {
+      if (c && typeof c === 'object') {
+        if (typeof c.uuid === 'string' && c.uuid) return c.uuid;
+        if (typeof c.project_uuid === 'string' && c.project_uuid) return c.project_uuid;
+        if (typeof c.projectId === 'string' && c.projectId) return c.projectId;
+      }
+    }
+    // Sometimes the response itself is the project object.
+    if (typeof data.uuid === 'string' && data.uuid) return data.uuid;
+    if (typeof data.project_uuid === 'string' && data.project_uuid) return data.project_uuid;
+    return null;
+  };
+  const callApi = async (body) => {
+    const resp = await fetch(API_BASE, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'api-key': API_KEY_RESOURCES,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    const text = await resp.text();
+    let parsed = null;
+    try { parsed = JSON.parse(text); } catch (e) {}
+    return { http: resp.status, text, parsed };
+  };
+  const tries = [];
+  // 1. saveProject — registers project in user's saved-projects list.
+  //    SPA calls this with {endpoint, project:{...metadata}, userId}.
+  tries.push({
+    name: 'saveProject (project=hash+ticket)',
+    body: {
+      endpoint: 'saveProject',
+      project: { hash, ticket, title, external_id: hash, type: 'dsp' },
+      userId: sessionId
+    }
+  });
+  // 2. loadProject — SPA loads a saved project by projectId. May return
+  //    project data including uuid if it triggers an internal registration.
+  tries.push({
+    name: 'loadProject (projectId=hash)',
+    body: { endpoint: 'loadProject', projectId: hash }
+  });
+  // 3. getProjectDetails — by projectId.
+  tries.push({
+    name: 'getProjectDetails (projectId=hash)',
+    body: {
+      endpoint: 'ProjectsAPI', uuiddoc: sessionId, sid: sessionId,
+      action: 'getProjectDetails', projectId: hash
+    }
+  });
+  // 4. getProjectDetails — by ticket (alternative identifier).
+  tries.push({
+    name: 'getProjectDetails (projectId=ticket)',
+    body: {
+      endpoint: 'ProjectsAPI', uuiddoc: sessionId, sid: sessionId,
+      action: 'getProjectDetails', projectId: ticket
+    }
+  });
+  let lastResponse = null;
+  // Fire all candidate endpoints in parallel — first uuid wins. Sequential
+  // was ~1-1.5s; parallel is ~one round-trip (~200-400ms). The follow-up
+  // getUserProjects is run only if no endpoint returned a uuid directly.
+  const tryOne = async (t) => {
+    try {
+      const r = await callApi(t.body);
+      const snippet = r.text.slice(0, 600).replace(/\s+/g, ' ');
+      debugLog('registerProjectViaNewApi: ' + t.name + ' → HTTP ' + r.http + ' body=' + snippet);
+      if (lastResponse === null) lastResponse = r; // keep raw response for diagnostics
+      if (r.http < 200 || r.http >= 300) return null;
+      const uuid = extractUuid(r.parsed);
+      if (uuid) {
+        debugLog('registerProjectViaNewApi: ' + t.name + ' → uuid=' + uuid);
+        return { uuid, project: r.parsed, action: t.name, response: r.parsed };
+      }
+      return null;
+    } catch (e) {
+      debugLog('registerProjectViaNewApi: ' + t.name + ' threw: ' + (e && e.message || String(e)));
+      return null;
+    }
+  };
+  const parallelResults = await Promise.all(tries.map(tryOne));
+  for (const r of parallelResults) {
+    if (r && r.uuid) return r;
+  }
+  // 5. Even if none of the above returned a uuid, the registration may have
+  //    happened as a side-effect. Poll getUserProjects — if our project
+  //    appears, pull its uuid.
+  try {
+    const r = await callApi({ endpoint: 'getUserProjects', userId: sessionId });
+    debugLog('registerProjectViaNewApi: getUserProjects → HTTP ' + r.http
+      + ' body=' + (r.text || '').slice(0, 600).replace(/\s+/g, ' '));
+    if (r.http >= 200 && r.http < 300 && r.parsed) {
+      const projects = (r.parsed && r.parsed.projects) || r.parsed;
+      if (Array.isArray(projects)) {
+        const norm = s => String(s || '').toLowerCase();
+        const tn = norm(title);
+        const exact = projects.find(p => p && norm(p.title) === tn);
+        if (exact && exact.uuid) {
+          debugLog('registerProjectViaNewApi: matched in getUserProjects by title → uuid=' + exact.uuid);
+          return { uuid: exact.uuid, project: exact, action: 'getUserProjects.title', response: r.parsed };
+        }
+      }
+    }
+  } catch (e) {
+    debugLog('registerProjectViaNewApi: getUserProjects threw: ' + (e && e.message || String(e)));
+  }
+  return { error: 'no-uuid-from-new-api', lastResponse };
 }
 
-// Variants to try when direct_load=true on page=materials doesn't work.
-// Each variant is tried after viyar.pro/main session is established.
-function backendUrlVariants(constructorId, ticket, hash) {
-  const v = (name, url) => ({ name, url });
-  const cid = encodeURIComponent(constructorId);
-  const t = encodeURIComponent(ticket);
-  const h = hash ? `&hash=${encodeURIComponent(hash)}` : '';
-  return [
-    v('materials', `${SERVICE_BASE}?page=materials&constructor_id=${cid}&ticket_session=${t}&direct_load=true${h}`),
-    v('materials+constructor_page', `${SERVICE_BASE}?page=materials&constructor_id=${cid}&constructor_page=materials&ticket_session=${t}&direct_load=true${h}`),
-    v('homepage_redirect', `${SERVICE_BASE}?page=homepage&redirect=1&constructor_id=${cid}&constructor_page=materials&ticket_session=${t}&direct_load=true${h}`),
-    v('constructor_materials', `${SERVICE_BASE}?page=constructor_materials&constructor_id=${cid}&ticket_session=${t}&direct_load=true${h}`),
-    v('editor', `${SERVICE_BASE}?page=editor&constructor_id=${cid}&ticket_session=${t}&direct_load=true${h}`)
-  ];
+// Look up our freshly-converted project in the user's saved projects list.
+// Called from sendToViyar right after openConvertedProject (no BrowserWindow
+// yet). Uses the same ProjectsAPI endpoint the /main SPA calls. The server
+// returns each saved project with `uuid`, `title`, `external_id`, `creator_id`
+// and `updated_at` — we pick ours by:
+//   1. creator_id === 'Bazis2Viyar' + most-recent updated_at (our previous
+//      exports live there, and the freshly-converted one shows up at the top),
+//   2. external_id === hash (server assigns this from convertProject's hash),
+//   3. title case-insensitive match against the source .project fileName.
+// Returns { uuid, project, allProjects } on success,
+// { notFound: true, allProjects, raw } when nothing matched,
+// { error: '...' } on transport / parse failure.
+async function findProjectUuid(accessToken, sessionId, hash, title, maxAttempts = 3, backoffMs = 1000) {
+  const pickTarget = (projects) => {
+    if (!Array.isArray(projects) || !projects.length) return null;
+    const ours = projects.filter(p => p && p.creator_id === 'Bazis2Viyar');
+    if (ours.length) {
+      ours.sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
+      return ours[0];
+    }
+    if (hash) {
+      const byExt = projects.find(p => p && String(p.external_id) === String(hash));
+      if (byExt) return byExt;
+    }
+    if (title) {
+      const tn = String(title).toLowerCase();
+      const exact = projects.find(p => p && String(p.title || '').toLowerCase() === tn);
+      if (exact) return exact;
+      const partial = projects.find(p => p && String(p.title || '').toLowerCase().indexOf(tn) >= 0);
+      if (partial) return partial;
+    }
+    return null;
+  };
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const resp = await fetch(API_BASE, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'api-key': API_KEY_RESOURCES,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          endpoint: 'ProjectsAPI',
+          action: 'getAllProjects',
+          uuiddoc: sessionId,
+          sid: sessionId
+        })
+      });
+      const text = await resp.text();
+      if (!resp.ok) {
+        debugLog('findProjectUuid: HTTP ' + resp.status + ' ' + text.slice(0, 300));
+        if (attempt === maxAttempts - 1) return { error: 'http-' + resp.status };
+      } else {
+        let parsed = null;
+        try { parsed = JSON.parse(text); } catch (e) {
+          debugLog('findProjectUuid: parse failed: ' + (e && e.message || e));
+        }
+        const ps = parsed && parsed.result && parsed.result.projects;
+        debugLog('findProjectUuid: attempt ' + attempt + ' got ' + (Array.isArray(ps) ? ps.length : 0) + ' projects');
+        if (Array.isArray(ps)) {
+          // Prefer the exact match by hash (our freshly-converted project) or
+          // title — those are guaranteed ours. Only fall back to "most recent
+          // Bazis2Viyar" if we genuinely can't find a hash/title match.
+          const exact = (hash && ps.find(p => p && String(p.external_id) === String(hash)))
+            || (title && ps.find(p => p && String(p.title || '').toLowerCase() === String(title).toLowerCase()));
+          let target = exact;
+          if (!target) {
+            const ours = ps.filter(p => p && p.creator_id === 'Bazis2Viyar');
+            if (ours.length) {
+              ours.sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
+              target = ours[0];
+            }
+          }
+          if (target && (exact || (!hash && !title))) {
+            debugLog('findProjectUuid: matched (exact=' + !!exact + ') uuid=' + target.uuid + ' title="' + target.title + '" ext=' + target.external_id + ' updated=' + target.updated_at);
+            return { uuid: target.uuid, project: target, allProjects: ps, matchedExact: !!exact };
+          }
+          // Not matched yet — keep polling until we've used all attempts.
+          if (attempt === maxAttempts - 1) return { notFound: true, allProjects: ps, raw: parsed };
+        }
+      }
+    } catch (e) {
+      debugLog('findProjectUuid: fetch failed (attempt ' + attempt + '): ' + (e && e.message || String(e)));
+      if (attempt === maxAttempts - 1) return { error: 'fetch-failed: ' + (e && e.message || String(e)) };
+    }
+    // Eventual-consistency / freshly-converted project not yet listed —
+    // back off and retry. With defaults (3 × 1s) total wait ≈ 3s.
+    if (attempt < maxAttempts - 1) await new Promise(r => setTimeout(r, backoffMs));
+  }
+  return { error: 'no-attempts' };
 }
 
-// Main orchestration: returns { success, url } or throws.
+// Pull the project's uuid from alternate ProjectsAPI actions. Used as a
+// fallback when getAllProjects doesn't list the freshly-converted project
+// yet (eventual consistency, or the convert-project flow doesn't add it to
+// the user's saved-projects list at all). Fires ALL candidates in parallel
+// (no retries) — the wider list compensates for the missing retry, and the
+// network does the latency in parallel rather than sequentially (~500ms
+// instead of ~3-5s for 16 candidates). Returns the first non-null uuid
+// found, or null if every candidate returns null/fails.
+async function findProjectUuidExtras(accessToken, sessionId, hash, ticket) {
+  const candidates = [];
+  const push = (action, body) => candidates.push({ action, body });
+  // Direct-from-hash/ticket variants.
+  push('getConvertedProjectData', { hash, ticket });
+  push('getConvertedProjectData', { hash });
+  push('getConvertedProject',     { hash, ticket });
+  push('getConvertedProject',     { hash });
+  push('getProjectByHash',         { hash });
+  push('getProjectByTicket',       { ticket });
+  push('getConvertedProjectInfo', { hash, ticket });
+  push('getConvertedProjectInfo', { hash });
+  push('loadConvertedProject',     { hash });
+  push('loadConvertedProject',     { hash, ticket });
+  push('getProjectInfoByHash',     { hash });
+  push('getProjectInfoByTicket',   { ticket });
+  push('importedProject',          { hash });
+  push('importProject',            { hash });
+  push('getProject',               { hash });
+  push('getProject',               { ticket });
+  const extractUuid = (data) => {
+    if (!data) return null;
+    // Walk common response shapes: {uuid}, {result:{uuid}}, {data:{uuid}},
+    // {result:{data:{uuid}}}, {project:{uuid}}, {convertedProject:{uuid}}.
+    const candidates = [data, data.result, data.data, data.project,
+      data.convertedProject,
+      data.result && data.result.data, data.result && data.result.project,
+      data.result && data.result.convertedProject];
+    for (const c of candidates) {
+      if (c && typeof c === 'object') {
+        if (typeof c.uuid === 'string' && c.uuid) return c.uuid;
+        if (typeof c.project_uuid === 'string' && c.project_uuid) return c.project_uuid;
+      }
+    }
+    return null;
+  };
+  const tryOne = async (a) => {
+    try {
+      const resp = await fetch(API_BASE, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'api-key': API_KEY_RESOURCES,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(Object.assign({
+          endpoint: 'ProjectsAPI',
+          uuiddoc: sessionId,
+          sid: sessionId
+        }, a.body))
+      });
+      const text = await resp.text();
+      debugLog('findProjectUuidExtras: ' + a.action + ' → HTTP ' + resp.status + ' body=' + text.slice(0, 600));
+      if (!resp.ok) return null;
+      let parsed = null;
+      try { parsed = JSON.parse(text); } catch (e) {}
+      const uuid = extractUuid(parsed);
+      if (uuid) {
+        debugLog('findProjectUuidExtras: ' + a.action + ' → uuid=' + uuid);
+        return { uuid, action: a.action, response: parsed };
+      }
+      return null;
+    } catch (e) {
+      debugLog('findProjectUuidExtras: ' + a.action + ' threw: ' + (e && e.message || String(e)));
+      return null;
+    }
+  };
+  // Fire all candidates in parallel. Use Promise.all + find-first-non-null
+  // so we wait at most one round-trip (~200-500ms typical). A 3s internal
+  // deadline kicks in if any request hangs (slow network).
+  const promises = candidates.map(tryOne);
+  const deadline = new Promise(resolve => setTimeout(() => resolve(null), 3000));
+  const winner = await Promise.race([
+    Promise.all(promises).then(results => results.find(r => r && r.uuid) || null),
+    deadline
+  ]);
+  return winner || null;
+}
+
+// Main orchestration: returns { success, url, project, viaBrowser } or throws.
+//
+// Flow (v5 — open in user's default browser via shell.openExternal):
+//   1. login + getVpSession + convertProject + openConvertedProject (as before),
+//   2. findProjectUuid — poll getAllProjects up to ~30s looking for our
+//      project (matched by external_id == hash or title; fall back to most-
+//      recent Bazis2Viyar if no exact match),
+//   3. shell.openExternal the constructor URL with our uuid (or /main if we
+//      couldn't locate the project).
+//
+// We deliberately do NOT open a BrowserWindow in our app for the constructor:
+// the viyar /service/ pages require cookies set by the full Keycloak redirect
+// flow (AUTH_SESSION_ID, device-source, etc.) that our PKCE-only login flow
+// does not install, so the constructor would always redirect away from our
+// URL. The user's regular browser already has those cookies from their normal
+// viyar sessions, so opening the URL there just works.
 async function sendToViyar(filePath, creds, onProgress) {
   if (!filePath || !fs.existsSync(filePath)) throw new Error('Файл не знайдено');
   const step = (phase) => { if (onProgress) onProgress(phase); };
@@ -419,124 +724,134 @@ async function sendToViyar(filePath, creds, onProgress) {
   const openRes = await openConvertedProject(hash, title, sessionId, accessToken);
   const ticket = openRes.ticket;
   const constructorId = openRes.constructorId;
-  const url = backendUrl(constructorId, ticket, hash);
-  const variants = backendUrlVariants(constructorId, ticket, hash);
-  // Diagnostic: dump the full openConvertedProject response so we see every
-  // field the server returns (some might be a canonical URL we should use).
   debugLog('openConvertedProject response: ' + JSON.stringify(openRes));
-  debugLog('opening URL: ' + url);
-  debugLog('URL variants: ' + JSON.stringify(variants.map(v => v.name)));
-  // Open in a new BrowserWindow that reuses the same persist:viyarpro partition
-  // as the Keycloak login — Keycloak session cookies carry over.
-  // NOTE: removed sandbox:true — with sandbox+custom partition combo the URL
-  // load was silently failing (window opens empty, no nav events fired).
-  const win = new BrowserWindow({
-    show: true,
-    width: 1280,
-    height: 800,
-    webPreferences: {
-      partition: 'persist:viyarpro'
-    },
-    title: 'ViyarPro — проєкт'
-  });
-  // Diagnostic: log every navigation event so we see the full redirect chain.
-  win.webContents.on('did-start-loading', (_e, navUrl) => {
-    debugLog('did-start-loading: ' + navUrl);
-  });
-  win.webContents.on('did-navigate', (_e, navUrl) => {
-    debugLog('did-navigate: ' + navUrl);
-  });
-  win.webContents.on('did-navigate-in-page', (_e, navUrl) => {
-    debugLog('did-navigate-in-page: ' + navUrl);
-  });
-  win.webContents.on('did-fail-load', (_e, code, desc, navUrl) => {
-    debugLog('did-fail-load: ' + code + ' ' + desc + ' ' + navUrl);
-  });
-  win.webContents.on('dom-ready', async () => {
-    try {
-      const url = win.webContents.getURL();
-      debugLog('dom-ready, URL: ' + url);
-      // Probe the actual rendered page — tells us whether the server rendered
-      // the constructor with our params or an unrelated page.
-      try {
-        const probe = await win.webContents.executeJavaScript(`
-          (() => {
-            try {
-              const text = (document.body && document.body.innerText || '').slice(0, 600);
-              return {
-                title: document.title || '',
-                href: location.href,
-                search: location.search,
-                bodyText: text.replace(/\\s+/g, ' ').trim()
-              };
-            } catch (e) { return { error: String(e) }; }
-          })();
-        `);
-        debugLog('PAGE PROBE: ' + JSON.stringify(probe));
-      } catch (e) {
-        debugLog('executeJavaScript failed: ' + e.message);
-      }
-    } catch (e) {
-      debugLog('dom-ready probe failed: ' + e.message);
-    }
-  });
-  // Step 1: visit viyar.pro/main first to establish the viyar.pro server-side
-  // session cookie (the constructor expects it for direct_load to work).
-  // NOTE: must be the main app URL (viyar.pro/main), NOT viyar.pro/service/main
-  // (that returns 404 nginx).
+
+  // Look up our project's uuid in parallel across three strategies:
+  //   1. findProjectUuidExtras — direct ProjectsAPI actions (parallel, ~500ms)
+  //   2. registerProjectViaNewApi — new SPA endpoints (parallel, ~500ms)
+  //   3. findProjectUuid — getAllProjects polling, capped at 3 × 1s (~3s)
+  // Capped at 5s overall — first non-null uuid wins. Each strategy's
+  // "null result" is mapped to a never-resolving promise so Promise.race
+  // only resolves on the first real uuid (or the timeout).
+  //
+  // Typical case (uuid never appears in saved-projects — see viyar SPA
+  // bug where convertProject+openConvertedProject don't register the
+  // project in /service/api/getAllProjects): ~3-5s total instead of the
+  // previous ~35-40s sequential chain. Ticket URL works regardless.
+  const UUID_LOOKUP_DEADLINE_MS = 5000;
+  let projectUuid = null;
+  let matchedProject = null;
+  let matchedExact = false;
   try {
-    debugLog('Step 1: visiting /main to establish session...');
-    await win.loadURL('https://viyar.pro/main');
-    // Wait for the page to fully load (including any JS-driven redirects).
-    await new Promise(resolve => setTimeout(resolve, 4000));
-    debugLog('after /main visit, URL: ' + win.webContents.getURL());
+    const lookupStart = Date.now();
+    // neverNull: turn a null-ish result into a never-resolving promise so
+    // Promise.race keeps waiting for a real uuid (or the timeout).
+    const neverNull = (p) => p.then(r => (r && r.uuid) ? r : new Promise(() => {}))
+      .catch(e => {
+        debugLog('lookup strategy threw: ' + (e && e.message || String(e)));
+        return new Promise(() => {});
+      });
+    const winner = await Promise.race([
+      neverNull(findProjectUuidExtras(accessToken, sessionId, hash, ticket).then(r => ({
+        uuid: r && r.uuid, project: null, action: 'extras.' + (r && r.action), matchedExact: false
+      }))),
+      neverNull(registerProjectViaNewApi(accessToken, sessionId, hash, ticket, title).then(r => ({
+        uuid: r && r.uuid, project: r && r.project, action: 'newApi.' + (r && r.action), matchedExact: false
+      }))),
+      neverNull(findProjectUuid(accessToken, sessionId, hash, title).then(r => ({
+        uuid: r && r.uuid, project: r && r.project, action: 'list', matchedExact: !!(r && r.matchedExact)
+      }))),
+      new Promise(resolve => setTimeout(() => resolve(null), UUID_LOOKUP_DEADLINE_MS))
+    ]);
+    if (winner && winner.uuid) {
+      projectUuid = winner.uuid;
+      matchedProject = winner.project || null;
+      matchedExact = !!winner.matchedExact;
+      debugLog('lookupUuidFast: got uuid=' + projectUuid + ' via ' + winner.action
+        + ' (in ' + (Date.now() - lookupStart) + 'ms)');
+    } else {
+      debugLog('lookupUuidFast: no uuid in ' + (Date.now() - lookupStart)
+        + 'ms — falling back to ticket URL');
+    }
   } catch (e) {
-    debugLog('/main visit threw: ' + (e && e.message ? e.message : String(e)));
+    debugLog('lookupUuidFast threw: ' + (e && e.message ? e.message : String(e)));
   }
-  // Step 2: try each URL variant in turn — for each, load URL, wait for
-  // dom-ready, probe the page, log result. We pick the one whose body
-  // indicates the loaded project (vs empty constructor).
-  const variantResults = [];
-  for (let i = 0; i < variants.length; i++) {
-    const v = variants[i];
-    debugLog('Step 2.' + i + ' trying variant [' + v.name + ']: ' + v.url);
-    try {
-      await win.loadURL(v.url);
-      debugLog('Step 2.' + i + ' loadURL resolved');
-    } catch (e) {
-      debugLog('Step 2.' + i + ' loadURL threw: ' + (e && e.message ? e.message : String(e)));
-      variantResults.push({ name: v.name, error: String(e) });
-      continue;
-    }
-    // Give the page a moment for JS-driven content to settle, then probe.
-    await new Promise(resolve => setTimeout(resolve, 2500));
-    try {
-      const probe = await win.webContents.executeJavaScript(`
-        (() => {
-          try {
-            const text = (document.body && document.body.innerText || '').slice(0, 400);
-            return {
-              title: document.title || '',
-              href: location.href,
-              bodyText: text.replace(/\\s+/g, ' ').trim()
-            };
-          } catch (e) { return { error: String(e) }; }
-        })();
-      `);
-      debugLog('Step 2.' + i + ' [' + v.name + '] PROBE: ' + JSON.stringify(probe));
-      variantResults.push({ name: v.name, probe });
-    } catch (e) {
-      debugLog('Step 2.' + i + ' executeJavaScript failed: ' + e.message);
-      variantResults.push({ name: v.name, error: e.message });
-    }
+
+  // Build the URL we want to open in the user's default browser.
+  // The viyar SPA (https://viyar.pro/assets/index-D3tSRp4c.js) builds its
+  // navigation URL via the helper `redirectToBackend(constructorId, page,
+  // extraParams)`, which always produces the SAME shape:
+  //
+  //   https://viyar.pro/service/?page=homepage&redirect=1
+  //     &constructor_id=<cid>&constructor_page=<page>
+  //     &<extraParams joined as &key=value>
+  //
+  // The hosting "/service/" page is a thin AngularJS shell that, on
+  // `page=homepage&redirect=1`, hands off to the new SPA at /furniture/...
+  // — that's where the React/Vue router initializes. Calling the legacy
+  // page=materials route directly renders the OLD constructor (no SPA
+  // router) and breaks every internal click → full page reload. Likewise,
+  // adding `hash=<hash>` to the URL conflicts with `ticket_session` (server
+  // uses ticket_session to look up the converted project; hash is just an
+  // upload identifier).
+  //
+  // We therefore use exactly the SPA's redirectToBackend shape:
+  //   - uuid path: page=editor + uuid (no ticket_session, no hash)
+  //   - ticket fallback: page=homepage&redirect=1&constructor_page=materials
+  //     + ticket_session + direct_load=true (no hash)
+  let openUrl;
+  let usedFallback = null;
+  if (projectUuid) {
+    // uuid path mirrors redirectToBackend('dsp','editor',{uuid}) — opens
+    // the project in the new SPA via the /service/ shell.
+    const u = new URL(SERVICE_BASE);
+    u.searchParams.set('page', 'homepage');
+    u.searchParams.set('redirect', '1');
+    u.searchParams.set('constructor_id', constructorId || 'dsp');
+    u.searchParams.set('constructor_page', 'editor');
+    u.searchParams.set('uuid', projectUuid);
+    openUrl = u.toString();
+  } else if (ticket) {
+    // Ticket-fallback: convertProject + openConvertedProject always produce
+    // a ticket. Mirror exactly `redirectToBackend('dsp','materials',
+    // {ticket_session, direct_load:'true'})` from the SPA bundle.
+    const u = new URL(SERVICE_BASE);
+    u.searchParams.set('page', 'homepage');
+    u.searchParams.set('redirect', '1');
+    u.searchParams.set('constructor_id', constructorId || 'dsp');
+    u.searchParams.set('constructor_page', 'materials');
+    u.searchParams.set('ticket_session', ticket);
+    u.searchParams.set('direct_load', 'true');
+    openUrl = u.toString();
+    usedFallback = 'ticket';
+  } else {
+    // Last resort: send the user to the project list.
+    openUrl = 'https://viyar.pro/main';
+    usedFallback = 'main';
   }
-  debugLog('All variants done. Results: ' + JSON.stringify(variantResults.map(r => ({
-    name: r.name,
-    title: r.probe && r.probe.title,
-    bodySnippet: r.probe && r.probe.bodyText ? r.probe.bodyText.slice(0, 120) : r.error
-  }))));
-  // Stop on the last variant (window stays open).
-  return { success: true, url };
+  debugLog('shell.openExternal (' + (usedFallback || 'uuid') + '): ' + openUrl);
+
+  let viaBrowser = false;
+  try {
+    viaBrowser = await shell.openExternal(openUrl);
+  } catch (e) {
+    debugLog('shell.openExternal failed: ' + (e && e.message ? e.message : String(e)));
+  }
+  debugLog('shell.openExternal returned: ' + viaBrowser);
+
+  // Return structured result for the IPC handler — it can show a notification
+  // or alert with the URL / project title so the user knows where to look.
+  return {
+    success: true,
+    url: openUrl,
+    viaBrowser: !!viaBrowser,
+    project: matchedProject || null,
+    title: matchedProject ? matchedProject.title : title,
+    projectUuid,
+    ticket,
+    hash,
+    constructorId
+  };
 }
 
 module.exports = { sendToViyar, decryptBazis, looksLikeBazisProject };
