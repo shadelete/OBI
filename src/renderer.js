@@ -4,6 +4,11 @@ let config = { theme: 'dark', language: 'uk' };
 let fitRules = { tags: {}, tagsByName: {}, blacklist: [], blacklistByName: [], suppliers: {}, suppliersByName: {}, matBlacklist: [], matBlacklistByName: [], profBlacklist: [], profBlacklistByName: [], bookBlacklist: [], bookBlacklistByName: [], matBookBlacklist: [], matBookBlacklistByName: [], profBookBlacklist: [], profBookBlacklistByName: [] };
 let appInfo = { version: '', url: '', author: '' };
 
+// Inline ViyarPro icon (vp_icon.svg) — single source of truth. The SVG uses
+// fill="currentColor" so CSS .lc-vp-btn { color: ... } controls the icon
+// color (black in light theme, white in dark theme).
+const VP_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 23 24" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M5.53391 0.159908C5.8828 -0.0533025 6.32168 -0.0533028 6.67058 0.159908L11.2956 2.98629L15.9207 0.159908C16.2696 -0.0533025 16.7085 -0.0533029 17.0574 0.159908L22.0697 3.22294C22.3937 3.42093 22.5913 3.77326 22.5913 4.15296V16.6734C22.5913 17.0531 22.3937 17.4054 22.0697 17.6034L11.864 23.8401C11.5151 24.0533 11.0762 24.0533 10.7273 23.8401L0.521594 17.6034C0.197602 17.4054 0 17.0531 0 16.6734V4.15296C0 3.77326 0.197602 3.22294 0.521593 3.22294L5.53391 0.159908ZM13.0621 4.06578L16.489 6.15997L19.916 4.06578L16.489 1.97159L13.0621 4.06578ZM20.7736 5.70067L17.3979 7.76357V13.8053C17.3979 13.9952 17.2991 14.1713 17.1371 14.2703L12.2045 17.2846V21.473L20.7736 16.2364V5.70067ZM10.3868 21.473V17.2846L7.01109 15.2217V19.4101L10.3868 21.473ZM5.1934 18.2993V12.4378C5.1934 12.225 5.4264 12.0943 5.60797 12.2053L10.3868 15.1256V10.9373L1.81769 5.70067V16.2364L5.1934 18.2993ZM2.67532 4.06578L11.2956 9.33366L14.7226 7.23947L6.10224 1.97159L2.67532 4.06578ZM15.5802 8.87436L12.2045 10.9373V15.1256L15.5802 13.0627V8.87436Z" fill="currentColor"/></svg>';
+
 let selCat = 'materials';
 let selId = null;
 let selTab = 'details';
@@ -1131,7 +1136,7 @@ function catCardHTML(it, i, kind) {
       <div class="cat-card-actions">
         ${checks}
         ${dragHandle}
-        ${kind === 'material' ? `<button class="lc-vp-btn" title="${t('viyar.material.tip')}" onclick="event.stopPropagation();sendMaterialToViyar(${i})">V</button>` : ''}
+        ${kind === 'material' ? `<button class="lc-vp-btn" title="${t('viyar.material.tip')}" onclick="event.stopPropagation();sendMaterialToViyar(${i})">${VP_ICON_SVG}</button>` : ''}
       </div>
     </div>
   `;
@@ -1522,7 +1527,7 @@ function renderDetailTable() {
       <div class="dh-main">
         <div class="dh-title-row">
           <div class="dh-title">${escapeHtml(item.name || item.material || '')}</div>
-          ${isMat ? `<button class="lc-vp-btn dh-vp-btn" title="${t('viyar.merge.title')}" onclick="sendMaterialToViyar(${selId}, event)">V</button>` : ''}
+          ${isMat ? `<button class="lc-vp-btn dh-vp-btn" title="${t('viyar.merge.title')}" onclick="sendMaterialToViyar(${selId}, event)">${VP_ICON_SVG}</button>` : ''}
         </div>
         <div class="dh-chips">
           ${isMat && thickStr ? `<span class="dh-chip"><span class="dh-chip-label">${t('stat.thickness')}</span><span class="dh-chip-value">${thickStr} мм</span></span>` : ''}

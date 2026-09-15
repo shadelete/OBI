@@ -1,786 +1,3 @@
-// ============================================================
-// OBI - ADV: я¬-я¬-я¬- OBI.js, я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-
-// GetParams('AdvParamData') -> FindNode('Elements')
-// 1. Scan model
-// 2. Save to data/db.json (UTF-8)
-// 3. Launch OBI.exe
-//
-// я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-:
-//   - я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬- db я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬- я¬-я¬-я¬-я¬-я¬- elements (я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-),
-//     я¬-я¬-я¬-я¬-я¬- я¬- я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-, я¬-я¬- я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-;
-//   - я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬- (я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-) я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬- fittings
-//     я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- (isComposition: true);
-//   - я¬-я¬-я¬-я¬-я¬-я¬-я¬-, я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬- я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- (я¬-я¬-я¬-+я¬-я¬-я¬-), я¬- я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-.
-// я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬- - я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-.
-// ============================================================
-
-var materials = {};   // TFurnPanel -> keyed by matName|thickness, with per-material edges
-var profiles = {};    // TExtrusionBody
-var fittings = {};    // TFastener
-var totalObjects = 0;
-
-function r4(n) { return Math.round(n * 10000) / 10000; }
-var panelsCount = 0;
-var profilesCount = 0;
-var fastenersCount = 0;
-var draftsCount = 0;
-var compositeCount = 0; // я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-, я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬- (AdvParamData/Elements)
-var compositionItems = {}; // я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬- я¬-я¬-я¬-я¬-я¬- name|code
-
-// Extract article from a name like "...я¬-я¬-\r26534"
-// Splits on carriage-return, returns { name, code }
-function splitName(str) {
-    if (!str) return { name: str || "", code: "" };
-    var idx = str.indexOf("\r");
-    if (idx > -1) {
-        var name = str.substring(0, idx);
-        var code = str.substring(idx + 1).trim();
-        return { name: name, code: code };
-    }
-    return { name: str, code: "" };
-}
-
-// Get current product name (naymenuvannya vyrobu) from global Article.Name.
-function getOrderName() {
-    try {
-        if (typeof Article !== "undefined" && Article && Article.Name) {
-            return String(Article.Name);
-        }
-    } catch (e) {}
-    try {
-        if (typeof currentFileData !== "undefined" && currentFileData
-            && currentFileData.article && currentFileData.article.Name) {
-            return String(currentFileData.article.Name);
-        }
-    } catch (e) {}
-    return "";
-}
-
-// Sanitize a string into a safe filename.
-function sanitizeFilename(str) {
-    if (!str) return "";
-    return String(str)
-        .replace(/[\\\/\:\*\?\"\<\>\|]/g, "_")
-        .replace(/^[\s\.]+|[\s\.]+$/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
-}
-
-// Sanitize a string into a safe filename.
-
-// --- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- (я¬-я¬-я¬- я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-) ---
-// я¬-я¬-я¬-/я¬-я¬-я¬- я¬-я¬-я¬-я¬-: я¬-я¬- node.Name, я¬-я¬-я¬-я¬- я¬-я¬- node.Value ("я¬-я¬-я¬-\rя¬-я¬-я¬-").
-function nodeNameCode(node) {
-    var name = "", value = "";
-    try { name = node.Name || ""; } catch (e) { name = ""; }
-    try { value = node.Value || ""; } catch (e) { value = ""; }
-    var sn = splitName(name);
-    var sv = splitName(value);
-    if (!sn.name && sv.name) sn.name = sv.name;
-    if (!sn.code && sv.code) sn.code = sv.code;
-    return sn;
-}
-
-function buildElementsTree(node) {
-    var result = [];
-    try {
-        var c = node.Count;
-        if (!c || c === 0) return result;
-        for (var i = 0; i < c; i++) {
-            var child = null;
-            try { child = node.Nodes[i]; } catch (e) {}
-            if (!child) continue;
-            var nc = nodeNameCode(child);
-            var childCount = 0;
-            try { if (child.Count) childCount = child.Count; } catch (e) {}
-            var nested = [];
-            if (childCount > 0) nested = buildElementsTree(child);
-            result.push({ name: nc.name, code: nc.code, count: childCount, nested: nested });
-        }
-    } catch (e) {}
-    return result;
-}
-
-function getFastenerElements(fastener) {
-    try {
-        var adv = fastener.GetParams('AdvParamData');
-        if (!adv) return null;
-        var elements = adv.FindNode('Elements');
-        if (!elements || !elements.Count || elements.Count === 0) return null;
-        return buildElementsTree(elements);
-    } catch (e) {
-        return null;
-    }
-}
-
-// я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-.
-function flattenElements(elements, out) {
-    if (!out) out = [];
-    for (var i = 0; i < elements.length; i++) {
-        var e = elements[i];
-        if (!e.name) continue;
-        out.push(e);
-        if (e.nested && e.nested.length > 0) flattenElements(e.nested, out);
-    }
-    return out;
-}
-
-// я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬- я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬- я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- (я¬-я¬-я¬-+я¬-я¬-я¬-)?
-function isSameAsParent(e, parentName, parentCode) {
-    if (!e || !e.name) return false;
-    if (e.name !== parentName) return false;
-    if (parentCode) return e.code === parentCode;
-    return true;
-}
-
-function scanObject(obj) {
-    if (!obj) return;
-
-    // Model flag "UseInDocs" ("¦гTЗ¦¬TВTЛ¦-¦-TВTМ ¦- ¦+¦-¦¦TГ¦-¦¦¦-TВ¦-TЖ¦¬¦¬", TObject3D.UseInDocs):
-    // if off, the object must not appear in the documentation (skip export).
-    try {
-        if (obj.UseInDocs === false) return;
-    } catch (e) {}
-
-    totalObjects++;
-
-    try {
-        if (obj instanceof TFurnPanel) {
-            panelsCount++;
-
-            var matName = obj.MaterialName || "No material";
-            var thickness = obj.Thickness || 0;
-            var matInfo = splitName(matName);
-
-            var key = matName + "|" + thickness;
-            if (!materials[key]) {
-                materials[key] = {
-                    name: matInfo.name,
-                    code: matInfo.code,
-                    thickness: thickness,
-                    count: 0,
-                    edges: {},
-                    details: []
-                };
-            }
-
-            var m = materials[key];
-            m.count++;
-
-            // Extract material texture/properties (Path, ColorUse, DiffuseColor, Tex* etc.).
-            // Set only once per material key (so the first panel of each material defines it).
-            try {
-                if (!m._propsRead) {
-                    var matObj = null;
-                    try { matObj = obj.Material; } catch (eMatObj) {}
-                    if (matObj) {
-                        try { if (matObj.Path) m.texturePath = String(matObj.Path); } catch (e) {}
-                        try { if (matObj.ColorUse !== undefined && matObj.ColorUse !== null) m.textureUseColor = matObj.ColorUse ? true : false; } catch (e) {}
-                        try { if (matObj.DiffuseColor !== undefined && matObj.DiffuseColor !== null) m.color = matObj.DiffuseColor; } catch (e) {}
-                        try { if (matObj.TexSX != null && !isNaN(Number(matObj.TexSX))) m.texStepX = Number(matObj.TexSX); } catch (e) {}
-                        try { if (matObj.TexSY != null && !isNaN(Number(matObj.TexSY))) m.texStepY = Number(matObj.TexSY); } catch (e) {}
-                        try { if (matObj.TexDX != null && !isNaN(Number(matObj.TexDX))) m.texOffsetX = Number(matObj.TexDX); } catch (e) {}
-                        try { if (matObj.TexDY != null && !isNaN(Number(matObj.TexDY))) m.texOffsetY = Number(matObj.TexDY); } catch (e) {}
-                        try { if (matObj.Angle != null && !isNaN(Number(matObj.Angle))) m.texAngle = Number(matObj.Angle); } catch (e) {}
-                        try { if (matObj.MirrorValue !== undefined && matObj.MirrorValue !== null) m.texMirror = matObj.MirrorValue ? true : false; } catch (e) {}
-                        try { if (matObj.Stretch !== undefined && matObj.Stretch !== null) m.texStretch = matObj.Stretch ? true : false; } catch (e) {}
-                        m._propsRead = true;
-                    }
-                }
-            } catch (eMatBlock) {}
-
-            var w = obj.ContourWidth || 0;
-            var h = obj.ContourHeight || 0;
-
-            var cuts = [];
-            if (obj.Cuts) {
-                try {
-                    for (var ci = 0; ci < obj.Cuts.Count; ci++) {
-                        var cut = obj.Cuts.Cuts[ci];
-                        if (!cut) continue;
-                        var cName = cut.Name || "";
-                        var cSign = cut.Sign || "";
-                        if (!cSign && cut.Params && cut.Params.Sign) cSign = cut.Params.Sign;
-                        var cutType = "";
-                        try {
-                            cutType = (cut.CutType === panelOperations.cutType.extrusion) ? "extrusion" : "freeForm";
-                        } catch (e2) {}
-                        cuts.push({
-                            name: cName,
-                            sign: cSign,
-                            type: cutType,
-                            thickness: cut.Thickness || 0,
-                            frontSide: !!cut.FrontSide
-                        });
-                    }
-                } catch (eCut) {}
-            }
-
-            var designation = "";
-            try { designation = obj.ArtPos || ""; } catch (eDes) {}
-
-            m.details.push({
-                name: obj.Name || "Panel",
-                position: designation,
-                width: r4(w),
-                height: r4(h),
-                cuts: cuts
-            });
-
-            if (obj.Butts) {
-                for (var i = 0; i < obj.Butts.Count; i++) {
-                    var butt = obj.Butts.Butts[i];
-                    if (butt && butt.Material) {
-                        var buttInfo = splitName(butt.Material);
-                        var buttKey = buttInfo.name;
-                        if (buttKey) {
-                            if (!m.edges[buttKey]) {
-                                m.edges[buttKey] = {
-                                    name: buttInfo.name,
-                                    code: buttInfo.code,
-                                    width: butt.Width || 0,
-                                    thickness: butt.Thickness || 0,
-                                    count: 0
-                                };
-                            }
-                            m.edges[buttKey].count++;
-                        }
-                    }
-                }
-            }
-        } else if (obj instanceof TExtrusionBody) {
-            profilesCount++;
-
-            var pName = obj.Name || "Profile";
-            var pInfo = splitName(pName);
-
-            // Material of the profile: name and its articul (after "\r"). The articul for
-            // a profile is the material's articul - everything else works with it.
-            var pMatInfo = splitName(obj.MaterialName);
-            var pMat = (pMatInfo && pMatInfo.name) || "";
-            var pMatCode = (pMatInfo && pMatInfo.code) || "";
-
-            // Extract articul embedded as "(articul NNN)" in the profile name and strip it from the name.
-            var pCode = pInfo.code;
-            var ART_PAT = /\(\s*[\u0410\u0430]\u0440\u0442\u0438\u043A\u0443\u043B\s+(\d+)\s*\)/;
-            var mArticul = pInfo.name.match(ART_PAT);
-            if (mArticul) {
-                if (!pCode) pCode = mArticul[1];
-                pInfo.name = pInfo.name.replace(ART_PAT, "").replace(/\s{2,}/g, " ").trim();
-            }
-            var profileCode = pMatCode || pCode;
-
-            var pKey = pInfo.name + "|" + pMat;
-            if (!profiles[pKey]) {
-                profiles[pKey] = {
-                    name: pInfo.name,
-                    code: profileCode,
-                    material: pMat,
-                    materialCode: pMatCode,
-                    details: {}
-                };
-            }
-            var pr = profiles[pKey];
-
-            var pw = 0, pt = 0, pl = 0;
-            try {
-                if (obj.GSize) {
-                    pw = r4(obj.GSize.x) || 0;
-                    pt = r4(obj.GSize.y) || 0;
-                    pl = r4(obj.GSize.z) || 0;
-                }
-            } catch (e) {}
-
-            var sizeKey = pw + "|" + pt + "|" + pl;
-            if (!pr.details[sizeKey]) {
-                pr.details[sizeKey] = {
-                    width: pw,
-                    thickness: pt,
-                    length: pl,
-                    count: 0,
-                    positions: []
-                };
-            }
-            pr.details[sizeKey].count++;
-            var pDesignation = "";
-            try { pDesignation = obj.ArtPos || ""; } catch (eDes) {}
-            if (pDesignation) {
-                var det0 = pr.details[sizeKey];
-                if (det0.positions.indexOf(pDesignation) === -1) det0.positions.push(pDesignation);
-            }
-        }
-
-        if (obj instanceof TDraftBlock) {
-            draftsCount++;
-            var dName = obj.Name || "Semi-finished";
-            var dInfo = splitName(dName);
-            var dKey = "PF:" + dInfo.name;
-            if (!fittings[dKey]) {
-                fittings[dKey] = { name: dInfo.name, code: dInfo.code, count: 0, isDraft: true };
-            }
-            fittings[dKey].count++;
-        }
-
-        if (obj instanceof TFastener) {
-            fastenersCount++;
-            var name = obj.Name || "Unknown fitting";
-            var info = splitName(name);
-
-            // я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- (я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-)
-            var elements = getFastenerElements(obj);
-            if (elements && elements.length > 0) {
-                compositeCount++;
-
-                // я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-: я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- (elements)
-                if (!fittings[info.name]) {
-                    fittings[info.name] = {
-                        name: info.name,
-                        code: info.code,
-                        count: 0,
-                        isComposite: true,
-                        elements: elements
-                    };
-                } else {
-                    fittings[info.name].count = fittings[info.name].count || 0;
-                    fittings[info.name].isComposite = true;
-                    fittings[info.name].elements = elements;
-                }
-                fittings[info.name].count++;
-
-                // я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬- - я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬- fittings
-                // (я¬-я¬-я¬- я¬-я¬-я¬-я¬-, я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬- я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-)
-                var flat = flattenElements(elements);
-                for (var ei = 0; ei < flat.length; ei++) {
-                    var ev = flat[ei];
-                    if (isSameAsParent(ev, info.name, info.code)) continue;
-                    var eKey = "EL:" + ev.name + "|" + (ev.code || "");
-                    if (!compositionItems[eKey]) {
-                        compositionItems[eKey] = { name: ev.name, code: ev.code || "", count: 0, isComposition: true };
-                    }
-                    compositionItems[eKey].count++;
-                }
-            } else {
-                // я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬- - я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-
-                if (!fittings[info.name]) {
-                    fittings[info.name] = { name: info.name, code: info.code, count: 0 };
-                }
-                fittings[info.name].count++;
-            }
-        }
-
-        if (obj instanceof TFurnAsm) {
-            fastenersCount++;
-            var name = obj.Name || "Unknown assembly";
-            var info = splitName(name);
-
-            if (!fittings[info.name]) {
-                fittings[info.name] = { name: info.name, code: info.code, count: 0 };
-            }
-            fittings[info.name].count++;
-        }
-    } catch (e) {}
-
-    try {
-        if (obj instanceof TDraftBlock) return; // ¦¬¦-¦¬TГTД¦-¦-TА¦¬¦¦¦-TВ: TВ¦-¦¬TМ¦¦¦- TБ¦-¦-, ¦-¦¦¦¬ ¦-¦-TЦTБTВTГ
-        if (obj.List) {
-            var childList = obj.AsList();
-            if (childList) {
-                for (var i = 0; i < childList.Count; i++) {
-                    var child = childList.Objects[i];
-                    if (child) scanObject(child);
-                }
-            }
-        }
-    } catch (e) {}
-}
-
-try {
-    var model = Model;
-    if (model) {
-        for (var i = 0; i < model.Count; i++) {
-            var obj = model.Objects[i];
-            if (obj) scanObject(obj);
-        }
-    }
-} catch (e) {
-    alert("SCAN ERROR: " + e.message);
-    Action.Finish();
-}
-
-// я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬- я¬- я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬- я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-я¬-
-var compKeys = Object.keys(compositionItems);
-for (var ci = 0; ci < compKeys.length; ci++) {
-    var compObj = compositionItems[compKeys[ci]];
-    if (!fittings[compObj.name]) {
-        fittings[compObj.name] = compObj;
-    } else {
-        fittings[compObj.name].count = (fittings[compObj.name].count || 0) + compObj.count;
-        if (compObj.code && !fittings[compObj.name].code) fittings[compObj.name].code = compObj.code;
-    }
-}
-
-// Dialog on start: "Open OBI" (save + launch app) or "Save" (save JSON only).
-// JSON is written NEXT TO THE MODEL (<model dir>\<Article.Name>.json).
-// Fallback (model never saved to disk): scriptDir\data\projects\<name>.json.
-
-function getOrderShortName() {
-    if (typeof Article !== "undefined" && Article && Article.OrderName) {
-        return String(Article.OrderName);
-    }
-    return getOrderName();
-}
-
-function toEdgeArray(edgesObj) {
-    return Object.values(edgesObj);
-}
-
-// --- Model file path (Bazis API: Action.ModelFilename / Action.Control.Owner.FileName) ---
-function getModelFullPath() {
-    try {
-        if (typeof system !== "undefined" && system && system.apiVersion < 1000) {
-            var fn = Action.Control.Owner.FileName;
-            if (fn) return String(fn);
-        }
-    } catch (e) {}
-    try {
-        if (typeof Action !== "undefined" && Action.ModelFilename) return String(Action.ModelFilename);
-    } catch (e2) {}
-    return "";
-}
-
-function getModelDir() {
-    var p = getModelFullPath();
-    var i = p.lastIndexOf("\\");
-    return (i > -1) ? p.substring(0, i) : "";
-}
-
-function getModelBaseName() {
-    var p = getModelFullPath();
-    var i = p.lastIndexOf("\\");
-    var f = (i > -1) ? p.substring(i + 1) : p;
-    var j = f.lastIndexOf(".");
-    return (j > 0) ? f.substring(0, j) : f;
-}
-
-var MODEL_DIR = getModelDir();
-var MODEL_BASE = getModelBaseName();
-
-// ============ TEXTURE EXTRACTION FROM BAZIS SETTINGS ============
-// Bazis stores texture directory in %APPDATA%\Bazis\Settings.xml (cp1251) under
-// <PathTEXTUR>C:\path\to\textures\</PathTEXTUR>. Material objects expose a relative
-// texture path via .Path (e.g. "Kashtan\¦Ы¦Ф¦б¦Я\¦ФTГ¦- ¦¦¦-¦-TО¦- ¦¦TА¦-TДTВ.jpg" or "#EGGER\F1861.jpg").
-// We read the file (PNG/JPG/BMP, cap 2 MB) and embed it as a base64 data URI in JSON.
-
-function getBazisTextureDir() {
-    try {
-        var appdata = process.env.APPDATA || "";
-        if (!appdata) return "";
-        var settingsPath = appdata + "\\Bazis\\Settings.xml";
-        var fs = require("fs");
-        var raw = fs.readFileSync(settingsPath, { encoding: "cp1251" });
-        // Try PathTEXTUR and PathTEXTURE (older Bazis variants)
-        var m = raw.match(/<Path(?:TEXTUR|TEXTURE)[^>]*>([^<]*)<\/Path(?:TEXTUR|TEXTURE)>/i);
-        if (m && m[1]) {
-            return m[1].replace(/&amp;/g, "&").replace(/[\\/]+$/, "").trim();
-        }
-    } catch (e) {}
-    return "";
-}
-
-function resolveTexturePath(relativePath, baseDir) {
-    if (!relativePath || !baseDir) return "";
-    var p = String(relativePath).replace(/\//g, "\\");
-    // Normalize backslashes; collapse leading ones (UNC paths) but keep absolute
-    while (p.indexOf("\\\\") !== -1) p = p.replace(/\\\\/g, "\\");
-    var full;
-    if (/^[A-Za-z]:\\/.test(p)) full = p;
-    else full = baseDir + "\\" + p;
-    try {
-        var fs = require("fs");
-        if (fs.existsSync(full)) return full;
-    } catch (e) {}
-    return "";
-}
-
-function encodeTextureAsDataUri(absPath) {
-    try {
-        var fs = require("fs");
-        var stat = fs.statSync(absPath);
-        var MAX_TEX_SIZE = 2 * 1024 * 1024;
-        if (stat.size > MAX_TEX_SIZE) return null;
-        var buf = fs.readFileSync(absPath);
-        var dotIdx = absPath.lastIndexOf(".");
-        var ext = (dotIdx >= 0) ? absPath.substring(dotIdx + 1).toLowerCase() : "";
-        var mime;
-        if (ext === "jpg" || ext === "jpeg") mime = "image/jpeg";
-        else if (ext === "png") mime = "image/png";
-        else if (ext === "bmp") mime = "image/bmp";
-        else mime = "application/octet-stream";
-        return "data:" + mime + ";base64," + buf.toString("base64");
-    } catch (e) {
-        return null;
-    }
-}
-
-function applyTexturesToMaterials(mats, baseDir) {
-    var stats = { embedded: 0, missing: 0, oversized: 0, skipped: 0 };
-    if (!baseDir) return stats;
-    var fs = require("fs");
-    var matsArr = Object.values(mats);
-    for (var i = 0; i < matsArr.length; i++) {
-        var m = matsArr[i];
-        if (!m.texturePath) continue;
-        if (m.textureUseColor === true) continue; // solid color, no texture
-        var abs = resolveTexturePath(m.texturePath, baseDir);
-        if (!abs) { stats.missing++; continue; }
-        var data = encodeTextureAsDataUri(abs);
-        if (data === null) { stats.oversized++; continue; }
-        m.textureData = data;
-        stats.embedded++;
-    }
-    return stats;
-}
-
-var TEX_BASE_DIR = getBazisTextureDir();
-var TEX_STATS = applyTexturesToMaterials(materials, TEX_BASE_DIR);
-
-var jsonData = {
-    date: new Date().toString(),
-    name: getOrderName(),
-    orderName: getOrderShortName(),
-    modelFile: MODEL_BASE,
-    totalObjects: totalObjects,
-    panelsCount: panelsCount,
-    profilesCount: profilesCount,
-    fastenersCount: fastenersCount,
-    materials: Object.values(materials).map(function (m) {
-        var out = {
-            name: m.name,
-            code: m.code,
-            thickness: m.thickness,
-            count: m.count,
-            edges: toEdgeArray(m.edges),
-            details: m.details
-        };
-        if (m.texturePath) out.texturePath = m.texturePath;
-        if (m.textureData) out.textureData = m.textureData;
-        if (m.textureUseColor !== undefined) out.textureUseColor = m.textureUseColor;
-        if (m.color !== undefined) out.color = m.color;
-        if (m.texStepX !== undefined) out.texStepX = m.texStepX;
-        if (m.texStepY !== undefined) out.texStepY = m.texStepY;
-        if (m.texOffsetX !== undefined) out.texOffsetX = m.texOffsetX;
-        if (m.texOffsetY !== undefined) out.texOffsetY = m.texOffsetY;
-        if (m.texAngle !== undefined) out.texAngle = m.texAngle;
-        if (m.texMirror !== undefined) out.texMirror = m.texMirror;
-        if (m.texStretch !== undefined) out.texStretch = m.texStretch;
-        return out;
-    }),
-    profiles: Object.values(profiles).map(function (p) {
-        return {
-            name: p.name,
-            code: p.code,
-            material: p.material,
-            details: Object.values(p.details)
-        };
-    }),
-    fittings: Object.values(fittings)
-};
-
-var jsonString = JSON.stringify(jsonData, null, 2);
-
-// Texture extraction summary (logged to console; surfaces in Bazis journal).
-try {
-    console.log("OBI: textures embedded=" + TEX_STATS.embedded
-        + " missing=" + TEX_STATS.missing
-        + " oversized=" + TEX_STATS.oversized
-        + " baseDir=" + (TEX_BASE_DIR || "(none)"));
-} catch (eLog) {}
-
-// --- Paths / exe search ---
-var scriptDir = "";
-if (typeof __dirname !== "undefined" && __dirname) {
-    scriptDir = __dirname;
-} else if (typeof __filename !== "undefined" && __filename) {
-    scriptDir = __filename.substring(0, __filename.lastIndexOf("\\"));
-} else if (typeof process !== "undefined" && process.cwd && process.cwd()) {
-    scriptDir = process.cwd();
-}
-
-function hasFile(p) {
-    try {
-        var fs = require('fs');
-        return fs.existsSync(p);
-    } catch (e) { return false; }
-}
-
-function parentDir(dir) {
-    var i = dir.lastIndexOf("\\");
-    return (i > -1) ? dir.substring(0, i) : "";
-}
-
-function findExePath(startDir) {
-    if (startDir) {
-        var near = startDir + "\\OBI.exe";
-        if (hasFile(near)) return near;
-    }
-    try {
-        var fs = require('fs');
-        if (startDir) {
-            var cfg = startDir + "\\data\\exe_path.txt";
-            if (fs.existsSync(cfg)) {
-                var saved = fs.readFileSync(cfg, 'utf-8').trim();
-                if (saved && hasFile(saved)) return saved;
-            }
-        }
-    } catch (e) {}
-    if (startDir) {
-        var devPaths = [
-            startDir + "\\dist\\OBI.exe",
-            startDir + "\\dist\\release\\OBI.exe"
-        ];
-        for (var di = 0; di < devPaths.length; di++) {
-            if (hasFile(devPaths[di])) return devPaths[di];
-        }
-    }
-    var walk = [];
-    var cur = startDir;
-    for (var i = 0; i < 4 && cur; i++) {
-        cur = parentDir(cur);
-        if (cur) walk.push(cur);
-    }
-    if (typeof process !== "undefined" && process.cwd && process.cwd()) {
-        walk.push(process.cwd());
-    }
-    for (var j = 0; j < walk.length; j++) {
-        var p1 = walk[j] + "\\OBI.exe";
-        if (hasFile(p1)) return p1;
-        var p2 = walk[j] + "\\dist\\OBI.exe";
-        if (hasFile(p2)) return p2;
-    }
-    return "";
-}
-
-function askExePath(startDir) {
-    try {
-        if (!(typeof UI !== "undefined" && UI && UI.dialogs && UI.dialogs.RunOpenFileDialog)) return "";
-        var dp = { extensions: ['exe'], initialDir: startDir || "", title: "\u0423\u043A\u0430\u0436\u0456\u0442\u044C OBI.exe" };
-        var chosen = UI.dialogs.RunOpenFileDialog(dp);
-        if (!chosen || !hasFile(chosen)) return "";
-        try {
-            var fs = require('fs');
-            if (startDir) {
-                if (!fs.existsSync(startDir + "\\data")) fs.mkdirSync(startDir + "\\data");
-                fs.writeFileSync(startDir + "\\data\\exe_path.txt", chosen, 'utf-8');
-            }
-        } catch (e) {}
-        return chosen;
-    } catch (e) { return ""; }
-}
-
-function ensureDir(dir) {
-    try {
-        var fs = require('fs');
-        if (!dir || fs.existsSync(dir)) return true;
-        var p = parentDir(dir);
-        if (p && p !== dir) ensureDir(p);
-        fs.mkdirSync(dir);
-        return true;
-    } catch (e) { return false; }
-}
-
-// --- JSON target: next to the model (fallback: script data\projects) ---
-function targetJsonPath() {
-    var name = sanitizeFilename(getOrderName());
-    if (MODEL_DIR) {
-        var base = name ? name : (MODEL_BASE ? MODEL_BASE : "db");
-        return MODEL_DIR + "\\" + base + ".json";
-    }
-    var fbDir = (scriptDir || ".") + "\\data\\projects";
-    return fbDir + "\\" + (name ? name : "db") + ".json";
-}
-
-function saveJsonNextToModel() {
-    var fs = require('fs');
-    var p = targetJsonPath();
-    ensureDir(parentDir(p));
-    fs.writeFileSync(p, jsonString, 'utf-8');
-    return p;
-}
-
-function launchExe(projectJsonPath) {
-    var EXE_PATH = findExePath(scriptDir);
-    if (!EXE_PATH) EXE_PATH = askExePath(scriptDir);
-    if (!EXE_PATH) {
-        alert("OBI.exe \u043D\u0435 \u0437\u043D\u0430\u0439\u0434\u0435\u043D\u043E.\n\u0414\u0430\u043D\u0456 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E: " + projectJsonPath);
-        return;
-    }
-    try {
-        var cps = require('child_process');
-        var spawnArgs = ["--project", require('path').resolve(projectJsonPath)];
-        var child = cps.spawn(EXE_PATH, spawnArgs, { detached: true, stdio: 'ignore', windowsHide: true });
-        child.on('error', function (err) {
-            alert("\u041F\u043e\u043c\u0438\u043b\u043a\u0430 \u0437\u0430\u043f\u0443\u0441\u043a\u0443: " + (err.message || err));
-        });
-        if (child.unref) child.unref();
-    } catch (e) {
-        alert("\u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0437\u0430\u043f\u0443\u0441\u043a\u0443: " + e.message);
-    }
-}
-
-// "Open OBI" button: write JSON + launch OBI.exe with --project.
-function saveAndOpen() {
-    try {
-        var p = saveJsonNextToModel();
-        launchExe(p);
-    } catch (e) {
-        alert("Помилка збереження: " + e.message);
-    }
-}
-
-// "Створити файли" button: write JSON + run ViyarPro engine for all materials.
-// ViyarExport is set by the vp_engine IIFE inlined below.
-function saveAndCreateFiles() {
-    try {
-        var jsonPath = saveJsonNextToModel();
-        // Derive the directory / basename for .project output the same way
-        // targetJsonPath() does (model folder if available, else scriptDir fallback).
-        var viyarDir = MODEL_DIR;
-        if (!viyarDir) {
-            var fbDir = (scriptDir || ".") + "\\data\\projects";
-            ensureDir(fbDir);
-            viyarDir = fbDir;
-        }
-        var viyarBase = sanitizeFilename(getOrderName()) || MODEL_BASE || "project";
-        var result = ViyarExport.exportProjects(viyarDir, viyarBase, {});
-        var lines = [];
-        lines.push("Файл JSON збережено: " + jsonPath);
-        lines.push("");
-        lines.push("ViyarPro: вивантажено " + result.totals + " матеріал(ів), "
-            + result.furnsCount + " фурнітури.");
-        for (var i = 0; i < result.files.length; i++) {
-            var f = result.files[i];
-            lines.push("  " + f.path + "  (" + f.panels + " дет.)");
-        }
-        if (result.skipped && result.skipped.length > 0) {
-            lines.push("Пропущено (без деталей): " + result.skipped.length
-                + " — " + result.skipped.join(", "));
-        }
-        alert(lines.join("\n"));
-    } catch (e) {
-        alert("Помилка Створити файли: " + (e.message || e));
-    }
-}
-
-// ============================================================================
-// === INLINE ViyarPro engine (copied verbatim from src/vp_engine.js) ===
-//
-// Engine from viyarpro3 (v5.10). Exposed via globalThis.ViyarExport
-// (exportProjects(dir, base, opts)). Called by saveAndCreateFiles() when
-// the user clicks the "Створити файли" button. The IIFE wraps everything
-// so its locals (materials, panels, butts, furns, globalHoles, helpers)
-// do not collide with OBI.js outer scope.
-// ============================================================================
-
 // ============================================================================
 // vp_engine.js - ViyarPro export engine, callable from Bazis scripts.
 //
@@ -801,23 +18,23 @@ var SCRIPT_VERSION = "5.10";
 
 (function () {
 
-const PROGRAM_NAME = 'БазисСкрипт';
+const PROGRAM_NAME = 'Р‘Р°Р·РёСЃРЎРєСЂРёРїС‚';
 const SCRIPT_VERSION = '5.10';
 const OBJ_TREE_FILE_NAME = 'ObjTree.js';
 const NOTEPAD_DEFAULT_PATH = 'C:/Windows/notepad.exe';
-const PROPERTIES_FILE = 'Экспорт проекта ViyarPro.xml';
-const PATH_FILE = 'Экспорт проекта ViyarPro.path';
-const VIYAR_PRO_PROJECT_FILE = 'Файл проекта ViyarPro: ';
+const PROPERTIES_FILE = 'Р­РєСЃРїРѕСЂС‚ РїСЂРѕРµРєС‚Р° ViyarPro.xml';
+const PATH_FILE = 'Р­РєСЃРїРѕСЂС‚ РїСЂРѕРµРєС‚Р° ViyarPro.path';
+const VIYAR_PRO_PROJECT_FILE = 'Р¤Р°Р№Р» РїСЂРѕРµРєС‚Р° ViyarPro: ';
 const PASSWORD = 'c928f7180e21ff8eae69f0b039d5279e90fa68607851d1a3835b8de2b739dba7';
 
-const POSITION_NAME_FORMAT = 'Позиция.Наименование';
-const DESIGNATION_NAME_FORMAT = 'Обозначение.Наименование';
-const ORDER_POSITION_NAME_FORMAT = 'Заказ.Позиция.Наименование';
-const ORDER_DESIGNATION_NAME_FORMAT = 'Заказ.Обозначение.Наименование';
-const NAME_FORMAT = 'Наименование';
+const POSITION_NAME_FORMAT = 'РџРѕР·РёС†РёСЏ.РќР°РёРјРµРЅРѕРІР°РЅРёРµ';
+const DESIGNATION_NAME_FORMAT = 'РћР±РѕР·РЅР°С‡РµРЅРёРµ.РќР°РёРјРµРЅРѕРІР°РЅРёРµ';
+const ORDER_POSITION_NAME_FORMAT = 'Р—Р°РєР°Р·.РџРѕР·РёС†РёСЏ.РќР°РёРјРµРЅРѕРІР°РЅРёРµ';
+const ORDER_DESIGNATION_NAME_FORMAT = 'Р—Р°РєР°Р·.РћР±РѕР·РЅР°С‡РµРЅРёРµ.РќР°РёРјРµРЅРѕРІР°РЅРёРµ';
+const NAME_FORMAT = 'РќР°РёРјРµРЅРѕРІР°РЅРёРµ';
 
-const DRAFT_BLOCK_METHOD = 'Блок';
-const DRAFT_ASM_METHOD = 'Сборка';
+const DRAFT_BLOCK_METHOD = 'Р‘Р»РѕРє';
+const DRAFT_ASM_METHOD = 'РЎР±РѕСЂРєР°';
 const DRAFT_METHOD_LIST = DRAFT_BLOCK_METHOD + '\n' + DRAFT_ASM_METHOD;
 
 const ELEM_LINE_TYPE = 1;
@@ -1074,7 +291,7 @@ function Panel(modelPanel) {
 		  if ((lowZ + globalHole.depth + MIN_HOLE_WALL) < highZ) {
 			globalHole.passed = true;
 			if (globalHole.mode == HOLE_THRU_TYPE) {
-			  thruDrillBlindLog += globalHole.modelFastener.Name + ', поз. ' + globalHole.modelFastener.ArtPos + ';\r\n';
+			  thruDrillBlindLog += globalHole.modelFastener.Name + ', РїРѕР·. ' + globalHole.modelFastener.ArtPos + ';\r\n';
 			  globalHole.modelFastener.Selected = true;
 			}
 			if (globalHole.cutType == false) {
@@ -1092,7 +309,7 @@ function Panel(modelPanel) {
 			  globalHole.passed = true;
 			}
 			if (globalHole.mode == HOLE_BLIND_TYPE) {
-			  blindDrillThruLog += globalHole.modelFastener.Name + ', поз. ' + globalHole.modelFastener.ArtPos + ';\r\n';
+			  blindDrillThruLog += globalHole.modelFastener.Name + ', РїРѕР·. ' + globalHole.modelFastener.ArtPos + ';\r\n';
 			  globalHole.modelFastener.Selected = true;
 			}
 			else {
@@ -1112,7 +329,7 @@ function Panel(modelPanel) {
 		  if ((globalHole.depth + MIN_HOLE_WALL) < thicknessZ) {
 			globalHole.passed = true;
 			if (globalHole.mode == HOLE_THRU_TYPE) {
-			  thruDrillBlindLog += globalHole.modelFastener.Name + ', поз. ' + globalHole.modelFastener.ArtPos + ';\r\n';
+			  thruDrillBlindLog += globalHole.modelFastener.Name + ', РїРѕР·. ' + globalHole.modelFastener.ArtPos + ';\r\n';
 			  globalHole.modelFastener.Selected = true;
 			}
 			if (globalHole.cutType == false) {
@@ -1130,7 +347,7 @@ function Panel(modelPanel) {
 			  globalHole.passed = true;
 			}
 			if (globalHole.mode == HOLE_BLIND_TYPE) {
-			  blindDrillThruLog += globalHole.modelFastener.Name + ', поз. ' + globalHole.modelFastener.ArtPos + ';\r\n';
+			  blindDrillThruLog += globalHole.modelFastener.Name + ', РїРѕР·. ' + globalHole.modelFastener.ArtPos + ';\r\n';
 			  globalHole.modelFastener.Selected = true;
 			}
 			else {
@@ -1149,7 +366,7 @@ function Panel(modelPanel) {
 		else if ((holePos.z < lowZ) && cmpr(holeDir.z, 1)) {
 		  if ((holeEndPos.z + MIN_HOLE_WALL) >= highZ) {
 			if (globalHole.mode == HOLE_BLIND_TYPE) {
-			  blindDrillThruLog += globalHole.modelFastener.Name + ', поз. ' + globalHole.modelFastener.ArtPos + ';\r\n';
+			  blindDrillThruLog += globalHole.modelFastener.Name + ', РїРѕР·. ' + globalHole.modelFastener.ArtPos + ';\r\n';
 			  globalHole.modelFastener.Selected = true;
 			}
 			else {
@@ -1166,7 +383,7 @@ function Panel(modelPanel) {
 		  }
 		  else if ((holeEndPos.z - lowZ) > MIN_HOLE_DEPTH) {
 			if (globalHole.mode == HOLE_THRU_TYPE) {
-			  thruDrillBlindLog += globalHole.modelFastener.Name + ', поз. ' + globalHole.modelFastener.ArtPos + ';\r\n';
+			  thruDrillBlindLog += globalHole.modelFastener.Name + ', РїРѕР·. ' + globalHole.modelFastener.ArtPos + ';\r\n';
 			  globalHole.modelFastener.Selected = true;
 			}
 			if (globalHole.cutType == false) {
@@ -1183,7 +400,7 @@ function Panel(modelPanel) {
 		else if ((holePos.z > highZ) && cmpr(holeDir.z, -1)) {
 		  if (holeEndPos.z <= (lowZ + MIN_HOLE_WALL)) {
 			if (globalHole.mode == HOLE_BLIND_TYPE) {
-			  blindDrillThruLog += globalHole.modelFastener.Name + ', поз. ' + globalHole.modelFastener.ArtPos + ';\r\n';
+			  blindDrillThruLog += globalHole.modelFastener.Name + ', РїРѕР·. ' + globalHole.modelFastener.ArtPos + ';\r\n';
 			  globalHole.modelFastener.Selected = true;
 			}
 			else {
@@ -1200,7 +417,7 @@ function Panel(modelPanel) {
 		  }
 		  else if ((holeEndPos.z + MIN_HOLE_DEPTH) < highZ) {
 			if (globalHole.mode == HOLE_THRU_TYPE) {
-			  thruDrillBlindLog += globalHole.modelFastener.Name + ', поз. ' + globalHole.modelFastener.ArtPos + ';\r\n';
+			  thruDrillBlindLog += globalHole.modelFastener.Name + ', РїРѕР·. ' + globalHole.modelFastener.ArtPos + ';\r\n';
 			  globalHole.modelFastener.Selected = true;
 			}
 			if (globalHole.cutType == false) {
@@ -1217,7 +434,7 @@ function Panel(modelPanel) {
 		else if (((cmpr(holeEndPos.z, lowZ) && cmpr(holeDir.z, -1)) || (cmpr(holeEndPos.z, highZ) && cmpr(holeDir.z, 1))) &&
 		((globalHole.depth + MIN_HOLE_WALL) < thicknessZ)) {
 		  globalHole.passed = true;
-		  drillStartAtDepthLog += globalHole.modelFastener.Name + ', поз. ' + globalHole.modelFastener.ArtPos + ';\r\n';
+		  drillStartAtDepthLog += globalHole.modelFastener.Name + ', РїРѕР·. ' + globalHole.modelFastener.ArtPos + ';\r\n';
 		  globalHole.modelFastener.Selected = true;
 		}
 	  }
@@ -1257,7 +474,7 @@ function Panel(modelPanel) {
 			  holes.push(new Hole(holePosX, holePosY, holePos.z - lowZ, 0, 1, 0, globalHole.diameter, HOLE_BLIND_TYPE, holeDepth));
 			}
 			else {
-			  drillExportLog += globalHole.modelFastener.Name + ', поз. ' + globalHole.modelFastener.ArtPos + ';\r\n';
+			  drillExportLog += globalHole.modelFastener.Name + ', РїРѕР·. ' + globalHole.modelFastener.ArtPos + ';\r\n';
 			  globalHole.modelFastener.Selected = true;
 			}
 			if (cmpr(distanceToHolePos, 0)) {
@@ -1275,7 +492,7 @@ function Panel(modelPanel) {
 		  var distanceToHolePos = orderedElem.DistanceToPoint(holePos);
 		  var distanceToHoleEndPos = orderedElem.DistanceToPoint(holeEndPos);
 		  if ((orderedElem.IsIntersected(holeAxis[0]) || cmpr(distanceToHolePos, 0)) && (distanceToHoleEndPos > MIN_HOLE_DEPTH)) {
-			drillExportLog += globalHole.modelFastener.Name + ', поз. ' + globalHole.modelFastener.ArtPos + ';\r\n';
+			drillExportLog += globalHole.modelFastener.Name + ', РїРѕР·. ' + globalHole.modelFastener.ArtPos + ';\r\n';
 			globalHole.modelFastener.Selected = true;
 		  }
 		}
@@ -1756,13 +973,13 @@ function Material(nameCode, thickness) {
   var arr = splitNameCode(nameCode);
   var name = arr[0];
   var multiplicity = 1;
-  if ((name.search(/сращ.\(3\)/i) != -1) || (name.search(/cращ.\(3\)/i) != -1)) {
-	name = name.replace(/сращ.\(3\)/i, '').replace(/cращ.\(3\)/i, '');
+  if ((name.search(/СЃСЂР°С‰.\(3\)/i) != -1) || (name.search(/cСЂР°С‰.\(3\)/i) != -1)) {
+	name = name.replace(/СЃСЂР°С‰.\(3\)/i, '').replace(/cСЂР°С‰.\(3\)/i, '');
 	name = name.trim();
 	multiplicity = 3;
   }
-  else if ((name.search(/сращ.\(2\)/i) != -1) || (name.search(/cращ.\(2\)/i) != -1)) {
-	name = name.replace(/сращ.\(2\)/i, '').replace(/cращ.\(2\)/i, '');
+  else if ((name.search(/СЃСЂР°С‰.\(2\)/i) != -1) || (name.search(/cСЂР°С‰.\(2\)/i) != -1)) {
+	name = name.replace(/СЃСЂР°С‰.\(2\)/i, '').replace(/cСЂР°С‰.\(2\)/i, '');
 	name = name.trim();
 	multiplicity = 2;
   }
@@ -1802,20 +1019,20 @@ function exportViyarPro() {
   clearReport();
   Model.UnHighlightAll();
 
-  // Loop over materials — for each, set materialIndex and call readModel()
+  // Loop over materials вЂ” for each, set materialIndex and call readModel()
   // to collect this material's panels + butts, build XML, write file.
   var exportedFiles = [];
   var skippedMaterials = [];
   for (var mi = 0; mi < materials.length; mi++) {
     materialIndex = mi;
-    Action.Hint = 'Експорт матеріалу ' + (mi + 1) + '/' + materials.length
+    Action.Hint = 'Р•РєСЃРїРѕСЂС‚ РјР°С‚РµСЂС–Р°Р»Сѓ ' + (mi + 1) + '/' + materials.length
       + ' (' + materials[mi].name + ')...';
     if (!readModel()) {
-      // user aborted — stop the whole run
+      // user aborted вЂ” stop the whole run
       return false;
     }
     if (panels.length == 0) {
-      // No panels for this material — skip silently.
+      // No panels for this material вЂ” skip silently.
       skippedMaterials.push(materials[mi].name);
       continue;
     }
@@ -1831,7 +1048,7 @@ function exportViyarPro() {
       system.writeTextFile(fileName, xml);
     }
     catch (e) {
-      alert('Не вдається зберегти файл:\n' + fileName);
+      alert('РќРµ РІРґР°С”С‚СЊСЃСЏ Р·Р±РµСЂРµРіС‚Рё С„Р°Р№Р»:\n' + fileName);
       return false;
     }
     exportedFiles.push({
@@ -1844,10 +1061,10 @@ function exportViyarPro() {
 
   if (exportedFiles.length == 0) {
     if (skippedMaterials.length > 0) {
-      alert('Експортованих деталей не знайдено для жодного з '
-        + materials.length + ' матеріалів.');
+      alert('Р•РєСЃРїРѕСЂС‚РѕРІР°РЅРёС… РґРµС‚Р°Р»РµР№ РЅРµ Р·РЅР°Р№РґРµРЅРѕ РґР»СЏ Р¶РѕРґРЅРѕРіРѕ Р· '
+        + materials.length + ' РјР°С‚РµСЂС–Р°Р»С–РІ.');
     } else {
-      alert('Немає матеріалів для експорту.');
+      alert('РќРµРјР°С” РјР°С‚РµСЂС–Р°Р»С–РІ РґР»СЏ РµРєСЃРїРѕСЂС‚Сѓ.');
     }
     return false;
   }
@@ -1860,24 +1077,24 @@ function exportViyarPro() {
 // Build an alert-friendly summary of the multi-material run.
 function reportExportSummary(files, skipped) {
   var lines = [];
-  lines.push('Експорт у ViyarPro v27 завершено!');
+  lines.push('Р•РєСЃРїРѕСЂС‚ Сѓ ViyarPro v27 Р·Р°РІРµСЂС€РµРЅРѕ!');
   lines.push('');
-  lines.push('Матеріалів (файлів): ' + files.length);
+  lines.push('РњР°С‚РµСЂС–Р°Р»С–РІ (С„Р°Р№Р»С–РІ): ' + files.length);
   var totalPanels = 0;
   for (var i = 0; i < files.length; i++) totalPanels += files[i].panels;
-  lines.push('Деталей: ' + totalPanels);
+  lines.push('Р”РµС‚Р°Р»РµР№: ' + totalPanels);
   if (files[0] && typeof files[0].furns == 'number' && files[0].furns > 0) {
-    lines.push('Фурнітура: ' + files[0].furns + ' (у кожному файлі)');
+    lines.push('Р¤СѓСЂРЅС–С‚СѓСЂР°: ' + files[0].furns + ' (Сѓ РєРѕР¶РЅРѕРјСѓ С„Р°Р№Р»С–)');
   }
   if (skipped && skipped.length > 0) {
-    lines.push('Пропущено (без деталей): ' + skipped.length
-      + ' — ' + skipped.join(', '));
+    lines.push('РџСЂРѕРїСѓС‰РµРЅРѕ (Р±РµР· РґРµС‚Р°Р»РµР№): ' + skipped.length
+      + ' вЂ” ' + skipped.join(', '));
   }
   lines.push('');
-  lines.push('Згенеровані файли:');
+  lines.push('Р—РіРµРЅРµСЂРѕРІР°РЅС– С„Р°Р№Р»Рё:');
   for (var j = 0; j < files.length; j++) {
     var f = files[j];
-    lines.push('  ' + f.path + '  (' + f.panels + ' дет.)');
+    lines.push('  ' + f.path + '  (' + f.panels + ' РґРµС‚.)');
   }
   alert(lines.join('\n'));
 }
@@ -1896,37 +1113,37 @@ function clearReport() {
 }
 
 function report() {
-  var log = 'В ViyarPro необходимо:\r\n';
-  log +='- проверить проект на соответствие технологическим ограничениям;\r\n' + '\r\n';
+  var log = 'Р’ ViyarPro РЅРµРѕР±С…РѕРґРёРјРѕ:\r\n';
+  log +='- РїСЂРѕРІРµСЂРёС‚СЊ РїСЂРѕРµРєС‚ РЅР° СЃРѕРѕС‚РІРµС‚СЃС‚РІРёРµ С‚РµС…РЅРѕР»РѕРіРёС‡РµСЃРєРёРј РѕРіСЂР°РЅРёС‡РµРЅРёСЏРј;\r\n' + '\r\n';
   if (contourLog != '') {
-	log += '- дополнить чертежами или добавить обработки контура деталей:\r\n' + contourLog + '\r\n';
+	log += '- РґРѕРїРѕР»РЅРёС‚СЊ С‡РµСЂС‚РµР¶Р°РјРё РёР»Рё РґРѕР±Р°РІРёС‚СЊ РѕР±СЂР°Р±РѕС‚РєРё РєРѕРЅС‚СѓСЂР° РґРµС‚Р°Р»РµР№:\r\n' + contourLog + '\r\n';
   }
   if (grooveLog != '') {
-	log += '- проверить экспорт следующих пазов:\r\n' + grooveLog + '\r\n';
+	log += '- РїСЂРѕРІРµСЂРёС‚СЊ СЌРєСЃРїРѕСЂС‚ СЃР»РµРґСѓСЋС‰РёС… РїР°Р·РѕРІ:\r\n' + grooveLog + '\r\n';
   }
   if (coordsLog != '') {
-	log += '- проверить координаты сверления и пазов деталей:\r\n' + coordsLog + '\r\n';
+	log += '- РїСЂРѕРІРµСЂРёС‚СЊ РєРѕРѕСЂРґРёРЅР°С‚С‹ СЃРІРµСЂР»РµРЅРёСЏ Рё РїР°Р·РѕРІ РґРµС‚Р°Р»РµР№:\r\n' + coordsLog + '\r\n';
   }
   if (cutoutLog != '') {
-	log += '- проверить экспорт следующих выемок:\r\n' + cutoutLog + '\r\n';
+	log += '- РїСЂРѕРІРµСЂРёС‚СЊ СЌРєСЃРїРѕСЂС‚ СЃР»РµРґСѓСЋС‰РёС… РІС‹РµРјРѕРє:\r\n' + cutoutLog + '\r\n';
   }
   if (blindDrillThruLog != '') {
-	log += '- отверстие глухого типа образует сквозное отверстие в детали. Отверстие перенесено не будет, проверьте установку фурнитуры:\r\n' + blindDrillThruLog + '\r\n';
+	log += '- РѕС‚РІРµСЂСЃС‚РёРµ РіР»СѓС…РѕРіРѕ С‚РёРїР° РѕР±СЂР°Р·СѓРµС‚ СЃРєРІРѕР·РЅРѕРµ РѕС‚РІРµСЂСЃС‚РёРµ РІ РґРµС‚Р°Р»Рё. РћС‚РІРµСЂСЃС‚РёРµ РїРµСЂРµРЅРµСЃРµРЅРѕ РЅРµ Р±СѓРґРµС‚, РїСЂРѕРІРµСЂСЊС‚Рµ СѓСЃС‚Р°РЅРѕРІРєСѓ С„СѓСЂРЅРёС‚СѓСЂС‹:\r\n' + blindDrillThruLog + '\r\n';
   }
   if (thruDrillBlindLog != '') {
-	log += '- отверстие сквозного типа образует глухое отверстие в детали. Проверьте установку фурнитуры:\r\n' + thruDrillBlindLog + '\r\n';
+	log += '- РѕС‚РІРµСЂСЃС‚РёРµ СЃРєРІРѕР·РЅРѕРіРѕ С‚РёРїР° РѕР±СЂР°Р·СѓРµС‚ РіР»СѓС…РѕРµ РѕС‚РІРµСЂСЃС‚РёРµ РІ РґРµС‚Р°Р»Рё. РџСЂРѕРІРµСЂСЊС‚Рµ СѓСЃС‚Р°РЅРѕРІРєСѓ С„СѓСЂРЅРёС‚СѓСЂС‹:\r\n' + thruDrillBlindLog + '\r\n';
   }
   if (drillStartAtDepthLog != '') {
-	log += '- начало отверстия находится в теле детали. Отверстие перенесено не будет, проверьте установку фурнитуры:\r\n' + drillStartAtDepthLog + '\r\n';
+	log += '- РЅР°С‡Р°Р»Рѕ РѕС‚РІРµСЂСЃС‚РёСЏ РЅР°С…РѕРґРёС‚СЃСЏ РІ С‚РµР»Рµ РґРµС‚Р°Р»Рё. РћС‚РІРµСЂСЃС‚РёРµ РїРµСЂРµРЅРµСЃРµРЅРѕ РЅРµ Р±СѓРґРµС‚, РїСЂРѕРІРµСЂСЊС‚Рµ СѓСЃС‚Р°РЅРѕРІРєСѓ С„СѓСЂРЅРёС‚СѓСЂС‹:\r\n' + drillStartAtDepthLog + '\r\n';
   }
   if (drillExportLog != '') {
-	log += '- отверстие перенесено не будет, проверьте установку фурнитуры:\r\n' + drillExportLog + '\r\n';
+	log += '- РѕС‚РІРµСЂСЃС‚РёРµ РїРµСЂРµРЅРµСЃРµРЅРѕ РЅРµ Р±СѓРґРµС‚, РїСЂРѕРІРµСЂСЊС‚Рµ СѓСЃС‚Р°РЅРѕРІРєСѓ С„СѓСЂРЅРёС‚СѓСЂС‹:\r\n' + drillExportLog + '\r\n';
   }
   if (clippingLog != '') {
-	log += '- следующие детали экспортированы с подрезкой:\r\n' + clippingLog + '\r\n';
+	log += '- СЃР»РµРґСѓСЋС‰РёРµ РґРµС‚Р°Р»Рё СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°РЅС‹ СЃ РїРѕРґСЂРµР·РєРѕР№:\r\n' + clippingLog + '\r\n';
   }
   if (debugLog != '') {
-	log += '- отладочная информация:\r\n' + debugLog + '\r\n';
+	log += '- РѕС‚Р»Р°РґРѕС‡РЅР°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ:\r\n' + debugLog + '\r\n';
   }
   // For multi-material runs, write the log next to the first material's file
   // but strip the per-material suffix and the trailing _viyar, so e.g.
@@ -1948,7 +1165,7 @@ function report() {
 	system.writeTextFile(logFileName, log);
   }
   catch(e) {
-	alert('Не удается сохранить отчет: \n' + logFileName);
+	alert('РќРµ СѓРґР°РµС‚СЃСЏ СЃРѕС…СЂР°РЅРёС‚СЊ РѕС‚С‡РµС‚: \n' + logFileName);
   }
   if ((DEBUG == false) && system.fileExists(logFileName) && (logFileName.lastIndexOf("\\") !== -1)) {
 	if (system.fileExists(NOTEPAD_DEFAULT_PATH)) {
@@ -1969,7 +1186,7 @@ function readModel() {
   var alertTime = startTime;
   var hintTime = startTime;
 
-  Action.Hint = 'Экспорт фурнитуры... ';
+  Action.Hint = 'Р­РєСЃРїРѕСЂС‚ С„СѓСЂРЅРёС‚СѓСЂС‹... ';
   furns.length = 0;
   Model.forEach(function(modelObj) {
 	if (isExportedFurniture(modelObj)) {
@@ -2004,7 +1221,7 @@ function readModel() {
 	if (ac < bc) { return -1; }
 	return 0;
   });
-  Action.Hint = 'Обработка отверстий... ';
+  Action.Hint = 'РћР±СЂР°Р±РѕС‚РєР° РѕС‚РІРµСЂСЃС‚РёР№... ';
   globalHoles.length = 0;
   Model.forEach( function(modelObj) {
 	if ((modelObj != undefined) && (modelObj.Holes != null)) {
@@ -2014,20 +1231,20 @@ function readModel() {
 	  }
 	}
   } );
-  Action.Hint = 'Экспорт деталей... ';
+  Action.Hint = 'Р­РєСЃРїРѕСЂС‚ РґРµС‚Р°Р»РµР№... ';
   panels.length = 0;
   butts.length = 0;
   Model.forEachPanel(function(modelPanel) {
 	if (!exitFlag && isExportedPanel(modelPanel)) {
 	  if((Date.now() - hintTime) > HINT_TIMEOUT) {
-		Action.Hint = 'Экспорт детали... ' + modelPanel.Name;
+		Action.Hint = 'Р­РєСЃРїРѕСЂС‚ РґРµС‚Р°Р»Рё... ' + modelPanel.Name;
 		hintTime = Date.now();
 	  }
 	  var panel = new Panel(modelPanel);
 	  adjustOrientation(panel);
 	  panels.add(panel);
 	  if((Date.now() - alertTime) > ALERT_TIMEOUT) {
-		if(confirm('Требуется длительное время. Продолжить? \n')) {
+		if(confirm('РўСЂРµР±СѓРµС‚СЃСЏ РґР»РёС‚РµР»СЊРЅРѕРµ РІСЂРµРјСЏ. РџСЂРѕРґРѕР»Р¶РёС‚СЊ? \n')) {
 		  alertTime = Date.now();
 		}
 		else {
@@ -2054,11 +1271,11 @@ function readModel() {
 	return 0;
   });
   if (exitFlag) {
-	Action.Hint = 'Прервано пользователем!';
-	alert('Прервано пользователем!');
+	Action.Hint = 'РџСЂРµСЂРІР°РЅРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»РµРј!';
+	alert('РџСЂРµСЂРІР°РЅРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»РµРј!');
 	return false;
   }
-  Action.Hint = 'Экспорт проекта завершен... ' + (Date.now() - startTime) / 1000 + ' сек. ';
+  Action.Hint = 'Р­РєСЃРїРѕСЂС‚ РїСЂРѕРµРєС‚Р° Р·Р°РІРµСЂС€РµРЅ... ' + (Date.now() - startTime) / 1000 + ' СЃРµРє. ';
   return true;
 }
 
@@ -2073,42 +1290,42 @@ function arrangePositions() {
 		  if (arrangeCheckBox.Value == true) {
 			var btnArrange = frmModelTree.FindComponent('BtnArrange');
 			if (btnArrange != undefined) {
-			  Action.Hint = 'Расстановка позиций...';
+			  Action.Hint = 'Р Р°СЃСЃС‚Р°РЅРѕРІРєР° РїРѕР·РёС†РёР№...';
 			  btnArrange.Click();
 			  Action.Commit();
 			  return true;
 			}
 			else {
-			  alert('Недоступна кнопка <Расставить позиции>!');
+			  alert('РќРµРґРѕСЃС‚СѓРїРЅР° РєРЅРѕРїРєР° <Р Р°СЃСЃС‚Р°РІРёС‚СЊ РїРѕР·РёС†РёРё>!');
 			  return false;
 			}
 		  }
 		  else {
 			var BtnArrangeNew = frmModelTree.FindComponent('BtnArrangeNew');
 			if (BtnArrangeNew != undefined) {
-			  Action.Hint = 'Расстановка позиций...';
+			  Action.Hint = 'Р Р°СЃСЃС‚Р°РЅРѕРІРєР° РїРѕР·РёС†РёР№...';
 			  BtnArrangeNew.Click();
 			  Action.Commit();
 			  return true;
 			}
 			else {
-			  alert('Недоступна кнопка <Расставить позиции для новых объектов>!');
+			  alert('РќРµРґРѕСЃС‚СѓРїРЅР° РєРЅРѕРїРєР° <Р Р°СЃСЃС‚Р°РІРёС‚СЊ РїРѕР·РёС†РёРё РґР»СЏ РЅРѕРІС‹С… РѕР±СЉРµРєС‚РѕРІ>!');
 			  return false;
 			}
 		  }
 		}
 		else {
-		  alert('Недоступна форма <Структура модели>!');
+		  alert('РќРµРґРѕСЃС‚СѓРїРЅР° С„РѕСЂРјР° <РЎС‚СЂСѓРєС‚СѓСЂР° РјРѕРґРµР»Рё>!');
 		  return false;
 		}
 	  }
 	  else {
-		alert('Закрыт инструмент <Структура модели>, запустите скрипт повторно!');
+		alert('Р—Р°РєСЂС‹С‚ РёРЅСЃС‚СЂСѓРјРµРЅС‚ <РЎС‚СЂСѓРєС‚СѓСЂР° РјРѕРґРµР»Рё>, Р·Р°РїСѓСЃС‚РёС‚Рµ СЃРєСЂРёРїС‚ РїРѕРІС‚РѕСЂРЅРѕ!');
 		return false;
 	  }
 	}
 	else {
-	  Action.Hint = 'Расстановка позиций...';
+	  Action.Hint = 'Р Р°СЃСЃС‚Р°РЅРѕРІРєР° РїРѕР·РёС†РёР№...';
 	  if (arrangeCheckBox.Value == true) {
 		if (Action.ArrangePositions(0) == true) {
 		  Action.Commit();
@@ -2122,7 +1339,7 @@ function arrangePositions() {
 		}
 	  }
 	}
-	alert('Расстановка позиций не выполнена!');
+	alert('Р Р°СЃСЃС‚Р°РЅРѕРІРєР° РїРѕР·РёС†РёР№ РЅРµ РІС‹РїРѕР»РЅРµРЅР°!');
 	return false;
   }
   return true;
@@ -2139,13 +1356,13 @@ function activateModelTree() {
 		  actModelTree.Execute();
 		}
 		else {
-		  alert('Недоступно событие <Структура модели>!');
+		  alert('РќРµРґРѕСЃС‚СѓРїРЅРѕ СЃРѕР±С‹С‚РёРµ <РЎС‚СЂСѓРєС‚СѓСЂР° РјРѕРґРµР»Рё>!');
 		  return false;
 		}
 	  }
 	}
 	else {
-	  alert('Недоступен объект <Структура модели>!');
+	  alert('РќРµРґРѕСЃС‚СѓРїРµРЅ РѕР±СЉРµРєС‚ <РЎС‚СЂСѓРєС‚СѓСЂР° РјРѕРґРµР»Рё>!');
 	  return false;
 	}
   }
@@ -2225,7 +1442,7 @@ function isBlockChild(child) {
 }
 
 function splitNameCode(fullName) {
-  var articleKey = '(Артикул';
+  var articleKey = '(РђСЂС‚РёРєСѓР»';
   var articleStartPos = fullName.lastIndexOf(articleKey);
   var articleEndPos = fullName.lastIndexOf(')');
   if ((articleStartPos > 0) && (articleEndPos > articleStartPos)) {
@@ -2529,7 +1746,7 @@ function getExportBaseName() {
   return base;
 }
 
-// Default initial value for the file selector — points to the model's folder
+// Default initial value for the file selector вЂ” points to the model's folder
 // and uses the model's base name as the file's base.
 function getDefaultExportFileName() {
   var dir;
@@ -2629,7 +1846,7 @@ function createDocNode() {
 	  if (isClippingCapability(panel)) {
 		panel.clipping = new ViyarClipping(panel);
 		if (panel.clipping.isExist) {
-		  clippingLog += '! ' + detailID + ', поз. ' + panel.artPos + ((panel.designation == '') ? '' : (', обозн. ' + panel.designation)) + ', ' + panel.name + ';\r\n';
+		  clippingLog += '! ' + detailID + ', РїРѕР·. ' + panel.artPos + ((panel.designation == '') ? '' : (', РѕР±РѕР·РЅ. ' + panel.designation)) + ', ' + panel.name + ';\r\n';
 		  if (panel.clipping.type == VIYAR_VERTICAL_CLIPPING) {
 			panel.length = panel.length + VIYAR_CLIPPING_EXTRA;
 			panel.rightButt = new Butt();
@@ -2647,12 +1864,12 @@ function createDocNode() {
 		panel.outerContour = contours[0];
 		panel.outerStandard = standardizeOuterCont(panel);
 		if (panel.outerStandard == false) {
-		  contourLog += '! ' + detailID + ', поз. ' + panel.artPos + ((panel.designation == '') ? '' : (', обозн. ' + panel.designation)) + ', ' + panel.name + ';\r\n';
+		  contourLog += '! ' + detailID + ', РїРѕР·. ' + panel.artPos + ((panel.designation == '') ? '' : (', РѕР±РѕР·РЅ. ' + panel.designation)) + ', ' + panel.name + ';\r\n';
 		  if ((panel.holes.length > 0) || (panel.cuts.length > 0) || (panel.planeCuts.length > 0)) {
 			if ((calcLeftLength(panel) == 0) || (calcBottomLength(panel) == 0) ||
 			(findLeftButt(panel).isExist && (panel.leftButt.isExist == false)) ||
 			(findBottomButt(panel).isExist && (panel.bottomButt.isExist == false))) {
-			  coordsLog += '! ' + detailID + ', поз. ' + panel.artPos + ((panel.designation == '') ? '' : (', обозн. ' + panel.designation)) + ', ' + panel.name + ';\r\n';
+			  coordsLog += '! ' + detailID + ', РїРѕР·. ' + panel.artPos + ((panel.designation == '') ? '' : (', РѕР±РѕР·РЅ. ' + panel.designation)) + ', ' + panel.name + ';\r\n';
 			}
 		  }
 		}
@@ -2661,7 +1878,7 @@ function createDocNode() {
 		panel.innerContours = contours.slice(1);
 		panel.innerStandard = standardizeInnerCont(panel);
 		if ((panel.innerStandard == false) && (panel.outerStandard == true)) {
-		  contourLog += '! ' + detailID + ', поз. ' + panel.artPos + ((panel.designation == '') ? '' : (', обозн. ' + panel.designation)) + ', ' + panel.name + ';\r\n';
+		  contourLog += '! ' + detailID + ', РїРѕР·. ' + panel.artPos + ((panel.designation == '') ? '' : (', РѕР±РѕР·РЅ. ' + panel.designation)) + ', ' + panel.name + ';\r\n';
 		}
 	  }
 	}
@@ -2756,8 +1973,8 @@ function createDocNode() {
 		  panel.patterns.push(pattern);
 		}
 		else {
-		  cutoutLog += '! ' + detailID + ', поз. ' + panel.artPos + ((panel.designation == '') ? '' : (', обозн. ' + panel.designation)) + ', ' + panel.name + ', ' +
-		  'коорд. x = ' + rnds(findMinX(planeCut.contour), 1) + ', y = ' + rnds(findMinY(planeCut.contour), 1) + ';\r\n';
+		  cutoutLog += '! ' + detailID + ', РїРѕР·. ' + panel.artPos + ((panel.designation == '') ? '' : (', РѕР±РѕР·РЅ. ' + panel.designation)) + ', ' + panel.name + ', ' +
+		  'РєРѕРѕСЂРґ. x = ' + rnds(findMinX(planeCut.contour), 1) + ', y = ' + rnds(findMinY(planeCut.contour), 1) + ';\r\n';
 		}
 	  }
 	});
@@ -2811,7 +2028,7 @@ function createDocNode() {
 		}
 	  }
 	  else {
-		grooveLog += '! ' + detailID + ', поз. ' + panel.artPos + ((panel.designation == '') ? '' : (', обозн. ' + panel.designation)) + ', ' + panel.name + ', ' + cut.name + ';\r\n';
+		grooveLog += '! ' + detailID + ', РїРѕР·. ' + panel.artPos + ((panel.designation == '') ? '' : (', РѕР±РѕР·РЅ. ' + panel.designation)) + ', ' + panel.name + ', ' + cut.name + ';\r\n';
 	  }
 	});
 	detailNode.edges = {};
@@ -3112,7 +2329,7 @@ function getPanelName(panel) {
 	result = getOrderName() + '.' + panel.designation + '.' +  result;
   }
   if (panel.material.multiplicity > 1) {
-	result = result + ' Сращ.(' + panel.material.multiplicity + ')';
+	result = result + ' РЎСЂР°С‰.(' + panel.material.multiplicity + ')';
   }
   return result;
 }
@@ -5932,12 +5149,12 @@ function validateProject() {
   arrArtPos.sort(function(a, b) {return a - b});
   if (arrArtPos.length > 0) {
 	if (arrArtPos.length == 1) {
-	  var msg = 'Контур детали поз. ' + arrArtPos[0] + ' содержит элементы нулевой длины.';
+	  var msg = 'РљРѕРЅС‚СѓСЂ РґРµС‚Р°Р»Рё РїРѕР·. ' + arrArtPos[0] + ' СЃРѕРґРµСЂР¶РёС‚ СЌР»РµРјРµРЅС‚С‹ РЅСѓР»РµРІРѕР№ РґР»РёРЅС‹.';
 	}
 	else if (arrArtPos.length > 1) {
-	  var msg = 'Контуры деталей поз. ' + arrArtPos.join(', ') + ' содержат элементы нулевой длины.';
+	  var msg = 'РљРѕРЅС‚СѓСЂС‹ РґРµС‚Р°Р»РµР№ РїРѕР·. ' + arrArtPos.join(', ') + ' СЃРѕРґРµСЂР¶Р°С‚ СЌР»РµРјРµРЅС‚С‹ РЅСѓР»РµРІРѕР№ РґР»РёРЅС‹.';
 	}
-	if (confirm(msg + ' Удалить элементы автоматически?')) {
+	if (confirm(msg + ' РЈРґР°Р»РёС‚СЊ СЌР»РµРјРµРЅС‚С‹ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё?')) {
 	  Model.forEachPanel( function(modelPanel) {
 		if (isExportedPanel(modelPanel)) {
 		  for (var i = 0; i < modelPanel.Contour.Count; i++) {
@@ -5953,7 +5170,7 @@ function validateProject() {
 	  Model.UnHighlightAll();
 	  Action.Commit();
 	} else {
-	  alert('Необходимо выполнить редактирование контура!');
+	  alert('РќРµРѕР±С…РѕРґРёРјРѕ РІС‹РїРѕР»РЅРёС‚СЊ СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ РєРѕРЅС‚СѓСЂР°!');
 	  return false;
 	}
   }
@@ -5972,11 +5189,11 @@ function validateProject() {
   });
   arrArtPos.sort(function(a, b) {return a - b});
   if (arrArtPos.length == 1) {
-	alert('Контур детали поз. ' + arrArtPos[0] + ' содержит элементы длиной менее 1мм. Необходимо выполнить редактирование контура!');
+	alert('РљРѕРЅС‚СѓСЂ РґРµС‚Р°Р»Рё РїРѕР·. ' + arrArtPos[0] + ' СЃРѕРґРµСЂР¶РёС‚ СЌР»РµРјРµРЅС‚С‹ РґР»РёРЅРѕР№ РјРµРЅРµРµ 1РјРј. РќРµРѕР±С…РѕРґРёРјРѕ РІС‹РїРѕР»РЅРёС‚СЊ СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ РєРѕРЅС‚СѓСЂР°!');
 	return false;
   }
   else if (arrArtPos.length > 1) {
-	alert('Контуры деталей поз. ' + arrArtPos.join(', ') + ' содержат элементы длиной менее 1мм. Необходимо выполнить редактирование контура!');
+	alert('РљРѕРЅС‚СѓСЂС‹ РґРµС‚Р°Р»РµР№ РїРѕР·. ' + arrArtPos.join(', ') + ' СЃРѕРґРµСЂР¶Р°С‚ СЌР»РµРјРµРЅС‚С‹ РґР»РёРЅРѕР№ РјРµРЅРµРµ 1РјРј. РќРµРѕР±С…РѕРґРёРјРѕ РІС‹РїРѕР»РЅРёС‚СЊ СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ РєРѕРЅС‚СѓСЂР°!');
 	return false;
   }
   var arrArtPos = [];
@@ -5997,11 +5214,11 @@ function validateProject() {
   });
   arrArtPos.sort(function(a, b) {return a - b});
   if (arrArtPos.length == 1) {
-	alert('Деталь поз. ' + arrArtPos[0] + ' облицована кантом. Облицовка кантом не поддерживается!');
+	alert('Р”РµС‚Р°Р»СЊ РїРѕР·. ' + arrArtPos[0] + ' РѕР±Р»РёС†РѕРІР°РЅР° РєР°РЅС‚РѕРј. РћР±Р»РёС†РѕРІРєР° РєР°РЅС‚РѕРј РЅРµ РїРѕРґРґРµСЂР¶РёРІР°РµС‚СЃСЏ!');
 	return false;
   }
   else if (arrArtPos.length > 1) {
-	alert('Детали поз. ' + arrArtPos.join(', ') + ' облицованы кантом. Облицовка кантом не поддерживается!');
+	alert('Р”РµС‚Р°Р»Рё РїРѕР·. ' + arrArtPos.join(', ') + ' РѕР±Р»РёС†РѕРІР°РЅС‹ РєР°РЅС‚РѕРј. РћР±Р»РёС†РѕРІРєР° РєР°РЅС‚РѕРј РЅРµ РїРѕРґРґРµСЂР¶РёРІР°РµС‚СЃСЏ!');
 	return false;
   }
   var arrWidthArtPos = [];
@@ -6029,22 +5246,22 @@ function validateProject() {
   });
   arrWidthArtPos.sort(function(a, b) {return a - b});
   if (arrWidthArtPos.length == 1) {
-	alert('Деталь поз. ' + arrWidthArtPos[0] + ' облицована недопустимой по ширине кромкой. Ширина кромки должна быть на 3мм больше толщины детали.');
+	alert('Р”РµС‚Р°Р»СЊ РїРѕР·. ' + arrWidthArtPos[0] + ' РѕР±Р»РёС†РѕРІР°РЅР° РЅРµРґРѕРїСѓСЃС‚РёРјРѕР№ РїРѕ С€РёСЂРёРЅРµ РєСЂРѕРјРєРѕР№. РЁРёСЂРёРЅР° РєСЂРѕРјРєРё РґРѕР»Р¶РЅР° Р±С‹С‚СЊ РЅР° 3РјРј Р±РѕР»СЊС€Рµ С‚РѕР»С‰РёРЅС‹ РґРµС‚Р°Р»Рё.');
 	return false;
   }
   else if (arrWidthArtPos.length > 1) {
-	alert('Детали поз. ' + arrWidthArtPos.join(', ') + ' облицованы недопустимой по ширине кромкой. Ширина кромки должна быть на 3мм больше толщины детали.');
+	alert('Р”РµС‚Р°Р»Рё РїРѕР·. ' + arrWidthArtPos.join(', ') + ' РѕР±Р»РёС†РѕРІР°РЅС‹ РЅРµРґРѕРїСѓСЃС‚РёРјРѕР№ РїРѕ С€РёСЂРёРЅРµ РєСЂРѕРјРєРѕР№. РЁРёСЂРёРЅР° РєСЂРѕРјРєРё РґРѕР»Р¶РЅР° Р±С‹С‚СЊ РЅР° 3РјРј Р±РѕР»СЊС€Рµ С‚РѕР»С‰РёРЅС‹ РґРµС‚Р°Р»Рё.');
 	return false;
   }
   arrThicknessArtPos.sort(function(a, b) {return a - b});
   if (arrThicknessArtPos.length > 0) {
 	if (arrThicknessArtPos.length == 1) {
-	  var msg = 'Деталь поз. ' + arrThicknessArtPos[0] + ' облицована кромкой с нулевой толщиной. Кромка будет проигнорирована.';
+	  var msg = 'Р”РµС‚Р°Р»СЊ РїРѕР·. ' + arrThicknessArtPos[0] + ' РѕР±Р»РёС†РѕРІР°РЅР° РєСЂРѕРјРєРѕР№ СЃ РЅСѓР»РµРІРѕР№ С‚РѕР»С‰РёРЅРѕР№. РљСЂРѕРјРєР° Р±СѓРґРµС‚ РїСЂРѕРёРіРЅРѕСЂРёСЂРѕРІР°РЅР°.';
 	}
 	else if (arrThicknessArtPos.length > 1) {
-	  var msg = 'Детали поз. ' + arrThicknessArtPos.join(', ') + ' облицованы кромкой с нулевой толщиной. Кромка будет проигнорирована.';
+	  var msg = 'Р”РµС‚Р°Р»Рё РїРѕР·. ' + arrThicknessArtPos.join(', ') + ' РѕР±Р»РёС†РѕРІР°РЅС‹ РєСЂРѕРјРєРѕР№ СЃ РЅСѓР»РµРІРѕР№ С‚РѕР»С‰РёРЅРѕР№. РљСЂРѕРјРєР° Р±СѓРґРµС‚ РїСЂРѕРёРіРЅРѕСЂРёСЂРѕРІР°РЅР°.';
 	}
-	if (confirm(msg + ' Продолжить?')) {
+	if (confirm(msg + ' РџСЂРѕРґРѕР»Р¶РёС‚СЊ?')) {
 	} else {
 	  return false;
 	}
@@ -6097,12 +5314,12 @@ function validateProject() {
   });
   if (arrPanelName.length > 0) {
 	if (arrPanelName.length == 1) {
-	  var msg = 'У детали "' + arrPanelName[0] + '" отсутвует позиция, деталь не будет экспортирована.';
+	  var msg = 'РЈ РґРµС‚Р°Р»Рё "' + arrPanelName[0] + '" РѕС‚СЃСѓС‚РІСѓРµС‚ РїРѕР·РёС†РёСЏ, РґРµС‚Р°Р»СЊ РЅРµ Р±СѓРґРµС‚ СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°РЅР°.';
 	}
 	else if (arrPanelName.length > 1) {
-	  var msg = 'У деталей "' + arrPanelName.join(', ') + '" отсутвуют позиции, детали не будут экспортированы.';
+	  var msg = 'РЈ РґРµС‚Р°Р»РµР№ "' + arrPanelName.join(', ') + '" РѕС‚СЃСѓС‚РІСѓСЋС‚ РїРѕР·РёС†РёРё, РґРµС‚Р°Р»Рё РЅРµ Р±СѓРґСѓС‚ СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°РЅС‹.';
 	}
-	if (confirm(msg + ' Продолжить?')) {
+	if (confirm(msg + ' РџСЂРѕРґРѕР»Р¶РёС‚СЊ?')) {
 	} else {
 	  return false;
 	}
@@ -6110,12 +5327,12 @@ function validateProject() {
   arrTextureArtPos.sort(function(a, b) {return a - b});
   if (arrTextureArtPos.length > 0) {
 	if (arrTextureArtPos.length == 1) {
-	  var msg = 'Облицовка пласти детали поз. ' + arrTextureArtPos[0] + ' имеет разное направление текстуры. Направление текстуры должно совпадать, деталь не будет экспортирована.';
+	  var msg = 'РћР±Р»РёС†РѕРІРєР° РїР»Р°СЃС‚Рё РґРµС‚Р°Р»Рё РїРѕР·. ' + arrTextureArtPos[0] + ' РёРјРµРµС‚ СЂР°Р·РЅРѕРµ РЅР°РїСЂР°РІР»РµРЅРёРµ С‚РµРєСЃС‚СѓСЂС‹. РќР°РїСЂР°РІР»РµРЅРёРµ С‚РµРєСЃС‚СѓСЂС‹ РґРѕР»Р¶РЅРѕ СЃРѕРІРїР°РґР°С‚СЊ, РґРµС‚Р°Р»СЊ РЅРµ Р±СѓРґРµС‚ СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°РЅР°.';
 	}
 	else if (arrTextureArtPos.length > 1) {
-	  var msg = 'Облицовка пласти деталей поз. ' + arrTextureArtPos.join(', ') + ' имеет разное направление текстуры. Направление текстуры должно совпадать, детали не будут экспортированы.';
+	  var msg = 'РћР±Р»РёС†РѕРІРєР° РїР»Р°СЃС‚Рё РґРµС‚Р°Р»РµР№ РїРѕР·. ' + arrTextureArtPos.join(', ') + ' РёРјРµРµС‚ СЂР°Р·РЅРѕРµ РЅР°РїСЂР°РІР»РµРЅРёРµ С‚РµРєСЃС‚СѓСЂС‹. РќР°РїСЂР°РІР»РµРЅРёРµ С‚РµРєСЃС‚СѓСЂС‹ РґРѕР»Р¶РЅРѕ СЃРѕРІРїР°РґР°С‚СЊ, РґРµС‚Р°Р»Рё РЅРµ Р±СѓРґСѓС‚ СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°РЅС‹.';
 	}
-	if (confirm(msg + ' Продолжить?')) {
+	if (confirm(msg + ' РџСЂРѕРґРѕР»Р¶РёС‚СЊ?')) {
 	} else {
 	  return false;
 	}
@@ -6123,12 +5340,12 @@ function validateProject() {
   arrMethodArtPos.sort(function(a, b) {return a - b});
   if (arrMethodArtPos.length > 0) {
 	if (arrMethodArtPos.length == 1) {
-	  var msg = 'Сращенную деталь поз. ' + arrMethodArtPos[0] + ' необходимо задавать одним из способов, деталь не будет экспортирована.';
+	  var msg = 'РЎСЂР°С‰РµРЅРЅСѓСЋ РґРµС‚Р°Р»СЊ РїРѕР·. ' + arrMethodArtPos[0] + ' РЅРµРѕР±С…РѕРґРёРјРѕ Р·Р°РґР°РІР°С‚СЊ РѕРґРЅРёРј РёР· СЃРїРѕСЃРѕР±РѕРІ, РґРµС‚Р°Р»СЊ РЅРµ Р±СѓРґРµС‚ СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°РЅР°.';
 	}
 	else if (arrMethodArtPos.length > 1) {
-	  var msg = 'Сращенные детали поз. ' + arrMethodArtPos.join(', ') + ' необходимо задавать одним из способов, детали не будут экспортированы.';
+	  var msg = 'РЎСЂР°С‰РµРЅРЅС‹Рµ РґРµС‚Р°Р»Рё РїРѕР·. ' + arrMethodArtPos.join(', ') + ' РЅРµРѕР±С…РѕРґРёРјРѕ Р·Р°РґР°РІР°С‚СЊ РѕРґРЅРёРј РёР· СЃРїРѕСЃРѕР±РѕРІ, РґРµС‚Р°Р»Рё РЅРµ Р±СѓРґСѓС‚ СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°РЅС‹.';
 	}
-	if (confirm(msg + ' Продолжить?')) {
+	if (confirm(msg + ' РџСЂРѕРґРѕР»Р¶РёС‚СЊ?')) {
 	} else {
 	  return false;
 	}
@@ -6136,12 +5353,12 @@ function validateProject() {
   arrQuantityArtPos.sort(function(a, b) {return a - b});
   if (arrQuantityArtPos.length > 0) {
 	if (arrQuantityArtPos.length == 1) {
-	  var msg = 'Деталь поз. ' + arrQuantityArtPos[0] + ' имеет более 3-х слоев, деталь не будет экспортирована.';
+	  var msg = 'Р”РµС‚Р°Р»СЊ РїРѕР·. ' + arrQuantityArtPos[0] + ' РёРјРµРµС‚ Р±РѕР»РµРµ 3-С… СЃР»РѕРµРІ, РґРµС‚Р°Р»СЊ РЅРµ Р±СѓРґРµС‚ СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°РЅР°.';
 	}
 	else if (arrQuantityArtPos.length > 1) {
-	  var msg = 'Детали поз. ' + arrQuantityArtPos.join(', ') + ' имеют более 3-х слоев, детали не будут экспортированы.';
+	  var msg = 'Р”РµС‚Р°Р»Рё РїРѕР·. ' + arrQuantityArtPos.join(', ') + ' РёРјРµСЋС‚ Р±РѕР»РµРµ 3-С… СЃР»РѕРµРІ, РґРµС‚Р°Р»Рё РЅРµ Р±СѓРґСѓС‚ СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°РЅС‹.';
 	}
-	if (confirm(msg + ' Продолжить?')) {
+	if (confirm(msg + ' РџСЂРѕРґРѕР»Р¶РёС‚СЊ?')) {
 	} else {
 	  return false;
 	}
@@ -6149,12 +5366,12 @@ function validateProject() {
   arrPlasticArtPos.sort(function(a, b) {return a - b});
   if (arrPlasticArtPos.length > 0) {
 	if (arrPlasticArtPos.length == 1) {
-	  var msg = 'Пласть детали поз. ' + arrPlasticArtPos[0] + ' облицована различными материалами, деталь не будет экспортирована.';
+	  var msg = 'РџР»Р°СЃС‚СЊ РґРµС‚Р°Р»Рё РїРѕР·. ' + arrPlasticArtPos[0] + ' РѕР±Р»РёС†РѕРІР°РЅР° СЂР°Р·Р»РёС‡РЅС‹РјРё РјР°С‚РµСЂРёР°Р»Р°РјРё, РґРµС‚Р°Р»СЊ РЅРµ Р±СѓРґРµС‚ СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°РЅР°.';
 	}
 	else if (arrPlasticArtPos.length > 1) {
-	  var msg = 'Пласть деталей поз. ' + arrPlasticArtPos.join(', ') + ' облицована различными материалами, детали не будут экспортированы.';
+	  var msg = 'РџР»Р°СЃС‚СЊ РґРµС‚Р°Р»РµР№ РїРѕР·. ' + arrPlasticArtPos.join(', ') + ' РѕР±Р»РёС†РѕРІР°РЅР° СЂР°Р·Р»РёС‡РЅС‹РјРё РјР°С‚РµСЂРёР°Р»Р°РјРё, РґРµС‚Р°Р»Рё РЅРµ Р±СѓРґСѓС‚ СЌРєСЃРїРѕСЂС‚РёСЂРѕРІР°РЅС‹.';
 	}
-	if (confirm(msg + ' Продолжить?')) {
+	if (confirm(msg + ' РџСЂРѕРґРѕР»Р¶РёС‚СЊ?')) {
 	} else {
 	  return false;
 	}
@@ -6919,25 +6136,3 @@ globalThis.ViyarExport = {
 
 })();
 
-// --- Choice dialog (Bazis Forms API); fallback: save + launch silently ---
-try {
-    if (typeof NewForm !== "function") throw new Error("no-forms");
-    var W = { Form: NewForm() };
-    var P = W.Form.Properties;
-    W.Form.Width = 330;
-    W.Form.Height = 150;
-    W.Form.Caption = "OBI";
-    W.Info = P.NewLabel("Дані виробу зібрано. Що далі?");
-    W.Info.SetLayout(14, 12, 300, 20);
-    W.BtnOpen = P.NewButton("Відкрити OBI");
-    W.BtnOpen.SetLayout(22, 52, 135, 36);
-    W.BtnSave = P.NewButton("Створити файли");
-    W.BtnSave.SetLayout(171, 52, 135, 36);
-    W.BtnOpen.OnClick = function () { saveAndOpen(); W.Form.Close(); };
-    W.BtnSave.OnClick = function () { saveAndCreateFiles(); W.Form.Close(); };
-    W.Form.OnClose = function () { Action.Finish(); };
-    W.Form.ShowModal();
-} catch (eForm) {
-    saveAndOpen();
-    Action.Finish();
-}

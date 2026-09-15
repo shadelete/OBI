@@ -1390,19 +1390,19 @@ body.theme-light ::-webkit-scrollbar-thumb:hover { background: #aab4c2; }
   flex: 0 0 auto;
   width: 20px;
   height: 20px;
+  padding: 0;
   border: none;
   border-radius: 50%;
   background: linear-gradient(135deg, #4c8df5, #7b5bf2);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1;
+  color: #000;          /* light theme: black icon */
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
+body.theme-dark .lc-vp-btn { color: #fff; }   /* dark theme: white icon */
+.lc-vp-btn svg { display: block; }
 .lc-vp-btn:hover { transform: scale(1.12); box-shadow: 0 2px 8px rgba(90,110,244,0.5); }
 .dh-vp-btn { margin-left: auto; }
 .modal-sm { width: 380px; }
